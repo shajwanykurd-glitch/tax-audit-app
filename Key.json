@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "excellent-guard-415018",
+  "private_key_id": "946c91418f9a2572fe69ec61c05388f1fa75adba",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC4FCpJDMk+DHON\njqX24tIgLugFiJ6ROfiLNEriGpKKHCfKDlPy7NI6eyFAQJ2xpHqRaquuL93YZ68y\nwtzBItp/U3iRDcO3S/ayf/1tPaIkpG9gLdLfiBBKDt2vYF0DsmDuWMZ0935+INbJ\nVeaNO/UvHZtvnMf3unNsYduaYA7+V0lHm88GyW6BqRtBnFh5YWqjBhl7j5L+SG6D\ngmMynGprm9AL//iZXuPW5iPVvpMJB6II/DKhhWxAXxEmuu+7GNYLnn9d9g1dWySG\nWhnMEO/VD1W+/hAwPhOXP6krzd8BqQGI1sRvMda7OBA4cRsQXfxxCJ+xruyOVJ9l\nj7GPypt1AgMBAAECggEABjNLr1U6bBggRkrhRT0jpcjesN0Gtk6VFB9JTG9nszY6\nkuBDrKGUfTrLhm4GwcaQCFjm+oGLP/BSIuwUYn8JjBNkMsKbbo+k+iM8hpL2ZLST\nOdKhUT00i0IP7onY6Dh4cl7UJHl3rcjuYy69CtHTsugU5cAKrkn9/E8ZhgwpRSDd\n1crK/4Xj+Nu6TzaDk/1BnoUqP+FoYrarqUO8HEXMJ4EM1J2Aqit20KerKArhqqVj\ncOObBZYa6Z9dNmF/FeKiYaq51GQ8h7zWxiLpNnFnNxasBp6+SqMVR+Oh89mT54DM\n16fJEoxgitS1o74ockHyhioKdebnLRWxp1giLNzAewKBgQDx4xa+JzDu4iGKDb16\niXk3dIfKB6QfkNK5TKM3w7YQkzjpY+FFY9Ua7D5tbdheadIRBJWSRbnP5VBA0fGu\nsf/TFwb2AKy4Qzufb8M3xgblXvo8HzlV8rhaQFyQO92x/IPhU6vu2ChekYJiT1fk\nKxmq0tBVn0/7xlvQWkEHJT5PkwKBgQDC0aGPeWHvnqL5aDFYOa6b7UlIFWMoRBxP\nk15X5/s71R2SNm6viUCcUCEYX+SdoMS4H9Jt496SWyRJfVnP+uyQk2XnDZvLgjhH\nGyYQMibXNEiTpZf5V0gngzJwJb50NxqIWjRRO0EB95UJpaDgGmSGfJTgJDAUjwvq\nd1s++Nl91wKBgFIXggZzApZwRHW4CBBoS61YbSVRxo+39OxSaCpqz4V8kZoT/cYx\nBYgnmWBGIWKZg2OnLKQB6ff2mXAGUIG7g1k+vWwL+pJmrvuDULvDB2AdBcwVxL24\nrHxkz4Vb6/eV/aQhY36h+cFunNOEng2f2wwwk+gbM2f9f/eMSfmE2ErlAoGAQe74\noroN7y7dMVOV/6nl8leoSYETgfkrK7NQZqfYWzORQn6xjy8AcuabjMhHcyGJ8lay\nvQY1uYqnCUgnMUBW98cq4bu1UnbL3STPCQQwKP1E4tNUT8q+XMEGPPZJMsPDcwo0\nUpmfMq87/XvUqoPEKc/YAtO8gfi3q66hbvqBgRkCgYEAiBNk4lgzBrAuweSmOqgF\npQaBVNC9UI8Qqmv8cymLCuJinTBUVYonKxAdbkrJn8d21DUH8oJwsHbLf6d38hsL\no5wrFQPmbLqUhHssILT/ruJW5Hn3JCrQjGWwfcVF5waqtqDH750gNt9Bwle4OBFG\nXAcuyrcO6jfSRdl0u3ULmFw=\n-----END PRIVATE KEY-----\n",
+  "client_email": "audit-bot@excellent-guard-415018.iam.gserviceaccount.com",
+  "client_id": "118138567782168293446",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/audit-bot%40excellent-guard-415018.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
