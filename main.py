@@ -10,7 +10,6 @@ import pytz
 st.set_page_config(page_title="سیستمی ئۆدیتی حکومی", layout="wide", initial_sidebar_state="expanded")
 tz = pytz.timezone('Asia/Baghdad')
 
-# لێرەدا گۆڕانکارییمان کردووە بۆ ئەوەی هەموو فایلەکە بهێنێت نەک تەنها شیتی یەکەم
 @st.cache_resource
 def get_spreadsheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -25,7 +24,7 @@ def get_spreadsheet():
     
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
-    return client.open("site CIT QA - Tranche 4") # وشەی .sheet1 سڕایەوە
+    return client.open("site CIT QA - Tranche 4")
 
 # --- بەشی تەنیشت (Sidebar) بۆ ئەدمین ---
 st.sidebar.title("🔒 کۆنتڕۆڵی ئەدمین")
@@ -38,34 +37,51 @@ else:
     if admin_input:
         st.sidebar.error("پاسۆرد هەڵەیە!")
 
-# --- بەشی سەرەکی سایتەکە ---
 st.title("🏢 پلاتفۆرمی وردبینی و نوێکردنەوەی داتاکان")
 st.markdown("---")
 
 try:
     spreadsheet = get_spreadsheet()
-    
-    # هێنانی ناوی هەموو شیتەکان (Tabs)
     worksheets = spreadsheet.worksheets()
     sheet_names = [ws.title for ws in worksheets]
     
-    # دروستکردنی لیست بۆ هەڵبژاردنی شیتەکە
     col1, col2 = st.columns([1, 2])
     with col1:
         st.subheader("📂 هەڵبژاردنی شیت")
         selected_sheet_name = st.selectbox("کام شیت دەتەوێت بیکەیتەوە؟", sheet_names)
     
-    # کردنەوەی ئەو شیتەی کە هەڵبژێردراوە
     sheet = spreadsheet.worksheet(selected_sheet_name)
-    records = sheet.get_all_records()
     
-    if not records:
+    # چارەسەری کێشەی ستوونە دووبارەکان و بەتاڵەکان
+    raw_data = sheet.get_all_values()
+    
+    if not raw_data or len(raw_data) < 2:
         st.warning(f"هیچ داتایەک لەناو شیتی '{selected_sheet_name}' نەدۆزرایەوە.")
     else:
-        df = pd.DataFrame(records)
+        headers = raw_data[0]
+        
+        # دروستکردنی ناوی جیاواز بۆ ستوونە دووبارەکان بۆ ئەوەی پایتۆن تێک نەچێت
+        unique_headers = []
+        seen = {}
+        for h in headers:
+            h = str(h).strip()
+            if not h:
+                h = "ستوونی_بەتاڵ"
+            
+            if h in seen:
+                seen[h] += 1
+                unique_headers.append(f"{h} ({seen[h]})")
+            else:
+                seen[h] = 0
+                unique_headers.append(h)
+        
+        # تۆمارکردنی شوێنی ستوونەکان (Index) بۆ کاتی ئاپدەیتکردن
+        col_index_map = {unique_headers[i]: i + 1 for i in range(len(unique_headers))}
+        
+        data_rows = raw_data[1:]
+        df = pd.DataFrame(data_rows, columns=unique_headers)
         
         st.markdown("---")
-        # --- سیستمی گەڕانی نوێ ---
         st.subheader("🔍 بزوێنەری گەڕان")
         search_query = st.text_input("وشەیەک بنووسە (ناوی کۆمپانیا، بریکار، ژمارەی مۆڵەت...):", placeholder="لێرە بگەڕێ...")
         
@@ -95,8 +111,10 @@ try:
                 actual_row_in_sheet = actual_df_index + 2
                 current_data = df.iloc[actual_df_index].to_dict()
                 
+                log_col_name = "مێژووی گۆڕانکارییەکان (Audit Log)"
+                
                 if is_admin:
-                    log_data = current_data.get("مێژووی گۆڕانکارییەکان (Audit Log)", "هیچ مێژوویەک نییە")
+                    log_data = current_data.get(log_col_name, "هیچ مێژوویەک نییە")
                     with st.expander("👁️‍🗨️ بینینی مێژووی گۆڕانکارییەکانی ئەم فایلە (تایبەت بە ئەدمین)", expanded=True):
                         st.text(log_data)
                 
@@ -106,7 +124,8 @@ try:
                     new_data = {}
                     
                     for key, value in current_data.items():
-                        if key != "مێژووی گۆڕانکارییەکان (Audit Log)":
+                        # ستوونە بەتاڵەکان و مێژووەکە لە فۆڕمەکەدا نیشان نادەین
+                        if key != log_col_name and not key.startswith("ستوونی_بەتاڵ"):
                             new_val = cols[col_idx % 2].text_input(f"{key}", value=str(value))
                             new_data[key] = new_val
                             col_idx += 1
@@ -124,13 +143,14 @@ try:
                         
                         if changes_made:
                             with st.spinner('خەریکی نوێکردنەوەیە...'):
-                                headers = sheet.row_values(1)
-                                log_col_name = "مێژووی گۆڕانکارییەکان (Audit Log)"
-                                if log_col_name not in headers:
-                                    sheet.update_cell(1, len(headers) + 1, log_col_name)
-                                    headers.append(log_col_name)
                                 
-                                log_col_index = headers.index(log_col_name) + 1
+                                if log_col_name not in unique_headers:
+                                    new_col_index = len(unique_headers) + 1
+                                    sheet.update_cell(1, new_col_index, log_col_name)
+                                    unique_headers.append(log_col_name)
+                                    col_index_map[log_col_name] = new_col_index
+                                
+                                log_col_index = col_index_map[log_col_name]
                                 current_log = current_data.get(log_col_name, "")
                                 now_str = datetime.now(tz).strftime("%Y-%m-%d %I:%M:%S %p")
                                 new_log_entry = f"🔹 ڤێرژنی نوێ ({now_str}):\n" + "\n".join(changes_made)
@@ -138,7 +158,7 @@ try:
                                 
                                 for key in new_data:
                                     if str(current_data[key]) != str(new_data[key]):
-                                        col_index = headers.index(key) + 1
+                                        col_index = col_index_map[key]
                                         sheet.update_cell(actual_row_in_sheet, col_index, new_data[key])
                                 
                                 sheet.update_cell(actual_row_in_sheet, log_col_index, updated_log)
