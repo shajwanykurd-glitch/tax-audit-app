@@ -49,15 +49,13 @@ ui = {
 def t(key):
     return ui.get(key, {}).get(st.session_state.lang, key)
 
-# --- دیزاینی CSSی پێشکەوتوو (گونجاو بۆ دارک مۆد و لایت مۆد) ---
+# --- دیزاینی CSSی پێشکەوتوو ---
 st.markdown("""
 <style>
-    /* شاردنەوەی لۆگۆ و بەشەکانی Streamlit بۆ ئەوەی وەک سایتێکی تایبەت دەربکەوێت */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* دیزاینی داشبۆردەکە */
     div[data-testid="metric-container"] {
         background-color: rgba(130, 130, 130, 0.08);
         border: 1px solid rgba(130, 130, 130, 0.2);
@@ -71,7 +69,6 @@ st.markdown("""
         box-shadow: 0 6px 15px rgba(0,0,0,0.1);
     }
     
-    /* دیزاینی فۆڕمەکان */
     div[data-testid="stForm"] {
         background-color: rgba(130, 130, 130, 0.03);
         border: 1px solid rgba(130, 130, 130, 0.15);
@@ -80,7 +77,6 @@ st.markdown("""
         box-shadow: 0 8px 24px rgba(0,0,0,0.04);
     }
     
-    /* دیزاینی دوگمەکان */
     .stButton>button {
         border-radius: 8px;
         font-weight: 600;
@@ -158,7 +154,7 @@ try:
         col_index_map = {unique_headers[i]: i + 1 for i in range(len(unique_headers))}
         df = pd.DataFrame(raw_data[1:], columns=unique_headers)
         
-        STATUS_COL = "دۆخی فایل" # بۆ ئەوەی گۆگڵ شیتەکە تێک نەچێت بە کوردی دەمێنێتەوە
+        STATUS_COL = "دۆخی فایل"
         LOG_COL = "مێژووی گۆڕانکارییەکان (Audit Log)"
         
         if STATUS_COL not in df.columns:
@@ -211,13 +207,12 @@ try:
                     
                     with st.form("edit_form"):
                         st.write(f"##### 📝 {t('edit_info')}")
-                        cols = st.columns(2)
+                        
+                        # گۆڕانکارییەکە لێرەدایە: ستوونەکانمان لادا و هەموویان بەدوای یەکدا ڕیز دەبن
                         new_data = {}
-                        col_idx = 0
                         for key, value in current_data.items():
                             if key not in [LOG_COL, STATUS_COL] and not key.startswith("Empty_Column"):
-                                new_data[key] = cols[col_idx % 2].text_input(f"{key}", value=str(value))
-                                col_idx += 1
+                                new_data[key] = st.text_input(f"{key}", value=str(value))
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         submit_button = st.form_submit_button(t("submit_btn"), use_container_width=True)
