@@ -1,410 +1,594 @@
+# =============================================================================
+#  GOVERNMENT AUDIT PRO · v3.0
+#  Full-featured Streamlit + Google Sheets Audit Platform
+#  Requirements: streamlit, gspread, oauth2client, pandas, plotly, pytz
+# =============================================================================
+
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import json
-import textwrap
-from datetime import datetime, timedelta
-import pytz
-import time
-import hashlib
 import plotly.express as px
 import plotly.graph_objects as go
+import json
+import textwrap
+import hashlib
+import time
+import pytz
+from datetime import datetime, timedelta
 
-# ============================================================
-# ١. ڕێکخستنی سەرەکی (Page Config)
-# ============================================================
+# ─────────────────────────────────────────────────────────────────────────────
+# 0 · PAGE CONFIG  (must be first Streamlit call)
+# ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Government Audit Pro Platform",
+    page_title="Audit Pro",
     page_icon="⚖️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",   # hidden on login page
 )
 
-tz = pytz.timezone('Asia/Baghdad')
+# ─────────────────────────────────────────────────────────────────────────────
+# 1 · SESSION STATE DEFAULTS
+# ─────────────────────────────────────────────────────────────────────────────
+_DEFAULTS = dict(
+    logged_in   = False,
+    user_email  = "",
+    user_role   = "",          # "admin" | "auditor"
+    theme       = "dark",
+    lang        = "en",
+    date_filter = "all",
+)
+for _k, _v in _DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
 
-# ============================================================
-# ٢. دەسپێکردنی سێشنەکان (Session State Initialization)
-# ============================================================
-defaults = {
-    'lang': 'ku',
-    'theme': 'dark',
-    'logged_in': False,
-    'user_email': "",
-    'date_filter': 'all'
-}
-for k, v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+TZ = pytz.timezone("Asia/Baghdad")
 
-# ============================================================
-# ٣. تیمەکانی CSS (Dynamic Theme Engine)
-# ============================================================
-THEMES = {
-    'dark': {
-        'bg':           '#090E17',
-        'sidebar_bg':   '#0D1321',
-        'card_bg':      '#111827',
-        'card_hover':   '#1a2235',
-        'text':         '#E2E8F5',
-        'subtext':      '#8B9CB8',
-        'border':       '#1E2D45',
-        'input_bg':     '#0A1020',
-        'accent':       '#3B82F6',
-        'accent2':      '#10B981',
-        'accent3':      '#F59E0B',
-        'danger':       '#EF4444',
-        'success_bg':   '#052E16',
-        'success_text': '#4ADE80',
-        'tab_active':   '#1E3A5F',
-        'metric_bg':    '#111827',
-        'progress_bg':  '#1E2D45',
-        'progress_fill':'linear-gradient(90deg, #3B82F6, #10B981)',
+# ─────────────────────────────────────────────────────────────────────────────
+# 2 · THEME ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+_PALETTES = {
+    "dark": {
+        "page_bg":        "#07090F",
+        "surface":        "#0E1420",
+        "surface2":       "#131926",
+        "card":           "#141C2B",
+        "border":         "#1E2D45",
+        "text":           "#D9E3F5",
+        "subtext":        "#6B7FA3",
+        "accent":         "#4F8EF7",
+        "accent_glow":    "rgba(79,142,247,0.18)",
+        "green":          "#22C55E",
+        "amber":          "#F59E0B",
+        "red":            "#F87171",
+        "input_bg":       "#0A0F1A",
+        "btn_bg":         "#4F8EF7",
+        "btn_text":       "#FFFFFF",
+        "progress_track": "#1E2D45",
+        "plotly_theme":   "plotly_dark",
     },
-    'light': {
-        'bg':           '#F0F4FA',
-        'sidebar_bg':   '#E4ECF7',
-        'card_bg':      '#FFFFFF',
-        'card_hover':   '#F8FAFF',
-        'text':         '#1A2540',
-        'subtext':      '#5A6A8A',
-        'border':       '#D0DCF0',
-        'input_bg':     '#FFFFFF',
-        'accent':       '#2563EB',
-        'accent2':      '#059669',
-        'accent3':      '#D97706',
-        'danger':       '#DC2626',
-        'success_bg':   '#F0FDF4',
-        'success_text': '#16A34A',
-        'tab_active':   '#DBEAFE',
-        'metric_bg':    '#FFFFFF',
-        'progress_bg':  '#E2EAF8',
-        'progress_fill':'linear-gradient(90deg, #2563EB, #059669)',
-    }
+    "light": {
+        "page_bg":        "#F1F5FC",
+        "surface":        "#FFFFFF",
+        "surface2":       "#F8FAFF",
+        "card":           "#FFFFFF",
+        "border":         "#DDE5F5",
+        "text":           "#0F172A",
+        "subtext":        "#64748B",
+        "accent":         "#2563EB",
+        "accent_glow":    "rgba(37,99,235,0.12)",
+        "green":          "#16A34A",
+        "amber":          "#D97706",
+        "red":            "#DC2626",
+        "input_bg":       "#FFFFFF",
+        "btn_bg":         "#2563EB",
+        "btn_text":       "#FFFFFF",
+        "progress_track": "#E2EAF8",
+        "plotly_theme":   "plotly_white",
+    },
 }
 
-C = THEMES[st.session_state.theme]
+P = _PALETTES[st.session_state.theme]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 3 · CSS INJECTION
+# ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-    :root {{
-        --bg:           {C['bg']};
-        --sidebar-bg:   {C['sidebar_bg']};
-        --card:         {C['card_bg']};
-        --card-hover:   {C['card_hover']};
-        --text:         {C['text']};
-        --subtext:      {C['subtext']};
-        --border:       {C['border']};
-        --input:        {C['input_bg']};
-        --accent:       {C['accent']};
-        --accent2:      {C['accent2']};
-        --accent3:      {C['accent3']};
-        --danger:       {C['danger']};
-    }}
+/* ── CSS Variables ── */
+:root {{
+  --page-bg:        {P['page_bg']};
+  --surface:        {P['surface']};
+  --surface2:       {P['surface2']};
+  --card:           {P['card']};
+  --border:         {P['border']};
+  --text:           {P['text']};
+  --subtext:        {P['subtext']};
+  --accent:         {P['accent']};
+  --accent-glow:    {P['accent_glow']};
+  --green:          {P['green']};
+  --amber:          {P['amber']};
+  --red:            {P['red']};
+  --input-bg:       {P['input_bg']};
+  --btn-bg:         {P['btn_bg']};
+  --btn-text:       {P['btn_text']};
+  --progress-track: {P['progress_track']};
+}}
 
-    /* ── Global Reset ── */
-    html, body, .stApp {{
-        background-color: var(--bg) !important;
-        color: var(--text) !important;
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }}
-    
-    /* ── Sidebar ── */
-    [data-testid="stSidebar"] {{
-        background: var(--sidebar-bg) !important;
-        border-right: 1px solid var(--border) !important;
-    }}
-    [data-testid="stSidebar"] * {{ color: var(--text) !important; }}
+/* ── Global ── */
+*, *::before, *::after {{ box-sizing: border-box; }}
+html, body, .stApp {{
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  background-color: var(--page-bg) !important;
+  color: var(--text) !important;
+}}
 
-    /* ── Metric Cards ── */
-    [data-testid="stMetricContainer"] {{
-        background: var(--card) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 16px !important;
-        padding: 20px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
-        transition: transform .2s, box-shadow .2s !important;
-    }}
-    [data-testid="stMetricContainer"]:hover {{
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.18) !important;
-    }}
-    [data-testid="stMetricValue"] {{ font-family: 'IBM Plex Mono', monospace !important; font-size: 2.2rem !important; color: var(--accent) !important; }}
-    [data-testid="stMetricLabel"] {{ color: var(--subtext) !important; font-weight: 600 !important; font-size: 0.85rem !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; }}
+/* ── Hide Streamlit chrome ── */
+#MainMenu, footer, header, .stDeployButton {{ display: none !important; }}
 
-    /* ── Forms ── */
-    div[data-testid="stForm"] {{
-        background: var(--card) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 20px !important;
-        padding: 30px !important;
-    }}
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {{
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border) !important;
+}}
+[data-testid="stSidebar"] * {{ color: var(--text) !important; }}
+[data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
 
-    /* ── Inputs ── */
-    .stTextInput>div>div>input,
-    .stSelectbox>div>div>div,
-    .stTextArea>div>div>textarea {{
-        background: var(--input) !important;
-        color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }}
+/* ── Metric Cards ── */
+[data-testid="stMetricContainer"] {{
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  padding: 22px 24px !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10) !important;
+  transition: transform 0.22s cubic-bezier(.34,1.56,.64,1),
+              box-shadow 0.22s ease !important;
+  cursor: default;
+}}
+[data-testid="stMetricContainer"]:hover {{
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 30px var(--accent-glow) !important;
+}}
+[data-testid="stMetricValue"] {{
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 2.4rem !important;
+  font-weight: 600 !important;
+  color: var(--accent) !important;
+}}
+[data-testid="stMetricLabel"] {{
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--subtext) !important;
+}}
+[data-testid="stMetricDelta"] {{ font-size: 0.82rem !important; }}
 
-    /* ── Buttons ── */
-    .stButton>button {{
-        background: var(--accent) !important;
-        color: #fff !important;
-        border: none !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        transition: opacity .15s, transform .15s !important;
-    }}
-    .stButton>button:hover {{ opacity: .88; transform: translateY(-1px); }}
+/* ── Forms ── */
+div[data-testid="stForm"] {{
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 20px !important;
+  padding: 28px 32px !important;
+}}
 
-    /* ── Tabs ── */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 6px !important;
-        background: transparent !important;
-        border-bottom: 2px solid var(--border) !important;
-        padding-bottom: 0 !important;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        background: transparent !important;
-        color: var(--subtext) !important;
-        border-radius: 10px 10px 0 0 !important;
-        padding: 10px 22px !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        border: 1px solid transparent !important;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background: {C['tab_active']} !important;
-        color: var(--accent) !important;
-        border-color: var(--border) !important;
-        border-bottom-color: {C['tab_active']} !important;
-    }}
+/* ── Inputs ── */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div > div {{
+  background: var(--input-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 0.9rem !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+}}
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {{
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+  outline: none !important;
+}}
+label, .stTextInput label, .stSelectbox label {{
+  color: var(--subtext) !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+}}
 
-    /* ── DataFrames ── */
-    [data-testid="stDataFrame"] {{
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-    }}
-    .dvn-scroller {{ background: var(--card) !important; }}
-    .col_heading, .blank {{ background: var(--sidebar-bg) !important; color: var(--subtext) !important; }}
+/* ── Buttons ── */
+.stButton > button {{
+  background: var(--btn-bg) !important;
+  color: var(--btn-text) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: 0.88rem !important;
+  letter-spacing: 0.03em !important;
+  padding: 10px 20px !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+}}
+.stButton > button:hover {{
+  opacity: 0.87 !important;
+  transform: translateY(-1px) !important;
+}}
+.stButton > button:active {{
+  transform: translateY(0) !important;
+}}
 
-    /* ── Expander ── */
-    .streamlit-expanderHeader {{
-        background: var(--card) !important;
-        color: var(--text) !important;
-        border-radius: 10px !important;
-        border: 1px solid var(--border) !important;
-    }}
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {{
+  gap: 4px !important;
+  background: transparent !important;
+  border-bottom: 2px solid var(--border) !important;
+}}
+.stTabs [data-baseweb="tab"] {{
+  background: transparent !important;
+  color: var(--subtext) !important;
+  border-radius: 10px 10px 0 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: none !important;
+  padding: 10px 24px !important;
+  font-weight: 600 !important;
+  font-size: 0.88rem !important;
+  transition: color 0.15s ease, background 0.15s ease !important;
+}}
+.stTabs [data-baseweb="tab"]:hover {{
+  color: var(--text) !important;
+}}
+.stTabs [aria-selected="true"] {{
+  background: var(--card) !important;
+  color: var(--accent) !important;
+  border-color: var(--border) !important;
+  border-bottom-color: var(--card) !important;
+  margin-bottom: -2px !important;
+}}
 
-    /* ── Progress Custom ── */
-    .custom-progress-wrap {{
-        background: {C['progress_bg']};
-        border-radius: 99px;
-        height: 10px;
-        overflow: hidden;
-        margin: 8px 0 16px;
-    }}
-    .custom-progress-fill {{
-        height: 100%;
-        border-radius: 99px;
-        background: {C['progress_fill']};
-        transition: width 0.6s ease;
-    }}
+/* ── DataFrames ── */
+[data-testid="stDataFrame"] {{
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}}
+.dvn-scroller {{ background: var(--card) !important; }}
 
-    /* ── Badge ── */
-    .badge {{
-        display: inline-block;
-        padding: 3px 12px;
-        border-radius: 99px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: .05em;
-    }}
-    .badge-done   {{ background: {C['success_bg']}; color: {C['success_text']}; }}
-    .badge-pending{{ background: rgba(245,158,11,0.15); color: #F59E0B; }}
+/* ── Expander ── */
+.streamlit-expanderHeader {{
+  background: var(--surface2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+}}
 
-    /* ── Section Header ── */
-    .section-header {{
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: var(--text);
-        border-left: 4px solid var(--accent);
-        padding-left: 12px;
-        margin: 24px 0 14px;
-        letter-spacing: -.01em;
-    }}
+/* ── Divider ── */
+hr {{ border-color: var(--border) !important; opacity: 0.6 !important; }}
 
-    /* ── Leaderboard Card ── */
-    .lb-row {{
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 12px 18px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        margin-bottom: 8px;
-    }}
-    .lb-rank {{ font-family:'IBM Plex Mono',monospace; font-size:1.1rem; font-weight:700; width:32px; text-align:center; color:var(--accent3); }}
-    .lb-name {{ flex:1; font-weight:600; }}
-    .lb-count{{ font-family:'IBM Plex Mono',monospace; font-size:1rem; color:var(--accent); font-weight:700; }}
+/* ── Custom Components ── */
+.page-title {{
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}}
+.page-subtitle {{
+  font-size: 0.88rem;
+  color: var(--subtext);
+  margin-bottom: 28px;
+}}
+.section-title {{
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  margin: 24px 0 14px;
+}}
+.info-chip {{
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}}
+.chip-done    {{ background: rgba(34,197,94,0.12); color: {P['green']}; }}
+.chip-pending {{ background: rgba(245,158,11,0.12); color: {P['amber']}; }}
+.chip-admin   {{ background: rgba(79,142,247,0.15); color: {P['accent']}; }}
 
-    /* ── Hide Streamlit branding ── */
-    #MainMenu, footer, header {{ visibility: hidden; }}
-    .stDeployButton {{ display: none; }}
+.progress-wrap {{
+  background: var(--progress-track);
+  border-radius: 99px;
+  height: 8px;
+  overflow: hidden;
+  margin: 6px 0 14px;
+}}
+.progress-fill {{
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  transition: width 0.7s cubic-bezier(.4,0,.2,1);
+}}
+.progress-label {{
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--subtext);
+  font-weight: 600;
+}}
+
+.lb-item {{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  transition: transform 0.18s ease;
+}}
+.lb-item:hover {{ transform: translateX(4px); }}
+.lb-rank {{ font-family:'JetBrains Mono',monospace; font-weight:700; width:28px; text-align:center; color:var(--amber); }}
+.lb-email {{ flex:1; font-weight:600; font-size:0.9rem; }}
+.lb-count {{ font-family:'JetBrains Mono',monospace; color:var(--accent); font-weight:700; font-size:0.95rem; }}
+
+.login-card {{
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 44px 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}}
+.login-logo {{
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 6px;
+}}
+.login-title {{
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}}
+.login-sub {{
+  font-size: 0.82rem;
+  text-align: center;
+  color: var(--subtext);
+  margin-bottom: 30px;
+}}
+.user-badge {{
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+}}
+.audit-field-label {{
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--subtext);
+  margin-bottom: 2px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-
-# ============================================================
-# ٤. فەرهەنگی وەرگێڕان (Translations)
-# ============================================================
-T = {
+# ─────────────────────────────────────────────────────────────────────────────
+# 4 · TRANSLATIONS
+# ─────────────────────────────────────────────────────────────────────────────
+_LANG: dict[str, dict[str, str]] = {
+    "en": {
+        "app_name":       "Audit Pro",
+        "app_tagline":    "Government Data Audit & Analytics Platform",
+        "login_title":    "Secure Login",
+        "login_sub":      "Enter your credentials to access the platform",
+        "email":          "Email Address",
+        "password":       "Password",
+        "login_btn":      "Sign In",
+        "logout_btn":     "Sign Out",
+        "theme":          "Theme",
+        "language":       "Language",
+        "workspace":      "Select Workspace",
+        "stats_title":    "Overview",
+        "total":          "Total Records",
+        "completed":      "Completed",
+        "pending":        "Pending",
+        "search":         "Search (company, license, email…)",
+        "tab_queue":      "Task Queue",
+        "tab_archive":    "Archive",
+        "tab_analytics":  "Analytics",
+        "tab_users":      "User Management",
+        "select_record":  "Select a record to audit",
+        "audit_history":  "Audit Trail",
+        "submit":         "Approve & Save",
+        "return_pending": "Return to Pending",
+        "leaderboard":    "Leaderboard",
+        "daily_trend":    "Daily Trend",
+        "time_filter":    "Time Period",
+        "today":          "Today",
+        "this_week":      "This Week",
+        "this_month":     "This Month",
+        "all_time":       "All Time",
+        "add_auditor":    "Add Auditor",
+        "update_pass":    "Update Password",
+        "remove_user":    "Remove User",
+        "staff_list":     "Staff Directory",
+        "no_data":        "No records found for this period.",
+        "empty_sheet":    "This worksheet is empty.",
+        "saved_ok":       "Record approved and saved successfully.",
+        "invalid_creds":  "Invalid email or password. Please try again.",
+        "duplicate_email":"This email is already registered.",
+        "fill_all":       "Please fill in all fields.",
+        "signed_in_as":   "Signed in as",
+        "role_admin":     "Administrator",
+        "role_auditor":   "Auditor",
+        "processing":     "Processing Row",
+        "filter_active":  "Filter active:",
+    },
     "ku": {
-        "title":          "⚖️ پلاتفۆرمی وردبینی و ئەنالیتیکسی حکومی",
-        "login_h":        "🔐 چوونەژوورەوەی پارێزراو",
-        "email_lbl":      "ئیمەیڵ (یان admin):",
-        "pass_lbl":       "پاسۆرد:",
+        "app_name":       "ئۆدیت پرۆ",
+        "app_tagline":    "پلاتفۆرمی وردبینی و ئەنالیتیکسی حکومی",
+        "login_title":    "چوونەژوورەوەی پارێزراو",
+        "login_sub":      "زانیارییەکانت بنووسە بۆ چوونەژوورەوە",
+        "email":          "ئیمەیڵ",
+        "password":       "پاسۆرد",
         "login_btn":      "چوونەژوورەوە",
         "logout_btn":     "چوونەدەرەوە",
-        "theme_lbl":      "🎨 تیمی سایت:",
-        "lang_lbl":       "🌐 زمان:",
-        "stats_h":        "📈 ئامارە گشتییەکان",
-        "total":          "کۆی گشتی فایلەکان",
-        "done":           "تەواوکراوە ✅",
-        "pending":        "چاوەڕوان ⏳",
-        "search_lbl":     "🔍 گەڕان (کۆمپانیا، مۆڵەت، ئیمەیڵ...):",
-        "tab_queue":      "📋 ڕیزی کارەکان",
-        "tab_archive":    "✅ ئەرشیفی تەواوکراو",
-        "tab_analytics":  "📊 ئەنالیتیکس",
-        "tab_users":      "👥 بەڕێوەبردنی کارمەند",
-        "select_row":     "📌 ڕیزێک هەڵبژێرە:",
-        "submit_btn":     "پەسەندکردن و پاشەکەوتکردن ✅",
-        "history_lbl":    "👁 مێژووی گۆڕانکاری",
-        "add_user_h":     "👤 دروستکردنی هەژماری نوێ",
-        "user_list_h":    "📋 لیستی کارمەندان",
-        "success_msg":    "✅ سەرکەوتوو! داتا پاشەکەوت کرا.",
-        "return_btn":     "↩️ گەڕاندنەوە بۆ چاوەڕوان",
-        "lb_h":           "🏆 تەختەی پێشکەوتن",
-        "trend_h":        "📅 ترەندی ڕۆژانە",
-        "filter_lbl":     "🗓 فیلتەری کات:",
-        "f_today":        "ئەمڕۆ",
-        "f_week":         "ئەم هەفتەیە",
-        "f_month":        "ئەم مانگەیە",
-        "f_all":          "هەموو",
+        "theme":          "تیمی سایت",
+        "language":       "زمان",
+        "workspace":      "شیتەکە هەڵبژێرە",
+        "stats_title":    "کورتەی گشتی",
+        "total":          "کۆی گشتی",
+        "completed":      "تەواوکراوە",
+        "pending":        "چاوەڕوان",
+        "search":         "گەڕان (کۆمپانیا، مۆڵەت، ئیمەیڵ…)",
+        "tab_queue":      "ڕیزی کارەکان",
+        "tab_archive":    "ئەرشیف",
+        "tab_analytics":  "ئەنالیتیکس",
+        "tab_users":      "بەڕێوەبردنی کارمەند",
+        "select_record":  "ڕیزێک هەڵبژێرە بۆ پشکنین",
+        "audit_history":  "مێژووی گۆڕانکاری",
+        "submit":         "پەسەندکردن و پاشەکەوتکردن",
+        "return_pending": "گەڕاندنەوە بۆ چاوەڕوان",
+        "leaderboard":    "تەختەی پێشکەوتن",
+        "daily_trend":    "ترەندی ڕۆژانە",
+        "time_filter":    "ماوەی کات",
+        "today":          "ئەمڕۆ",
+        "this_week":      "ئەم هەفتەیە",
+        "this_month":     "ئەم مانگەیە",
+        "all_time":       "هەموو کات",
+        "add_auditor":    "زیادکردنی ئۆدیتۆر",
+        "update_pass":    "گۆڕینی پاسۆرد",
+        "remove_user":    "سڕینەوەی بەکارهێنەر",
+        "staff_list":     "لیستی کارمەندان",
         "no_data":        "هیچ داتایەک نییە بۆ ئەم ماوەیە.",
-        "invalid_login":  "❌ ئیمەیڵ یان پاسۆرد هەڵەیە!",
-        "workspace_lbl":  "📂 Workspace هەڵبژێرە:",
-        "sheet_empty":    "⚠️ ئەم شیتە بەتاڵە.",
-        "update_pass_h":  "🔑 گۆڕینی پاسۆردی کارمەند",
-        "delete_user_h":  "🗑️ سڕینەوەی کارمەند",
+        "empty_sheet":    "ئەم شیتە بەتاڵە.",
+        "saved_ok":       "تۆمار پەسەندکرا و پاشەکەوت کرا.",
+        "invalid_creds":  "ئیمەیڵ یان پاسۆرد هەڵەیە.",
+        "duplicate_email":"ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
+        "fill_all":       "تکایە هەموو خانەکان پڕبکەوە.",
+        "signed_in_as":   "چووییتە ژوورەوە بەناوی",
+        "role_admin":     "بەڕێوەبەر",
+        "role_auditor":   "ئۆدیتۆر",
+        "processing":     "ڕیزی",
+        "filter_active":  "فیلتەری چالاک:",
     },
-    "en": {
-        "title":          "⚖️ Government Audit & Analytics Platform",
-        "login_h":        "🔐 Secure Login",
-        "email_lbl":      "Email (or admin):",
-        "pass_lbl":       "Password:",
-        "login_btn":      "Login",
-        "logout_btn":     "Logout",
-        "theme_lbl":      "🎨 Theme:",
-        "lang_lbl":       "🌐 Language:",
-        "stats_h":        "📈 Global Statistics",
-        "total":          "Total Records",
-        "done":           "Completed ✅",
-        "pending":        "Pending ⏳",
-        "search_lbl":     "🔍 Search (Company, License, Email...):",
-        "tab_queue":      "📋 Task Queue",
-        "tab_archive":    "✅ Done Archive",
-        "tab_analytics":  "📊 Analytics",
-        "tab_users":      "👥 User Management",
-        "select_row":     "📌 Select a record:",
-        "submit_btn":     "Approve & Save ✅",
-        "history_lbl":    "👁 Audit Trail",
-        "add_user_h":     "👤 Create New Auditor",
-        "user_list_h":    "📋 Staff Directory",
-        "success_msg":    "✅ Success! Record saved.",
-        "return_btn":     "↩️ Return to Pending",
-        "lb_h":           "🏆 Leaderboard",
-        "trend_h":        "📅 Daily Trend",
-        "filter_lbl":     "🗓 Time Filter:",
-        "f_today":        "Today",
-        "f_week":         "This Week",
-        "f_month":        "This Month",
-        "f_all":          "All Time",
-        "no_data":        "No data for this period.",
-        "invalid_login":  "❌ Invalid email or password!",
-        "workspace_lbl":  "📂 Select Workspace:",
-        "sheet_empty":    "⚠️ This sheet is empty.",
-        "update_pass_h":  "🔑 Update Staff Password",
-        "delete_user_h":  "🗑️ Remove Staff Member",
-    }
 }
 
-def t(key):
-    return T[st.session_state.lang].get(key, key)
+def t(key: str) -> str:
+    return _LANG[st.session_state.lang].get(key, key)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5 · SYSTEM COLUMN NAMES
+# ─────────────────────────────────────────────────────────────────────────────
+COL_STATUS   = "Status"
+COL_LOG      = "Audit_Log"
+COL_AUDITOR  = "Auditor_Email"
+COL_DATE     = "Submission_Date"
+SYSTEM_COLS  = [COL_STATUS, COL_LOG, COL_AUDITOR, COL_DATE]
+VAL_DONE     = "Completed"
+VAL_PENDING  = "Pending"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6 · UTILITY FUNCTIONS
+# ─────────────────────────────────────────────────────────────────────────────
+def hash_pw(pw: str) -> str:
+    return hashlib.sha256(pw.encode("utf-8")).hexdigest()
 
 
-# ============================================================
-# ٥. فەنکشنەکانی پەیوەندی و ئەمنییەت (Auth & Connection)
-# ============================================================
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+def now_str() -> str:
+    return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
+
+def parse_date(s: str) -> datetime | None:
+    """Safely parse a date string in YYYY-MM-DD HH:MM:SS format."""
+    try:
+        return datetime.strptime(str(s), "%Y-%m-%d %H:%M:%S").replace(tzinfo=TZ)
+    except Exception:
+        return None
+
+
+def apply_period_filter(df: pd.DataFrame, col: str, period: str) -> pd.DataFrame:
+    """Return rows whose `col` date falls within `period`."""
+    if period == "all" or col not in df.columns:
+        return df
+    now = datetime.now(TZ)
+    if period == "today":
+        cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_week":
+        cutoff = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+    elif period == "this_month":
+        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        return df
+    dates = df[col].apply(parse_date)
+    return df[dates >= cutoff]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7 · GOOGLE SHEETS CONNECTION
+# ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
+    """Authenticate with Google Sheets and return the spreadsheet object."""
     scope = [
         "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
     ]
     key_dict = json.loads(st.secrets["json_key"], strict=False)
+    # Rebuild private key: strip headers, collapse whitespace, rewrap at 64 chars
     pk = key_dict["private_key"]
-    pk = pk.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+    pk = pk.replace("-----BEGIN PRIVATE KEY-----", "")
+    pk = pk.replace("-----END PRIVATE KEY-----", "")
     pk = pk.replace("\\n", "").replace("\n", "")
     pk = "".join(pk.split())
     pk = "\n".join(textwrap.wrap(pk, 64))
-    key_dict["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{pk}\n-----END PRIVATE KEY-----\n"
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
-    return gspread.authorize(creds).open("site CIT QA - Tranche 4")
+    key_dict["private_key"] = (
+        f"-----BEGIN PRIVATE KEY-----\n{pk}\n-----END PRIVATE KEY-----\n"
+    )
+    creds  = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
+    client = gspread.authorize(creds)
+    return client.open("site CIT QA - Tranche 4")
 
 
-def ensure_system_columns(ws, headers: list) -> tuple[list, dict]:
+# ─────────────────────────────────────────────────────────────────────────────
+# 8 · ROBUST DATA LOADING  (Critical Fix)
+# ─────────────────────────────────────────────────────────────────────────────
+def load_worksheet(ws) -> tuple[pd.DataFrame, list[str], dict[str, int]]:
     """
-    Guarantee STATUS_COL, LOG_COL, AUDITOR_COL, DATE_COL exist.
-    Returns updated (headers, col_map).
+    Safely load a worksheet into a DataFrame.
+
+    Returns
+    -------
+    df        : cleaned DataFrame (empty rows removed, system cols ensured)
+    headers   : ordered list of column names (matches sheet columns)
+    col_map   : {column_name: 1-based column index in Google Sheets}
     """
-    SYSTEM_COLS = [STATUS_COL, LOG_COL, AUDITOR_COL, DATE_COL]
-    col_map = {h: i + 1 for i, h in enumerate(headers)}
-    for sc in SYSTEM_COLS:
-        if sc not in col_map:
-            new_pos = len(headers) + 1
-            # Expand grid if needed (Google Sheets max 18278 cols)
-            if new_pos > ws.col_count:
-                ws.add_cols(4)
-            ws.update_cell(1, new_pos, sc)
-            headers.append(sc)
-            col_map[sc] = new_pos
-    return headers, col_map
-
-
-def get_ws_dataframe(ws) -> tuple[pd.DataFrame, list, dict]:
-    """Fetch all values, normalize headers, return df + headers + col_map."""
     raw = ws.get_all_values()
-    if len(raw) < 1:
+
+    # ── No data at all ──────────────────────────────────────
+    if not raw:
         return pd.DataFrame(), [], {}
 
-    # De-duplicate header names
-    headers = []
-    seen = {}
-    for h in raw[0]:
-        h = h.strip() or "Unnamed"
+    # ── Normalise header row ─────────────────────────────────
+    raw_headers = raw[0]
+    headers: list[str] = []
+    seen: dict[str, int] = {}
+    for h in raw_headers:
+        h = str(h).strip() or "Unnamed"
         if h in seen:
             seen[h] += 1
             headers.append(f"{h}_{seen[h]}")
@@ -412,489 +596,632 @@ def get_ws_dataframe(ws) -> tuple[pd.DataFrame, list, dict]:
             seen[h] = 0
             headers.append(h)
 
-    df = pd.DataFrame(raw[1:], columns=headers)
+    # ── Build DataFrame from data rows ──────────────────────
+    data_rows = raw[1:]
 
-    # Inject empty system columns if missing (in-memory only until ensure_system_columns)
-    for sc in [STATUS_COL, LOG_COL, AUDITOR_COL, DATE_COL]:
+    # Pad / trim each row to match header length (prevents shape mismatch)
+    n_cols = len(headers)
+    normalised: list[list] = []
+    for row in data_rows:
+        row = list(row)
+        if len(row) < n_cols:
+            row += [""] * (n_cols - len(row))
+        else:
+            row = row[:n_cols]
+        normalised.append(row)
+
+    if not normalised:
+        return pd.DataFrame(columns=headers), headers, {}
+
+    df = pd.DataFrame(normalised, columns=headers)
+
+    # ── Drop fully empty rows ────────────────────────────────
+    df.replace("", pd.NA, inplace=True)
+    df.dropna(how="all", inplace=True)
+    df.replace(pd.NA, "", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # ── Inject missing system columns (in-memory) ────────────
+    for sc in SYSTEM_COLS:
         if sc not in df.columns:
             df[sc] = ""
 
+    # ── Build col_map using original sheet headers ───────────
     col_map = {h: i + 1 for i, h in enumerate(headers)}
+
     return df, headers, col_map
 
 
-def apply_date_filter(df: pd.DataFrame, date_col: str, period: str) -> pd.DataFrame:
-    """Filter dataframe rows by submission date."""
-    if period == 'all' or date_col not in df.columns:
-        return df
-    now = datetime.now(tz)
-    if period == 'today':
-        cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == 'week':
-        cutoff = now - timedelta(days=now.weekday())
-        cutoff = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == 'month':
-        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    else:
-        return df
+def ensure_system_cols_in_sheet(
+    ws,
+    headers: list[str],
+    col_map: dict[str, int],
+) -> tuple[list[str], dict[str, int]]:
+    """
+    Guarantee that every SYSTEM_COL exists in the actual Google Sheet.
+    Expands the grid first if the new column would exceed current bounds.
+    Returns updated (headers, col_map).
+    """
+    for sc in SYSTEM_COLS:
+        if sc not in col_map:
+            new_pos = len(headers) + 1
+            # Grid limit protection: add columns if needed
+            if new_pos > ws.col_count:
+                ws.add_cols(max(4, new_pos - ws.col_count + 1))
+            ws.update_cell(1, new_pos, sc)
+            headers.append(sc)
+            col_map[sc] = new_pos
+    return headers, col_map
 
-    def parse_date(s):
-        try:
-            return datetime.strptime(str(s), "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)
-        except:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9 · AUTHENTICATION HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+def check_login(email: str, password: str, users_ws) -> str | None:
+    """
+    Validate credentials. Returns role string ("admin"/"auditor") or None.
+    """
+    email = email.lower().strip()
+    # Admin check (no Google Sheets lookup needed)
+    if email == "admin" and password == st.secrets.get("admin_password", ""):
+        return "admin"
+    # Auditor lookup in UsersDB sheet
+    try:
+        records = users_ws.get_all_records()
+        df_u = pd.DataFrame(records)
+        if df_u.empty or "email" not in df_u.columns:
             return None
-
-    dates = df[date_col].apply(parse_date)
-    return df[dates >= cutoff]
-
-
-# ============================================================
-# ٦. نموونەی ستوونەکانی سیستم (System Column Names)
-# ============================================================
-STATUS_COL  = "دۆخی فایل"
-LOG_COL     = "مێژووی گۆڕانکارییەکان (Audit Log)"
-AUDITOR_COL = "ئیمەیڵی ئۆدیتۆر (Auditor Email)"
-DATE_COL    = "بەرواری پەسەندکردن (Submission Date)"
+        match = df_u[df_u["email"] == email]
+        if match.empty:
+            return None
+        stored = str(match["password"].values[0])
+        if hash_pw(password) == stored:
+            return "auditor"
+    except Exception:
+        pass
+    return None
 
 
-# ============================================================
-# ٧. سایدبار: زمان، تیم، لۆگین (Sidebar)
-# ============================================================
-try:
-    spreadsheet = get_spreadsheet()
-    all_ws_titles = [ws.title for ws in spreadsheet.worksheets()]
+# ─────────────────────────────────────────────────────────────────────────────
+# 10 · LOGIN PAGE  (shown before any app content)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_login_page(users_ws):
+    """Full-page, centered login card. Blocks until authenticated."""
 
-    # Ensure UsersDB exists
-    if "UsersDB" not in all_ws_titles:
-        users_sheet = spreadsheet.add_worksheet(title="UsersDB", rows="200", cols="3")
-        users_sheet.append_row(["email", "password", "created_at"])
-        all_ws_titles.append("UsersDB")
-    else:
-        users_sheet = spreadsheet.worksheet("UsersDB")
+    # Collapse sidebar completely on login page
+    st.markdown(
+        "<style>[data-testid='stSidebar']{display:none!important;}"
+        "[data-testid='collapsedControl']{display:none!important;}</style>",
+        unsafe_allow_html=True,
+    )
 
-    # ── Sidebar ──────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown(f"<div style='font-size:1.5rem;font-weight:800;padding:10px 0 4px;'>{t('title')}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='color:{C['subtext']};font-size:0.78rem;margin-bottom:18px;'>v2.0 · Enterprise</div>", unsafe_allow_html=True)
-        st.divider()
+    # Theme / language toggles in top-right corner
+    tcol1, tcol2, tcol3, tcol4 = st.columns([6, 1, 1, 1])
+    with tcol2:
+        if st.button("EN", key="login_en"):
+            st.session_state.lang = "en"; st.rerun()
+    with tcol3:
+        if st.button("KU", key="login_ku"):
+            st.session_state.lang = "ku"; st.rerun()
+    with tcol4:
+        icon = "☀️" if st.session_state.theme == "dark" else "🌙"
+        if st.button(icon, key="login_theme"):
+            st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+            st.rerun()
 
-        # Language Toggle
-        st.markdown(f"<div style='font-size:0.8rem;font-weight:700;color:{C['subtext']};letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;'>{t('lang_lbl')}</div>", unsafe_allow_html=True)
-        lc1, lc2 = st.columns(2)
-        if lc1.button("🇬🇧 English", use_container_width=True, key="en_btn"):
-            st.session_state.lang = 'en'; st.rerun()
-        if lc2.button("🟡 کوردی", use_container_width=True, key="ku_btn"):
-            st.session_state.lang = 'ku'; st.rerun()
+    # Vertically centre the card
+    st.markdown("<div style='height:60px'></div>", unsafe_allow_html=True)
 
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    _, center_col, _ = st.columns([1, 1.2, 1])
+    with center_col:
+        st.markdown(f"""
+        <div class="login-card">
+          <div class="login-logo">⚖️</div>
+          <div class="login-title">{t('login_title')}</div>
+          <div class="login-sub">{t('login_sub')}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # Theme Toggle
-        st.markdown(f"<div style='font-size:0.8rem;font-weight:700;color:{C['subtext']};letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;'>{t('theme_lbl')}</div>", unsafe_allow_html=True)
-        tc1, tc2 = st.columns(2)
-        if tc1.button("☀️ Light", use_container_width=True, key="light_btn"):
-            st.session_state.theme = 'light'; st.rerun()
-        if tc2.button("🌙 Dark", use_container_width=True, key="dark_btn"):
-            st.session_state.theme = 'dark'; st.rerun()
+        with st.form("login_form"):
+            email_in = st.text_input(t("email"), placeholder="admin  ·  or  ·  your@email.com")
+            pass_in  = st.text_input(t("password"), type="password", placeholder="••••••••")
+            submitted = st.form_submit_button(
+                t("login_btn"), use_container_width=True
+            )
 
-        st.divider()
-
-        # ── Authentication ──
-        if not st.session_state.logged_in:
-            st.markdown(f"### {t('login_h')}")
-            inp_email = st.text_input(t("email_lbl"), key="inp_email").lower().strip()
-            inp_pass  = st.text_input(t("pass_lbl"), type="password", key="inp_pass")
-
-            if st.button(t("login_btn"), use_container_width=True, key="login_btn"):
-                # Admin shortcut
-                if inp_email == "admin" and inp_pass == st.secrets["admin_password"]:
-                    st.session_state.logged_in = True
-                    st.session_state.user_email = "Admin"
-                    st.rerun()
-                else:
-                    # Look up in UsersDB
-                    staff_df = pd.DataFrame(users_sheet.get_all_records())
-                    if not staff_df.empty and 'email' in staff_df.columns:
-                        match = staff_df[staff_df['email'] == inp_email]
-                        if not match.empty:
-                            stored_hash = str(match['password'].values[0])
-                            if hash_password(inp_pass) == stored_hash:
-                                st.session_state.logged_in = True
-                                st.session_state.user_email = inp_email
-                                st.rerun()
-                    st.error(t("invalid_login"))
-            st.stop()
-
-        else:
-            # Logged-in user info
-            is_admin = st.session_state.user_email == "Admin"
-            role_badge = "🔴 Admin" if is_admin else "🔵 Auditor"
-            st.markdown(f"""
-            <div style='background:{C['card_bg']};border:1px solid {C['border']};border-radius:12px;padding:14px 16px;'>
-                <div style='font-size:0.75rem;font-weight:700;color:{C['subtext']};letter-spacing:.1em;text-transform:uppercase;'>SIGNED IN AS</div>
-                <div style='font-size:0.95rem;font-weight:700;margin-top:4px;'>{st.session_state.user_email}</div>
-                <div style='font-size:0.75rem;margin-top:2px;color:{C['accent']};'>{role_badge}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            if st.button(t("logout_btn"), use_container_width=True, key="logout_btn"):
-                for k in ['logged_in', 'user_email']:
-                    st.session_state[k] = defaults[k]
+        if submitted:
+            role = check_login(email_in, pass_in, users_ws)
+            if role:
+                st.session_state.logged_in  = True
+                st.session_state.user_email = "Admin" if role == "admin" else email_in.lower().strip()
+                st.session_state.user_role  = role
                 st.rerun()
+            else:
+                st.error(t("invalid_creds"))
 
-    # ============================================================
-    # ٨. لاپەڕەی سەرەکی (Main Content)
-    # ============================================================
-    st.markdown(f"<h1 style='font-size:1.7rem;font-weight:800;margin-bottom:4px;'>{t('title')}</h1>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color:{C['subtext']};margin-bottom:22px;font-size:0.9rem;'>Baghdad · {datetime.now(tz).strftime('%A, %d %b %Y · %H:%M')}</div>", unsafe_allow_html=True)
 
-    # Workspace selector (hide UsersDB)
-    data_ws_list = [n for n in all_ws_titles if n != "UsersDB"]
-    selected_sheet = st.selectbox(t("workspace_lbl"), data_ws_list, key="ws_sel")
+# ─────────────────────────────────────────────────────────────────────────────
+# 11 · SIDEBAR (shown only when logged in)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_sidebar():
+    with st.sidebar:
+        # App brand
+        st.markdown(f"""
+        <div style='padding:10px 0 18px;'>
+          <div style='font-size:1.25rem;font-weight:800;letter-spacing:-0.02em;'>
+            ⚖️ {t('app_name')}
+          </div>
+          <div style='font-size:0.72rem;color:{P['subtext']};margin-top:2px;'>
+            {t('app_tagline')}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.divider()
 
-    current_ws          = spreadsheet.worksheet(selected_sheet)
-    df, headers, col_map = get_ws_dataframe(current_ws)
+        # Language
+        st.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:{P['subtext']};letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;'>{t('language')}</div>", unsafe_allow_html=True)
+        lc1, lc2 = st.columns(2)
+        if lc1.button("🇬🇧 EN", use_container_width=True, key="sb_en"):
+            st.session_state.lang = "en"; st.rerun()
+        if lc2.button("🟡 KU", use_container_width=True, key="sb_ku"):
+            st.session_state.lang = "ku"; st.rerun()
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    if df.empty:
-        st.warning(t("sheet_empty"))
-        st.stop()
+        # Theme
+        st.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:{P['subtext']};letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;'>{t('theme')}</div>", unsafe_allow_html=True)
+        tc1, tc2 = st.columns(2)
+        if tc1.button("☀️ Light", use_container_width=True, key="sb_light"):
+            st.session_state.theme = "light"; st.rerun()
+        if tc2.button("🌙 Dark", use_container_width=True, key="sb_dark"):
+            st.session_state.theme = "dark"; st.rerun()
+        st.divider()
 
-    # ── Dashboard Metrics ─────────────────────────────────────
-    st.markdown(f"<div class='section-header'>{t('stats_h')}</div>", unsafe_allow_html=True)
+        # User badge
+        role_label = t("role_admin") if st.session_state.user_role == "admin" else t("role_auditor")
+        chip_cls   = "chip-admin" if st.session_state.user_role == "admin" else ""
+        st.markdown(f"""
+        <div class="user-badge">
+          <div style='font-size:0.68rem;font-weight:700;color:{P['subtext']};
+                      letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;'>
+            {t('signed_in_as')}
+          </div>
+          <div style='font-size:0.92rem;font-weight:700;'>{st.session_state.user_email}</div>
+          <span class="info-chip {chip_cls}" style="margin-top:6px;display:inline-block;">
+            {role_label}
+          </span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        if st.button(t("logout_btn"), use_container_width=True, key="sb_logout"):
+            for k, v in _DEFAULTS.items():
+                st.session_state[k] = v
+            st.rerun()
 
-    total_n   = len(df)
-    done_n    = len(df[df[STATUS_COL] == "تەواوکراوە"])
-    pending_n = total_n - done_n
-    pct       = done_n / total_n if total_n > 0 else 0
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric(t("total"),   total_n)
-    m2.metric(t("done"),    done_n)
-    m3.metric(t("pending"), pending_n)
+# ─────────────────────────────────────────────────────────────────────────────
+# 12 · ANALYTICS TAB
+# ─────────────────────────────────────────────────────────────────────────────
+def render_analytics(df: pd.DataFrame):
+    """Render leaderboard + daily trend with period filtering."""
+    pt = P["plotly_theme"]
+    pb = P["card"]
 
-    st.markdown(f"""
-    <div class='custom-progress-wrap'>
-        <div class='custom-progress-fill' style='width:{int(pct*100)}%'></div>
-    </div>
-    <div style='text-align:right;font-size:0.82rem;color:{C['subtext']};margin-top:-10px;margin-bottom:10px;'>
-        {int(pct*100)}% {t('done')}
-    </div>
-    """, unsafe_allow_html=True)
+    # ── Period filter buttons ────────────────────────────────
+    st.markdown(f"<div class='section-title'>{t('time_filter')}</div>", unsafe_allow_html=True)
+    periods = ["all", "today", "this_week", "this_month"]
+    btn_cols = st.columns(len(periods))
+    for col_w, pkey in zip(btn_cols, periods):
+        label = t(pkey)
+        if st.session_state.date_filter == pkey:
+            label = f"✓ {label}"
+        if col_w.button(label, use_container_width=True, key=f"pf_{pkey}"):
+            st.session_state.date_filter = pkey
+            st.rerun()
 
-    # ── Global Search ─────────────────────────────────────────
-    search_q = st.text_input(t("search_lbl"), key="search_box")
-    if search_q:
-        mask = df.astype(str).apply(
-            lambda col: col.str.contains(search_q, case=False, na=False)
-        ).any(axis=1)
-        display_df = df[mask]
-    else:
-        display_df = df
+    # Apply filter to completed records only
+    done_all = df[df[COL_STATUS] == VAL_DONE].copy()
+    done_f   = apply_period_filter(done_all, COL_DATE, st.session_state.date_filter)
 
-    # ── Tabs ─────────────────────────────────────────────────
-    is_admin = st.session_state.user_email == "Admin"
-    tab_names = [t("tab_queue"), t("tab_archive"), t("tab_analytics")]
-    if is_admin:
-        tab_names.append(t("tab_users"))
+    if done_f.empty:
+        st.info(t("no_data"))
+        return
 
-    tabs = st.tabs(tab_names)
+    left_col, right_col = st.columns([1, 1.5], gap="large")
 
-    # =========================================================
-    # TAB 1 — Task Queue
-    # =========================================================
-    with tabs[0]:
-        pending_df = display_df[display_df[STATUS_COL] != "تەواوکراوە"].copy()
-        pending_df.index = pending_df.index + 2  # align with Google Sheets row numbers
+    # ── Leaderboard ─────────────────────────────────────────
+    with left_col:
+        st.markdown(f"<div class='section-title'>{t('leaderboard')}</div>", unsafe_allow_html=True)
 
-        st.dataframe(pending_df, use_container_width=True, height=320)
-        st.markdown(f"<div class='section-header'>{t('select_row')}</div>", unsafe_allow_html=True)
+        if COL_AUDITOR in done_f.columns:
+            lb = (
+                done_f[COL_AUDITOR]
+                .replace("", "Unknown")
+                .value_counts()
+                .reset_index()
+            )
+            lb.columns = ["Auditor", "Count"]
 
-        row_options = ["---"] + [
-            f"Row {idx} | {row.get('Company Name', row.iloc[0])}"
-            for idx, row in pending_df.iterrows()
-        ]
-        row_sel = st.selectbox("", row_options, label_visibility="collapsed", key="row_sel")
+            medals = ["🥇", "🥈", "🥉", "④", "⑤", "⑥", "⑦", "⑧"]
+            for idx, row in lb.head(8).iterrows():
+                medal = medals[idx] if idx < len(medals) else f"{idx+1}."
+                st.markdown(f"""
+                <div class="lb-item">
+                  <span class="lb-rank">{medal}</span>
+                  <span class="lb-email">{row['Auditor']}</span>
+                  <span class="lb-count">{row['Count']}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-        if row_sel != "---":
-            r_idx = int(row_sel.split(" | ")[0].replace("Row ", ""))
-            original = df.iloc[r_idx - 2].to_dict()
+            # Horizontal bar chart
+            fig_lb = px.bar(
+                lb.head(10),
+                x="Count", y="Auditor",
+                orientation="h",
+                color="Count",
+                color_continuous_scale=[P["accent"], P["green"]],
+                template=pt,
+            )
+            fig_lb.update_layout(
+                paper_bgcolor=pb, plot_bgcolor=pb,
+                font=dict(family="Plus Jakarta Sans", color=P["text"]),
+                showlegend=False, coloraxis_showscale=False,
+                margin=dict(l=10, r=10, t=10, b=10),
+                xaxis=dict(gridcolor=P["border"], zeroline=False),
+                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending"),
+                height=300,
+            )
+            fig_lb.update_traces(marker_line_width=0)
+            st.plotly_chart(fig_lb, use_container_width=True)
 
-            # Audit trail expander
-            with st.expander(t("history_lbl"), expanded=False):
-                history_text = original.get(LOG_COL, "")
-                if history_text:
-                    for line in str(history_text).split("\n"):
-                        if line.strip():
-                            st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.8rem;color:{C['subtext']};padding:2px 0;'>{line}</div>", unsafe_allow_html=True)
+    # ── Daily Trend ─────────────────────────────────────────
+    with right_col:
+        st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
+
+        if COL_DATE in done_f.columns:
+            done_f = done_f.copy()
+            done_f["_date"] = done_f[COL_DATE].apply(
+                lambda s: parse_date(str(s)).date() if parse_date(str(s)) else None
+            )
+            trend = (
+                done_f.dropna(subset=["_date"])
+                .groupby("_date")
+                .size()
+                .reset_index(name="Records")
+            )
+            trend.columns = ["Date", "Records"]
+
+            if not trend.empty:
+                # Fill missing dates for a continuous line
+                if len(trend) > 1:
+                    full_range = pd.date_range(trend["Date"].min(), trend["Date"].max())
+                    trend = (
+                        trend.set_index("Date")
+                        .reindex(full_range.date, fill_value=0)
+                        .reset_index()
+                    )
+                    trend.columns = ["Date", "Records"]
+
+                fig_trend = go.Figure()
+                fig_trend.add_trace(go.Scatter(
+                    x=trend["Date"],
+                    y=trend["Records"],
+                    mode="lines+markers",
+                    line=dict(color=P["accent"], width=3),
+                    marker=dict(color=P["green"], size=7, line=dict(color=P["card"], width=2)),
+                    fill="tozeroy",
+                    fillcolor=P["accent_glow"],
+                    name="Records",
+                ))
+                fig_trend.update_layout(
+                    template=pt,
+                    paper_bgcolor=pb, plot_bgcolor=pb,
+                    font=dict(family="Plus Jakarta Sans", color=P["text"]),
+                    showlegend=False,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    xaxis=dict(gridcolor=P["border"], zeroline=False),
+                    yaxis=dict(gridcolor=P["border"], zeroline=False),
+                    height=320,
+                )
+                st.plotly_chart(fig_trend, use_container_width=True)
+
+                # Summary row
+                s1, s2, s3 = st.columns(3)
+                s1.metric("Records in Period", len(done_f))
+                s2.metric("Days Active", int((trend["Records"] > 0).sum()))
+                avg = len(done_f) / max(int((trend["Records"] > 0).sum()), 1)
+                s3.metric("Avg / Day", f"{avg:.1f}")
+            else:
+                st.info(t("no_data"))
+        else:
+            st.info("Submit some records first to see the trend.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13 · USER MANAGEMENT TAB (Admin only)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_user_management(users_ws):
+    col_add, col_dir = st.columns([1, 1], gap="large")
+
+    # ── Add Auditor ─────────────────────────────────────────
+    with col_add:
+        st.markdown(f"<div class='section-title'>{t('add_auditor')}</div>", unsafe_allow_html=True)
+        with st.form("add_user_form"):
+            new_email = st.text_input("Email", placeholder="auditor@example.com")
+            new_pass  = st.text_input("Password", type="password")
+            if st.form_submit_button("➕ Add Auditor", use_container_width=True):
+                if new_email.strip() and new_pass.strip():
+                    all_records = pd.DataFrame(users_ws.get_all_records())
+                    if not all_records.empty and new_email.lower().strip() in all_records.get("email", pd.Series()).values:
+                        st.error(t("duplicate_email"))
+                    else:
+                        users_ws.append_row([
+                            new_email.lower().strip(),
+                            hash_pw(new_pass.strip()),
+                            now_str(),
+                        ])
+                        st.success(f"✅ {new_email} added.")
+                        time.sleep(0.8); st.rerun()
                 else:
-                    st.info("No history yet.")
+                    st.warning(t("fill_all"))
 
-            # Vertical edit form (one field per row)
-            with st.form("audit_form"):
-                st.markdown(f"<div style='font-weight:700;font-size:1rem;margin-bottom:16px;'>📝 Row {r_idx} — {selected_sheet}</div>", unsafe_allow_html=True)
-                new_values = {}
-                SKIP_COLS = {STATUS_COL, LOG_COL, AUDITOR_COL, DATE_COL}
-                for col_key, col_val in original.items():
-                    if col_key not in SKIP_COLS:
-                        new_values[col_key] = st.text_input(
-                            f"**{col_key}**",
-                            value=str(col_val),
-                            key=f"field_{col_key}"
+        # ── Update Password ──────────────────────────────────
+        st.markdown(f"<div class='section-title'>{t('update_pass')}</div>", unsafe_allow_html=True)
+        all_staff = pd.DataFrame(users_ws.get_all_records())
+        if not all_staff.empty and "email" in all_staff.columns:
+            with st.form("upd_pass_form"):
+                upd_email = st.selectbox("Select Staff", all_staff["email"].tolist())
+                upd_pass  = st.text_input("New Password", type="password")
+                if st.form_submit_button("🔑 Update", use_container_width=True):
+                    if upd_pass.strip():
+                        cell = users_ws.find(upd_email)
+                        if cell:
+                            users_ws.update_cell(cell.row, 2, hash_pw(upd_pass.strip()))
+                            st.success(f"✅ Password updated for {upd_email}.")
+                            time.sleep(0.8); st.rerun()
+
+    # ── Staff Directory ──────────────────────────────────────
+    with col_dir:
+        st.markdown(f"<div class='section-title'>{t('staff_list')}</div>", unsafe_allow_html=True)
+        all_staff = pd.DataFrame(users_ws.get_all_records())
+        if not all_staff.empty and "email" in all_staff.columns:
+            show_cols = [c for c in ["email", "created_at"] if c in all_staff.columns]
+            st.dataframe(all_staff[show_cols], use_container_width=True, hide_index=True)
+
+            # Remove user
+            st.markdown(f"<div class='section-title'>{t('remove_user')}</div>", unsafe_allow_html=True)
+            del_choice = st.selectbox(
+                "Select to remove", ["—"] + all_staff["email"].tolist(), key="del_sel"
+            )
+            if del_choice != "—":
+                if st.button(f"🗑️ Remove {del_choice}", key="del_btn"):
+                    cell = users_ws.find(del_choice)
+                    if cell:
+                        users_ws.delete_rows(cell.row)
+                        st.success(f"✅ {del_choice} removed.")
+                        time.sleep(0.8); st.rerun()
+        else:
+            st.info("No auditor accounts yet.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14 · MAIN APPLICATION
+# ─────────────────────────────────────────────────────────────────────────────
+def main():
+    try:
+        spreadsheet   = get_spreadsheet()
+        all_ws_titles = [ws.title for ws in spreadsheet.worksheets()]
+
+        # Ensure UsersDB worksheet exists
+        if "UsersDB" not in all_ws_titles:
+            users_ws = spreadsheet.add_worksheet(title="UsersDB", rows="500", cols="3")
+            users_ws.append_row(["email", "password", "created_at"])
+        else:
+            users_ws = spreadsheet.worksheet("UsersDB")
+
+        # ── GATE: show login page if not authenticated ───────
+        if not st.session_state.logged_in:
+            render_login_page(users_ws)
+            return
+
+        # ── From here on: user is authenticated ─────────────
+        # Expand sidebar
+        st.markdown(
+            "<style>[data-testid='stSidebar']{display:flex!important;}</style>",
+            unsafe_allow_html=True,
+        )
+        render_sidebar()
+
+        # Page header
+        ts = datetime.now(TZ).strftime("%A, %d %b %Y · %H:%M")
+        st.markdown(f"<div class='page-title'>{t('app_name')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='page-subtitle'>{ts}</div>", unsafe_allow_html=True)
+
+        # ── Workspace selector ───────────────────────────────
+        data_sheets = [n for n in all_ws_titles if n != "UsersDB"]
+        ws_choice   = st.selectbox(t("workspace"), data_sheets, key="ws_choice")
+
+        current_ws           = spreadsheet.worksheet(ws_choice)
+        df, headers, col_map = load_worksheet(current_ws)
+
+        if df.empty:
+            st.warning(t("empty_sheet"))
+            return
+
+        is_admin = (st.session_state.user_role == "admin")
+
+        # ── Overview metrics ─────────────────────────────────
+        st.markdown(f"<div class='section-title'>{t('stats_title')}</div>", unsafe_allow_html=True)
+
+        total_n   = len(df)
+        done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
+        pending_n = total_n - done_n
+        pct       = done_n / total_n if total_n else 0
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric(t("total"),     total_n)
+        m2.metric(t("completed"), done_n,    delta=f"{int(pct*100)}%")
+        m3.metric(t("pending"),   pending_n, delta=f"{100-int(pct*100)}% left",
+                  delta_color="inverse")
+
+        st.markdown(f"""
+        <div class="progress-label">
+          <span>{t('completed')}</span>
+          <span>{int(pct*100)}%</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-fill" style="width:{int(pct*100)}%"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Global search ─────────────────────────────────────
+        search_q = st.text_input(t("search"), key="search_q", label_visibility="visible")
+        if search_q.strip():
+            mask = df.astype(str).apply(
+                lambda col: col.str.contains(search_q.strip(), case=False, na=False)
+            ).any(axis=1)
+            view_df = df[mask].copy()
+        else:
+            view_df = df.copy()
+
+        # ── Tabs ──────────────────────────────────────────────
+        tab_names = [t("tab_queue"), t("tab_archive"), t("tab_analytics")]
+        if is_admin:
+            tab_names.append(t("tab_users"))
+        tabs = st.tabs(tab_names)
+
+        # ══════════════════════════════════════════════════════
+        # TAB 1 — TASK QUEUE
+        # ══════════════════════════════════════════════════════
+        with tabs[0]:
+            pending_view = view_df[view_df[COL_STATUS] != VAL_DONE].copy()
+            # Offset index to reflect actual Google Sheets row numbers (header = row 1)
+            pending_view.index = pending_view.index + 2
+
+            st.dataframe(pending_view, use_container_width=True, height=320)
+
+            st.markdown(f"<div class='section-title'>{t('select_record')}</div>",
+                        unsafe_allow_html=True)
+
+            # Build option labels using first meaningful column
+            first_col = headers[0] if headers else "Row"
+            options = ["—"] + [
+                f"Row {idx}  ·  {str(row.get(first_col, ''))[:60]}"
+                for idx, row in pending_view.iterrows()
+            ]
+            row_sel = st.selectbox("", options, label_visibility="collapsed", key="row_sel")
+
+            if row_sel != "—":
+                sheet_row  = int(row_sel.split("  ·  ")[0].replace("Row ", "").strip())
+                record     = df.iloc[sheet_row - 2].to_dict()
+
+                # ── Audit trail ──────────────────────────────
+                with st.expander(t("audit_history"), expanded=False):
+                    history = str(record.get(COL_LOG, ""))
+                    if history.strip():
+                        for line in history.split("\n"):
+                            if line.strip():
+                                st.markdown(
+                                    f"<div style='font-family:JetBrains Mono,monospace;"
+                                    f"font-size:0.78rem;color:{P['subtext']};padding:2px 0;'>"
+                                    f"{line}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                    else:
+                        st.caption("No history yet.")
+
+                # ── Vertical edit form ────────────────────────
+                st.markdown(
+                    f"<div class='section-title'>{t('processing')} {sheet_row}</div>",
+                    unsafe_allow_html=True,
+                )
+                SKIP = set(SYSTEM_COLS)
+                editable = {k: v for k, v in record.items() if k not in SKIP}
+
+                with st.form("audit_form"):
+                    new_vals: dict[str, str] = {}
+                    for field_name, field_val in editable.items():
+                        # Each field occupies its own full-width row
+                        new_vals[field_name] = st.text_input(
+                            field_name,
+                            value=str(field_val),
+                            key=f"f_{field_name}",
                         )
 
-                submitted = st.form_submit_button(t("submit_btn"), use_container_width=True)
-
-            if submitted:
-                with st.spinner("Saving to Cloud…"):
-                    # Ensure system columns exist in sheet
-                    headers, col_map = ensure_system_columns(current_ws, headers)
-
-                    # Write only changed user fields
-                    for k, v in new_values.items():
-                        if k in col_map and str(original.get(k, "")) != str(v):
-                            current_ws.update_cell(r_idx, col_map[k], v)
-
-                    # System columns — automatic, no manual input
-                    now_str  = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                    log_text = (
-                        f"🔹 Approved by {st.session_state.user_email} at {now_str}\n"
-                        + str(original.get(LOG_COL, ""))
-                    ).strip()
-
-                    current_ws.update_cell(r_idx, col_map[STATUS_COL],  "تەواوکراوە")
-                    current_ws.update_cell(r_idx, col_map[LOG_COL],     log_text)
-                    current_ws.update_cell(r_idx, col_map[AUDITOR_COL], st.session_state.user_email)
-                    current_ws.update_cell(r_idx, col_map[DATE_COL],    now_str)
-
-                st.success(t("success_msg"))
-                time.sleep(1)
-                st.rerun()
-
-    # =========================================================
-    # TAB 2 — Archive
-    # =========================================================
-    with tabs[1]:
-        done_df = display_df[display_df[STATUS_COL] == "تەواوکراوە"].copy()
-        done_df.index = done_df.index + 2
-
-        # Show last-auditor badge inline
-        if AUDITOR_COL in done_df.columns and DATE_COL in done_df.columns:
-            st.dataframe(done_df, use_container_width=True)
-        else:
-            st.dataframe(done_df, use_container_width=True)
-
-        if is_admin and not done_df.empty:
-            st.markdown("---")
-            st.markdown(f"<div class='section-header'>Admin: Reopen Record</div>", unsafe_allow_html=True)
-            ret_opts = ["---"] + [f"Row {idx}" for idx in done_df.index]
-            ret_sel  = st.selectbox("Select record to reopen:", ret_opts, key="ret_sel")
-            if ret_sel != "---":
-                ret_idx = int(ret_sel.split(" ")[1])
-                if st.button(t("return_btn")):
-                    if STATUS_COL in col_map:
-                        current_ws.update_cell(ret_idx, col_map[STATUS_COL], "نەکراوە")
-                        st.rerun()
-
-    # =========================================================
-    # TAB 3 — Analytics
-    # =========================================================
-    with tabs[2]:
-        # ── Date Filter ───────────────────────────────────────
-        st.markdown(f"<div class='section-header'>{t('filter_lbl')}</div>", unsafe_allow_html=True)
-        f_options = {
-            'all':   t("f_all"),
-            'today': t("f_today"),
-            'week':  t("f_week"),
-            'month': t("f_month"),
-        }
-        fc1, fc2, fc3, fc4 = st.columns(4)
-        for col_widget, (period_key, period_label) in zip([fc1, fc2, fc3, fc4], f_options.items()):
-            if col_widget.button(period_label, use_container_width=True, key=f"f_{period_key}"):
-                st.session_state.date_filter = period_key
-                st.rerun()
-
-        # Apply date filter to completed records only
-        done_all = df[df[STATUS_COL] == "تەواوکراوە"].copy()
-        if DATE_COL in done_all.columns:
-            done_filtered = apply_date_filter(done_all, DATE_COL, st.session_state.date_filter)
-        else:
-            done_filtered = done_all
-
-        if done_filtered.empty:
-            st.info(t("no_data"))
-        else:
-            plotly_theme = "plotly_dark" if st.session_state.theme == 'dark' else "plotly_white"
-            paper_bg  = C['card_bg']
-            plot_bg   = C['card_bg']
-            font_col  = C['text']
-
-            # ── Leaderboard ───────────────────────────────────
-            st.markdown(f"<div class='section-header'>{t('lb_h')}</div>", unsafe_allow_html=True)
-
-            if AUDITOR_COL in done_filtered.columns:
-                lb_data = (
-                    done_filtered[AUDITOR_COL]
-                    .replace("", "Unknown")
-                    .value_counts()
-                    .reset_index()
-                )
-                lb_data.columns = ["Auditor", "Count"]
-
-                # Text leaderboard (top 5)
-                medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
-                for i, row_lb in lb_data.head(5).iterrows():
-                    rank_icon = medals[i] if i < len(medals) else f"{i+1}."
-                    st.markdown(f"""
-                    <div class='lb-row'>
-                        <span class='lb-rank'>{rank_icon}</span>
-                        <span class='lb-name'>{row_lb['Auditor']}</span>
-                        <span class='lb-count'>{row_lb['Count']} records</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # Plotly bar chart
-                fig_bar = px.bar(
-                    lb_data,
-                    x="Auditor", y="Count",
-                    color="Count",
-                    color_continuous_scale=["#3B82F6", "#10B981"],
-                    title=t("lb_h"),
-                    template=plotly_theme
-                )
-                fig_bar.update_layout(
-                    paper_bgcolor=paper_bg,
-                    plot_bgcolor=plot_bg,
-                    font=dict(color=font_col, family="Plus Jakarta Sans"),
-                    title_font_size=16,
-                    showlegend=False,
-                    coloraxis_showscale=False,
-                    margin=dict(l=20, r=20, t=50, b=20),
-                    xaxis=dict(gridcolor=C['border']),
-                    yaxis=dict(gridcolor=C['border']),
-                )
-                fig_bar.update_traces(marker_line_width=0)
-                st.plotly_chart(fig_bar, use_container_width=True)
-
-            # ── Daily Trend ───────────────────────────────────
-            st.markdown(f"<div class='section-header'>{t('trend_h')}</div>", unsafe_allow_html=True)
-
-            if DATE_COL in done_filtered.columns:
-                def to_date(s):
-                    try:
-                        return datetime.strptime(str(s), "%Y-%m-%d %H:%M:%S").date()
-                    except:
-                        return None
-
-                done_filtered = done_filtered.copy()
-                done_filtered["_date"] = done_filtered[DATE_COL].apply(to_date)
-                trend_data = (
-                    done_filtered.dropna(subset=["_date"])
-                    .groupby("_date")
-                    .size()
-                    .reset_index(name="Records Processed")
-                )
-                trend_data.columns = ["Date", "Records Processed"]
-
-                if not trend_data.empty:
-                    fig_line = px.line(
-                        trend_data,
-                        x="Date", y="Records Processed",
-                        markers=True,
-                        title=t("trend_h"),
-                        template=plotly_theme
+                    do_submit = st.form_submit_button(
+                        t("submit"), use_container_width=True
                     )
-                    fig_line.update_layout(
-                        paper_bgcolor=paper_bg,
-                        plot_bgcolor=plot_bg,
-                        font=dict(color=font_col, family="Plus Jakarta Sans"),
-                        title_font_size=16,
-                        margin=dict(l=20, r=20, t=50, b=20),
-                        xaxis=dict(gridcolor=C['border']),
-                        yaxis=dict(gridcolor=C['border']),
-                    )
-                    fig_line.update_traces(
-                        line=dict(color=C['accent'], width=3),
-                        marker=dict(color=C['accent2'], size=8)
-                    )
-                    st.plotly_chart(fig_line, use_container_width=True)
 
-                    # Summary stats for filtered period
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                    sa1, sa2, sa3 = st.columns(3)
-                    sa1.metric("Records in Period", len(done_filtered))
-                    sa2.metric("Days Active", len(trend_data))
-                    avg_per_day = len(done_filtered) / max(len(trend_data), 1)
-                    sa3.metric("Avg / Day", f"{avg_per_day:.1f}")
-                else:
-                    st.info(t("no_data"))
-            else:
-                st.info("Submission Date column not yet available (records need to be processed first).")
+                if do_submit:
+                    with st.spinner("Saving to Google Sheets…"):
+                        # Ensure system columns exist in the real sheet
+                        headers, col_map = ensure_system_cols_in_sheet(
+                            current_ws, headers, col_map
+                        )
+                        # Write only changed user fields
+                        for fname, fval in new_vals.items():
+                            if fname in col_map and str(record.get(fname, "")) != str(fval):
+                                current_ws.update_cell(sheet_row, col_map[fname], fval)
 
-    # =========================================================
-    # TAB 4 — User Management (Admin only)
-    # =========================================================
-    if is_admin:
-        with tabs[3]:
-            col_a, col_b = st.columns([1, 1], gap="large")
+                        # ── Automated identity recording ──────
+                        timestamp  = now_str()
+                        auditor    = st.session_state.user_email   # never typed by user
+                        old_log    = str(record.get(COL_LOG, "")).strip()
+                        new_log    = f"✔ {auditor}  @  {timestamp}\n{old_log}".strip()
 
-            with col_a:
-                # ── Add New User ──────────────────────────────
-                st.markdown(f"<div class='section-header'>{t('add_user_h')}</div>", unsafe_allow_html=True)
-                with st.form("add_user_form"):
-                    nu_email = st.text_input("Email:").lower().strip()
-                    nu_pass  = st.text_input("Password:", type="password")
-                    if st.form_submit_button("➕ Save Staff Member", use_container_width=True):
-                        if nu_email and nu_pass:
-                            # Check duplicate
-                            existing = pd.DataFrame(users_sheet.get_all_records())
-                            if not existing.empty and nu_email in existing.get('email', pd.Series()).values:
-                                st.error("❌ Email already exists.")
-                            else:
-                                created_at = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                                users_sheet.append_row([nu_email, hash_password(nu_pass), created_at])
-                                st.success(f"✅ {nu_email} added.")
-                                time.sleep(0.8); st.rerun()
-                        else:
-                            st.warning("Please fill in both fields.")
+                        current_ws.update_cell(sheet_row, col_map[COL_STATUS],  VAL_DONE)
+                        current_ws.update_cell(sheet_row, col_map[COL_LOG],     new_log)
+                        current_ws.update_cell(sheet_row, col_map[COL_AUDITOR], auditor)
+                        current_ws.update_cell(sheet_row, col_map[COL_DATE],    timestamp)
 
-                # ── Update Password ───────────────────────────
-                st.markdown(f"<div class='section-header'>{t('update_pass_h')}</div>", unsafe_allow_html=True)
-                with st.form("update_pass_form"):
-                    staff_df_up = pd.DataFrame(users_sheet.get_all_records())
-                    if not staff_df_up.empty and 'email' in staff_df_up.columns:
-                        email_to_update = st.selectbox("Select Staff:", staff_df_up['email'].tolist())
-                        new_pass = st.text_input("New Password:", type="password")
-                        if st.form_submit_button("🔑 Update Password", use_container_width=True):
-                            if new_pass:
-                                cell = users_sheet.find(email_to_update)
-                                if cell:
-                                    users_sheet.update_cell(cell.row, 2, hash_password(new_pass))
-                                    st.success(f"✅ Password updated for {email_to_update}.")
-                                    time.sleep(0.8); st.rerun()
-                    else:
-                        st.info("No staff members yet.")
+                    st.success(t("saved_ok"))
+                    time.sleep(0.9)
+                    st.rerun()
 
-            with col_b:
-                # ── Staff Directory ───────────────────────────
-                st.markdown(f"<div class='section-header'>{t('user_list_h')}</div>", unsafe_allow_html=True)
-                staff_all = pd.DataFrame(users_sheet.get_all_records())
-                if not staff_all.empty and 'email' in staff_all.columns:
-                    # Show only email + created_at, never expose password hashes
-                    show_cols = [c for c in ['email', 'created_at'] if c in staff_all.columns]
-                    st.dataframe(staff_all[show_cols], use_container_width=True)
+        # ══════════════════════════════════════════════════════
+        # TAB 2 — ARCHIVE
+        # ══════════════════════════════════════════════════════
+        with tabs[1]:
+            done_view = view_df[view_df[COL_STATUS] == VAL_DONE].copy()
+            done_view.index = done_view.index + 2
+            st.dataframe(done_view, use_container_width=True)
 
-                    # ── Delete User ───────────────────────────
-                    st.markdown(f"<div class='section-header'>{t('delete_user_h')}</div>", unsafe_allow_html=True)
-                    del_email = st.selectbox("Select to Remove:", ["---"] + staff_all['email'].tolist(), key="del_sel")
-                    if del_email != "---":
-                        if st.button(f"🗑️ Remove {del_email}", key="del_btn"):
-                            cell = users_sheet.find(del_email)
-                            if cell:
-                                users_sheet.delete_rows(cell.row)
-                                st.success(f"✅ {del_email} removed.")
-                                time.sleep(0.8); st.rerun()
-                else:
-                    st.info("No staff members have been added yet.")
+            # Admin: reopen a record
+            if is_admin and not done_view.empty:
+                st.markdown("---")
+                st.markdown(
+                    "<div class='section-title'>Admin — Reopen Record</div>",
+                    unsafe_allow_html=True,
+                )
+                reopen_opts = ["—"] + [f"Row {idx}" for idx in done_view.index]
+                reopen_sel  = st.selectbox("Select record:", reopen_opts, key="reopen_sel")
+                if reopen_sel != "—":
+                    ridx = int(reopen_sel.split(" ")[1])
+                    if st.button(t("return_pending"), key="reopen_btn"):
+                        if COL_STATUS in col_map:
+                            current_ws.update_cell(ridx, col_map[COL_STATUS], VAL_PENDING)
+                            st.rerun()
 
-except Exception as e:
-    st.error(f"🚨 Error: {e}")
-    st.exception(e)
+        # ══════════════════════════════════════════════════════
+        # TAB 3 — ANALYTICS
+        # ══════════════════════════════════════════════════════
+        with tabs[2]:
+            render_analytics(df)
+
+        # ══════════════════════════════════════════════════════
+        # TAB 4 — USER MANAGEMENT (admin only)
+        # ══════════════════════════════════════════════════════
+        if is_admin:
+            with tabs[3]:
+                render_user_management(users_ws)
+
+    except Exception as exc:
+        st.error(f"🚨 Application Error: {exc}")
+        with st.expander("Traceback", expanded=False):
+            st.exception(exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENTRY POINT
+# ─────────────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    main()
