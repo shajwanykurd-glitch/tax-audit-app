@@ -104,7 +104,6 @@ def get_spreadsheet():
     client = gspread.authorize(creds)
     return client.open("site CIT QA - Tranche 4")
 
-# --- سایتبار (بەشی لای چەپ) ---
 with st.sidebar:
     st.markdown("### 🌐 Language / زمان")
     lang_col1, lang_col2 = st.columns(2)
@@ -121,7 +120,6 @@ with st.sidebar:
     elif admin_input:
         st.error(t("wrong_pass"))
 
-# --- ڕووکاری سەرەکی سایتەکە ---
 st.title(t("app_title"))
 st.markdown("---")
 
@@ -165,7 +163,6 @@ try:
         pending_df = df[df[STATUS_COL] != "تەواوکراوە"]
         completed_df = df[df[STATUS_COL] == "تەواوکراوە"]
         
-        # --- داشبۆردی ئامارەکان (مۆدێرن) ---
         st.subheader(t("stats"))
         m1, m2, m3 = st.columns(3)
         m1.metric(t("total_files"), len(df))
@@ -176,7 +173,6 @@ try:
         st.progress(progress, text=f"{t('progress')}: {int(progress * 100)}%")
         st.markdown("---")
         
-        # --- بەشی تابەکان ---
         if is_admin:
             tab1, tab2 = st.tabs([t("tab_pending"), t("tab_completed")])
         else:
@@ -184,7 +180,6 @@ try:
             st.subheader(t("tab_pending"))
             tab2 = None
 
-        # بەشی فایلی کارمەندەکان
         with tab1:
             search_query1 = st.text_input(t("search"), key="s1")
             show_pending_df = pending_df[pending_df.astype(str).apply(lambda x: x.str.contains(search_query1, case=False, na=False)).any(axis=1)] if search_query1 else pending_df
@@ -207,8 +202,6 @@ try:
                     
                     with st.form("edit_form"):
                         st.write(f"##### 📝 {t('edit_info')}")
-                        
-                        # گۆڕانکارییەکە لێرەدایە: ستوونەکانمان لادا و هەموویان بەدوای یەکدا ڕیز دەبن
                         new_data = {}
                         for key, value in current_data.items():
                             if key not in [LOG_COL, STATUS_COL] and not key.startswith("Empty_Column"):
@@ -224,6 +217,11 @@ try:
                                 for col_to_check in [LOG_COL, STATUS_COL]:
                                     if col_to_check not in unique_headers:
                                         new_idx = len(unique_headers) + 1
+                                        
+                                        # چارەسەری کێشەی نەبوونی جێگە لە گۆگڵ شیت!
+                                        if new_idx > sheet.col_count:
+                                            sheet.add_cols(2) # دوو ستوونی نوێ زیاد دەکەین
+                                            
                                         sheet.update_cell(1, new_idx, col_to_check)
                                         unique_headers.append(col_to_check)
                                         col_index_map[col_to_check] = new_idx
@@ -242,7 +240,6 @@ try:
                                 time.sleep(1)
                                 st.rerun()
 
-        # بەشی ئەدمین و ئەرشیف
         if is_admin and tab2 is not None:
             with tab2:
                 csv_data = df.to_csv(index=False).encode('utf-8-sig')
