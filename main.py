@@ -8,17 +8,15 @@ from datetime import datetime
 import pytz
 import time
 
-# --- ڕێکخستنی شاشە دەبێت یەکەم کۆد بێت ---
+# --- ڕێکخستنی شاشە ---
 st.set_page_config(page_title="Audit Platform", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
-# --- سیستمی زمان (کوردی و ئینگلیزی) ---
 if 'lang' not in st.session_state:
     st.session_state.lang = 'ku'
 
 def set_lang(language):
     st.session_state.lang = language
 
-# فەرهەنگی وشەکان
 ui = {
     "app_title": {"ku": "⚡ پلاتفۆرمی مۆدێرنی وردبینی داتاکان", "en": "⚡ Modern Data Audit Platform"},
     "admin_panel": {"ku": "🔒 کۆنتڕۆڵی ئەدمین", "en": "🔒 Admin Panel"},
@@ -42,20 +40,26 @@ ui = {
     "download_btn": {"ku": "📥 دابەزاندنی داتابەیس بە Excel", "en": "📥 Export Database (CSV)"},
     "return_btn": {"ku": "گەڕاندنەوە بۆ کارمەند ↩️", "en": "Return to Queue ↩️"},
     "success_submit": {"ku": "سەرکەوتوو بوو! داتاکە نوێکرایەوە.", "en": "Success! Record updated."},
-    "status_done": {"ku": "تەواوکراوە", "en": "Completed"},
-    "status_pending": {"ku": "نەکراوە", "en": "Pending"},
+    "auditor_name": {"ku": "👤 ناوی ئۆدیتۆر (کارمەند):", "en": "👤 Auditor Name:"},
+    "select_auditor_warn": {"ku": "⚠️ تکایە ناوی خۆت/ئیمەیڵەکەت هەڵبژێرە پێش سەبمیتکردن!", "en": "⚠️ Please select your email/name before submitting!"},
+    # بەشی نوێ بۆ بەڕێوەبردنی کارمەند
+    "user_mgmt": {"ku": "👥 بەڕێوەبردنی کارمەند", "en": "👥 User Management"},
+    "add_user_input": {"ku": "ئیمەیڵ یان ناوی کارمەندی نوێ:", "en": "New Auditor Email/Name:"},
+    "add_user_btn": {"ku": "زیادکردن ➕", "en": "Add User ➕"},
+    "user_added": {"ku": "کارمەندەکە زیادکرا!", "en": "User added successfully!"},
+    "user_exists": {"ku": "⚠️ ئەم کارمەندە پێشتر زیادکراوە!", "en": "⚠️ This user already exists!"},
+    "auditor_list": {"ku": "📋 لیستی کارمەندەکان", "en": "📋 Auditors List"},
+    "no_auditors": {"ku": "هیچ کارمەندێک نییە.", "en": "No auditors found."}
 }
 
 def t(key):
     return ui.get(key, {}).get(st.session_state.lang, key)
 
-# --- دیزاینی CSSی پێشکەوتوو ---
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
     div[data-testid="metric-container"] {
         background-color: rgba(130, 130, 130, 0.08);
         border: 1px solid rgba(130, 130, 130, 0.2);
@@ -68,7 +72,6 @@ st.markdown("""
         transform: translateY(-5px);
         box-shadow: 0 6px 15px rgba(0,0,0,0.1);
     }
-    
     div[data-testid="stForm"] {
         background-color: rgba(130, 130, 130, 0.03);
         border: 1px solid rgba(130, 130, 130, 0.15);
@@ -76,7 +79,6 @@ st.markdown("""
         padding: 25px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.04);
     }
-    
     .stButton>button {
         border-radius: 8px;
         font-weight: 600;
@@ -125,11 +127,27 @@ st.markdown("---")
 
 try:
     spreadsheet = get_spreadsheet()
-    sheet_names = [ws.title for ws in spreadsheet.worksheets()]
+    all_sheet_names = [ws.title for ws in spreadsheet.worksheets()]
+    
+    # ---------------------------------------------------------
+    # بەشی نوێ: دروستکردن و خوێندنەوەی کارمەندەکان لە گۆگڵ شیت
+    # ---------------------------------------------------------
+    if "Auditors" not in all_sheet_names:
+        auditors_ws = spreadsheet.add_worksheet(title="Auditors", rows="100", cols="1")
+        auditors_ws.update_cell(1, 1, "Auditor_Email")
+    else:
+        auditors_ws = spreadsheet.worksheet("Auditors")
+
+    auditor_emails = auditors_ws.col_values(1)
+    if len(auditor_emails) > 0 and auditor_emails[0] == "Auditor_Email":
+        auditor_emails = auditor_emails[1:] # لابردنی هێدەری سەرەوە
+        
+    # شاردنەوەی شیتی "Auditors" لە لیستی داتاکانی سەرەوە بۆ ئەوەی کارمەند نەتوانێت بیکاتەوە
+    data_sheet_names = [name for name in all_sheet_names if name != "Auditors"]
     
     col_sel, _ = st.columns([1, 2])
     with col_sel:
-        selected_sheet_name = st.selectbox(t("select_sheet"), sheet_names)
+        selected_sheet_name = st.selectbox(t("select_sheet"), data_sheet_names)
     
     sheet = spreadsheet.worksheet(selected_sheet_name)
     raw_data = sheet.get_all_values()
@@ -173,12 +191,14 @@ try:
         st.progress(progress, text=f"{t('progress')}: {int(progress * 100)}%")
         st.markdown("---")
         
+        # --- زیادکردنی تابی سێیەم بۆ بەڕێوەبردنی کارمەند ---
         if is_admin:
-            tab1, tab2 = st.tabs([t("tab_pending"), t("tab_completed")])
+            tab1, tab2, tab3 = st.tabs([t("tab_pending"), t("tab_completed"), t("user_mgmt")])
         else:
             tab1 = st.container()
             st.subheader(t("tab_pending"))
             tab2 = None
+            tab3 = None
 
         with tab1:
             search_query1 = st.text_input(t("search"), key="s1")
@@ -207,38 +227,45 @@ try:
                             if key not in [LOG_COL, STATUS_COL] and not key.startswith("Empty_Column"):
                                 new_data[key] = st.text_input(f"{key}", value=str(value))
                         
+                        st.markdown("---")
+                        
+                        # لێرەدا لیستی کارمەندەکان ڕاستەوخۆ لە گۆگڵ شیتەوە دەهێنین
+                        auditor_names = ["---"] + auditor_emails
+                        selected_auditor = st.selectbox(t("auditor_name"), auditor_names)
+                        
                         st.markdown("<br>", unsafe_allow_html=True)
                         submit_button = st.form_submit_button(t("submit_btn"), use_container_width=True)
                         
                         if submit_button:
-                            changes = [f"[{k}] changed from '{current_data[k]}' to '{new_data[k]}'" for k in new_data if str(current_data[k]) != str(new_data[k])]
-                            
-                            with st.spinner('Saving Data...'):
-                                for col_to_check in [LOG_COL, STATUS_COL]:
-                                    if col_to_check not in unique_headers:
-                                        new_idx = len(unique_headers) + 1
-                                        
-                                        # چارەسەری کێشەی نەبوونی جێگە لە گۆگڵ شیت!
-                                        if new_idx > sheet.col_count:
-                                            sheet.add_cols(2) # دوو ستوونی نوێ زیاد دەکەین
+                            if selected_auditor == "---":
+                                st.warning(t("select_auditor_warn"))
+                            else:
+                                changes = [f"[{k}] changed from '{current_data[k]}' to '{new_data[k]}'" for k in new_data if str(current_data[k]) != str(new_data[k])]
+                                
+                                with st.spinner('Saving Data...'):
+                                    for col_to_check in [LOG_COL, STATUS_COL]:
+                                        if col_to_check not in unique_headers:
+                                            new_idx = len(unique_headers) + 1
+                                            if new_idx > sheet.col_count:
+                                                sheet.add_cols(2)
+                                            sheet.update_cell(1, new_idx, col_to_check)
+                                            unique_headers.append(col_to_check)
+                                            col_index_map[col_to_check] = new_idx
+                                    
+                                    now_str = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+                                    action_str = f"🔹 پەسەندکرا لەلایەن ({selected_auditor})" if st.session_state.lang == 'ku' else f"🔹 Verified by ({selected_auditor})"
+                                    updated_log = f"{action_str} - {now_str}:\n" + "\n".join(changes) + f"\n\n{current_data.get(LOG_COL, '')}".strip()
+                                    
+                                    for key in new_data:
+                                        if str(current_data[key]) != str(new_data[key]):
+                                            sheet.update_cell(actual_row_in_sheet, col_index_map[key], new_data[key])
                                             
-                                        sheet.update_cell(1, new_idx, col_to_check)
-                                        unique_headers.append(col_to_check)
-                                        col_index_map[col_to_check] = new_idx
-                                
-                                now_str = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                                updated_log = f"🔹 Verified ({now_str}):\n" + "\n".join(changes) + f"\n\n{current_data.get(LOG_COL, '')}".strip()
-                                
-                                for key in new_data:
-                                    if str(current_data[key]) != str(new_data[key]):
-                                        sheet.update_cell(actual_row_in_sheet, col_index_map[key], new_data[key])
-                                        
-                                sheet.update_cell(actual_row_in_sheet, col_index_map[STATUS_COL], "تەواوکراوە")
-                                sheet.update_cell(actual_row_in_sheet, col_index_map[LOG_COL], updated_log)
-                                
-                                st.success(t("success_submit"))
-                                time.sleep(1)
-                                st.rerun()
+                                    sheet.update_cell(actual_row_in_sheet, col_index_map[STATUS_COL], "تەواوکراوە")
+                                    sheet.update_cell(actual_row_in_sheet, col_index_map[LOG_COL], updated_log)
+                                    
+                                    st.success(t("success_submit"))
+                                    time.sleep(1)
+                                    st.rerun()
 
         if is_admin and tab2 is not None:
             with tab2:
@@ -270,6 +297,32 @@ try:
                                 st.success(t("success_submit"))
                                 time.sleep(1)
                                 st.rerun()
+
+        # --- تابی تایبەت بە ئەدمین بۆ زیادکردنی کارمەند ---
+        if is_admin and tab3 is not None:
+            with tab3:
+                st.subheader(t("user_mgmt"))
+                col_add, col_list = st.columns(2)
+                
+                with col_add:
+                    new_user = st.text_input(t("add_user_input"))
+                    if st.button(t("add_user_btn")):
+                        if new_user:
+                            if new_user not in auditor_emails:
+                                with st.spinner('زیاد دەکرێت...'):
+                                    auditors_ws.append_row([new_user])
+                                    st.success(t("user_added"))
+                                    time.sleep(1)
+                                    st.rerun()
+                            else:
+                                st.warning(t("user_exists"))
+                                
+                with col_list:
+                    st.write(f"##### {t('auditor_list')}")
+                    if auditor_emails:
+                        st.dataframe(pd.DataFrame(auditor_emails, columns=["Emails / Names"]), use_container_width=True)
+                    else:
+                        st.info(t("no_auditors"))
 
 except Exception as e:
     st.error(f"Error connecting to server: {e}")
