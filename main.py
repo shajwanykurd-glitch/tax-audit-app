@@ -2,6 +2,13 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+import os
+
+# --- ئەم بەشە نوێیە بۆ خوێندنەوەی کلیلەکەیە لە سێرڤەرەوە ---
+if not os.path.exists('key.json'):
+    with open('key.json', 'w') as f:
+        f.write(st.secrets["json_key"])
+# -----------------------------------------------------------
 
 # ڕێکخستنی پەیوەندی بە گۆگڵ شیت
 def get_data():
