@@ -7,8 +7,11 @@ import json
 def get_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # لێرەدا وشەی strict=False مان زیاد کردووە بۆ ئەوەی کێشەی دێڕی شکاو چارەسەر بکات
     key_dict = json.loads(st.secrets["json_key"], strict=False)
+    
+    # --- ئەمە جادووەکەیە کە کێشەی JWT بۆ یەکجارەکی چارەسەر دەکات ---
+    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+    # ---------------------------------------------------------------
     
     creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
