@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT PORTAL  ·  v4.0
+#  OFFICIAL TAX AUDIT PORTAL  ·  v5.0
 #  Governmental Tax & Customs Data Audit Platform
 #  Stack: Streamlit · gspread · Pandas · Plotly · pytz
 #  Requirements: pip install streamlit gspread oauth2client pandas plotly pytz
@@ -25,7 +25,7 @@ st.set_page_config(
     page_title="Official Tax Audit Portal",
     page_icon="🏛️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,231 +46,211 @@ for _k, _v in _DEFAULTS.items():
         st.session_state[_k] = _v
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  2 · THEME PALETTES  (Deep Navy / Slate / Gold  ×  Light Ivory / Steel / Gold)
+#  2 · THEME PALETTES
 # ─────────────────────────────────────────────────────────────────────────────
 _PALETTES: dict = {
-    # ── Deep-Space Government Dark ──────────────────────────────────────────
     "dark": {
-        # backgrounds
-        "page_bg"      : "#080C14",
-        "surface"      : "#0D1523",
-        "surface2"     : "#111D30",
-        "card"         : "#0F1A2E",
-        "card2"        : "#142236",
-        # borders & dividers
-        "border"       : "#1C2E4A",
-        "border2"      : "#243A5E",
-        # typography
-        "text_primary" : "#EDF2FF",   # near-white — used for ALL table text
-        "text_secondary": "#8BA3C7",
-        "text_muted"   : "#4A6588",
-        # brand accent — gold
-        "gold"         : "#C9A84C",
-        "gold_light"   : "#E8C97A",
-        "gold_bg"      : "rgba(201,168,76,0.10)",
-        # semantic colors
-        "blue_accent"  : "#3B7DD8",
-        "blue_bg"      : "rgba(59,125,216,0.12)",
-        "green"        : "#28A878",
-        "green_bg"     : "rgba(40,168,120,0.12)",
-        "amber"        : "#E8A020",
-        "amber_bg"     : "rgba(232,160,32,0.12)",
-        "red"          : "#E05555",
-        "red_bg"       : "rgba(224,85,85,0.12)",
-        # inputs / buttons
-        "input_bg"     : "#070C18",
-        "input_border" : "#1C3055",
-        "btn_primary"  : "#C9A84C",
-        "btn_text"     : "#080C14",
-        # progress
-        "prog_track"   : "#1C2E4A",
-        "prog_fill_a"  : "#C9A84C",
-        "prog_fill_b"  : "#3B7DD8",
-        # plotly
-        "plotly_theme" : "plotly_dark",
-        "plot_bg"      : "#0D1523",
-        "plot_grid"    : "#1C2E4A",
+        "page_bg"       : "#060B14",
+        "surface"       : "#0C1526",
+        "surface2"      : "#10192E",
+        "card"          : "#0E1729",
+        "card2"         : "#121F36",
+        "border"        : "#1A2C48",
+        "border2"       : "#203858",
+        "text_primary"  : "#E8EDF8",
+        "text_secondary": "#7A9CC4",
+        "text_muted"    : "#3D5A80",
+        "gold"          : "#C8A84B",
+        "gold_light"    : "#E4C878",
+        "gold_bg"       : "rgba(200,168,75,0.10)",
+        "blue_accent"   : "#3470CC",
+        "blue_bg"       : "rgba(52,112,204,0.12)",
+        "green"         : "#25A374",
+        "green_bg"      : "rgba(37,163,116,0.12)",
+        "amber"         : "#E09820",
+        "amber_bg"      : "rgba(224,152,32,0.12)",
+        "red"           : "#D94F4F",
+        "red_bg"        : "rgba(217,79,79,0.12)",
+        "input_bg"      : "#060B14",
+        "input_border"  : "#1A2C48",
+        "btn_primary"   : "#C8A84B",
+        "btn_text"      : "#060B14",
+        "prog_track"    : "#1A2C48",
+        "prog_fill_a"   : "#C8A84B",
+        "prog_fill_b"   : "#3470CC",
+        "plotly_theme"  : "plotly_dark",
+        "plot_bg"       : "#0C1526",
+        "plot_grid"     : "#1A2C48",
+        # ── CRITICAL: explicit table colours ──
+        "tbl_bg"        : "#0E1729",
+        "tbl_header_bg" : "#10192E",
+        "tbl_text"      : "#E8EDF8",   # ← always visible on dark bg
+        "tbl_header_txt": "#7A9CC4",
+        "tbl_border"    : "#1A2C48",
+        "tbl_row_hover" : "#121F36",
     },
-    # ── Ivory Governmental Light ─────────────────────────────────────────────
     "light": {
-        "page_bg"      : "#F4F6FA",
-        "surface"      : "#FFFFFF",
-        "surface2"     : "#EEF2FA",
-        "card"         : "#FFFFFF",
-        "card2"        : "#F7F9FD",
-        "border"       : "#D4DCF0",
-        "border2"      : "#B8C8E8",
-        "text_primary" : "#0B1A30",   # near-black — used for ALL table text
-        "text_secondary": "#3A5070",
-        "text_muted"   : "#7A90B0",
-        "gold"         : "#A07828",
-        "gold_light"   : "#C09040",
-        "gold_bg"      : "rgba(160,120,40,0.08)",
-        "blue_accent"  : "#1A5FBE",
-        "blue_bg"      : "rgba(26,95,190,0.08)",
-        "green"        : "#1A7A58",
-        "green_bg"     : "rgba(26,122,88,0.08)",
-        "amber"        : "#B06010",
-        "amber_bg"     : "rgba(176,96,16,0.08)",
-        "red"          : "#B03030",
-        "red_bg"       : "rgba(176,48,48,0.08)",
-        "input_bg"     : "#FFFFFF",
-        "input_border" : "#C0CCE0",
-        "btn_primary"  : "#0F2D5E",
-        "btn_text"     : "#FFFFFF",
-        "prog_track"   : "#DDE5F5",
-        "prog_fill_a"  : "#A07828",
-        "prog_fill_b"  : "#1A5FBE",
-        "plotly_theme" : "plotly_white",
-        "plot_bg"      : "#FFFFFF",
-        "plot_grid"    : "#DDE5F5",
+        "page_bg"       : "#F2F5FB",
+        "surface"       : "#FFFFFF",
+        "surface2"      : "#EAF0FA",
+        "card"          : "#FFFFFF",
+        "card2"         : "#F5F8FE",
+        "border"        : "#C8D8F0",
+        "border2"       : "#AABDE0",
+        "text_primary"  : "#06172E",
+        "text_secondary": "#2E4F78",
+        "text_muted"    : "#6A86A8",
+        "gold"          : "#9A7020",
+        "gold_light"    : "#B88A30",
+        "gold_bg"       : "rgba(154,112,32,0.08)",
+        "blue_accent"   : "#1658B8",
+        "blue_bg"       : "rgba(22,88,184,0.08)",
+        "green"         : "#157A50",
+        "green_bg"      : "rgba(21,122,80,0.08)",
+        "amber"         : "#A85808",
+        "amber_bg"      : "rgba(168,88,8,0.08)",
+        "red"           : "#A82828",
+        "red_bg"        : "rgba(168,40,40,0.08)",
+        "input_bg"      : "#FFFFFF",
+        "input_border"  : "#B8CCE8",
+        "btn_primary"   : "#0D2A58",
+        "btn_text"      : "#FFFFFF",
+        "prog_track"    : "#D5E3F5",
+        "prog_fill_a"   : "#9A7020",
+        "prog_fill_b"   : "#1658B8",
+        "plotly_theme"  : "plotly_white",
+        "plot_bg"       : "#FFFFFF",
+        "plot_grid"     : "#D5E3F5",
+        "tbl_bg"        : "#FFFFFF",
+        "tbl_header_bg" : "#EAF0FA",
+        "tbl_text"      : "#06172E",   # ← always visible on light bg
+        "tbl_header_txt": "#2E4F78",
+        "tbl_border"    : "#C8D8F0",
+        "tbl_row_hover" : "#F0F6FF",
     },
 }
 
-P = _PALETTES[st.session_state.theme]   # active palette shorthand
+P = _PALETTES[st.session_state.theme]
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  3 · FULL CSS INJECTION
-#      All rules use CSS variables fed from the active palette.
-#      Text colours are set forcefully with !important to prevent Streamlit
-#      or Google-Sheets encoding quirks from making content invisible.
 # ─────────────────────────────────────────────────────────────────────────────
 def inject_css(P: dict) -> None:
     st.markdown(f"""
 <style>
-/* ══════════════════════════════════════════════════════════════════
-   FONTS
-══════════════════════════════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-/* ══════════════════════════════════════════════════════════════════
-   CSS VARIABLES
-══════════════════════════════════════════════════════════════════ */
+/* ── CSS Variables ── */
 :root {{
-  --page-bg       : {P['page_bg']};
-  --surface       : {P['surface']};
-  --surface2      : {P['surface2']};
-  --card          : {P['card']};
-  --card2         : {P['card2']};
-  --border        : {P['border']};
-  --border2       : {P['border2']};
-  --text-primary  : {P['text_primary']};
-  --text-secondary: {P['text_secondary']};
-  --text-muted    : {P['text_muted']};
-  --gold          : {P['gold']};
-  --gold-light    : {P['gold_light']};
-  --gold-bg       : {P['gold_bg']};
-  --blue          : {P['blue_accent']};
-  --blue-bg       : {P['blue_bg']};
-  --green         : {P['green']};
-  --green-bg      : {P['green_bg']};
-  --amber         : {P['amber']};
-  --amber-bg      : {P['amber_bg']};
-  --red           : {P['red']};
-  --red-bg        : {P['red_bg']};
-  --input-bg      : {P['input_bg']};
-  --input-border  : {P['input_border']};
-  --btn-primary   : {P['btn_primary']};
-  --btn-text      : {P['btn_text']};
-  --prog-track    : {P['prog_track']};
+  --page-bg        : {P['page_bg']};
+  --surface        : {P['surface']};
+  --surface2       : {P['surface2']};
+  --card           : {P['card']};
+  --card2          : {P['card2']};
+  --border         : {P['border']};
+  --border2        : {P['border2']};
+  --text-primary   : {P['text_primary']};
+  --text-secondary : {P['text_secondary']};
+  --text-muted     : {P['text_muted']};
+  --gold           : {P['gold']};
+  --gold-light     : {P['gold_light']};
+  --gold-bg        : {P['gold_bg']};
+  --blue           : {P['blue_accent']};
+  --blue-bg        : {P['blue_bg']};
+  --green          : {P['green']};
+  --green-bg       : {P['green_bg']};
+  --amber          : {P['amber']};
+  --amber-bg       : {P['amber_bg']};
+  --red            : {P['red']};
+  --red-bg         : {P['red_bg']};
+  --input-bg       : {P['input_bg']};
+  --input-border   : {P['input_border']};
+  --btn-primary    : {P['btn_primary']};
+  --btn-text       : {P['btn_text']};
+  --prog-track     : {P['prog_track']};
+  --tbl-bg         : {P['tbl_bg']};
+  --tbl-header-bg  : {P['tbl_header_bg']};
+  --tbl-text       : {P['tbl_text']};
+  --tbl-header-txt : {P['tbl_header_txt']};
+  --tbl-border     : {P['tbl_border']};
+  --tbl-row-hover  : {P['tbl_row_hover']};
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   GLOBAL RESET & BASE
-══════════════════════════════════════════════════════════════════ */
+/* ── Global ── */
 *, *::before, *::after {{ box-sizing: border-box !important; }}
-
 html, body, .stApp, [data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {{
-  font-family: 'Inter', sans-serif !important;
-  background-color: var(--page-bg) !important;
-  color: var(--text-primary) !important;
+  font-family      : 'IBM Plex Sans', sans-serif !important;
+  background-color : var(--page-bg) !important;
+  color            : var(--text-primary) !important;
 }}
-
-/* Force ALL paragraph/span/div text to be visible */
 p, span, div, li, td, th, label {{
   color: var(--text-primary) !important;
 }}
-
-/* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"] {{ display: none !important; }}
 
-/* ══════════════════════════════════════════════════════════════════
-   SIDEBAR
-══════════════════════════════════════════════════════════════════ */
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {{
-  background: var(--surface) !important;
-  border-right: 1px solid var(--border) !important;
-  padding-top: 0 !important;
+  background   : var(--surface) !important;
+  border-right : 1px solid var(--border) !important;
+  padding-top  : 0 !important;
 }}
-[data-testid="stSidebar"] > div {{
-  padding: 0 !important;
-}}
+[data-testid="stSidebar"] > div {{ padding: 0 !important; }}
 [data-testid="stSidebar"] * {{
-  color: var(--text-primary) !important;
-  font-family: 'Inter', sans-serif !important;
+  color       : var(--text-primary) !important;
+  font-family : 'IBM Plex Sans', sans-serif !important;
 }}
 [data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
-[data-testid="collapsedControl"]        {{ display: none !important; }}
 
-/* ══════════════════════════════════════════════════════════════════
-   METRIC CARDS  — lift on hover
-══════════════════════════════════════════════════════════════════ */
+/* ── Metrics ── */
 [data-testid="stMetricContainer"] {{
   background    : var(--card) !important;
   border        : 1px solid var(--border) !important;
-  border-radius : 14px !important;
-  padding       : 20px 24px !important;
-  box-shadow    : 0 2px 8px rgba(0,0,0,0.15) !important;
-  transition    : transform .22s cubic-bezier(.34,1.56,.64,1),
-                  box-shadow .22s ease !important;
+  border-radius : 12px !important;
+  padding       : 18px 22px !important;
+  box-shadow    : 0 2px 8px rgba(0,0,0,0.12) !important;
+  transition    : transform .2s ease, box-shadow .2s ease !important;
 }}
 [data-testid="stMetricContainer"]:hover {{
-  transform  : translateY(-5px) !important;
-  box-shadow : 0 12px 28px rgba(0,0,0,0.22),
+  transform  : translateY(-4px) !important;
+  box-shadow : 0 10px 24px rgba(0,0,0,0.20),
                0 0 0 1px var(--gold) !important;
 }}
 [data-testid="stMetricValue"] {{
-  font-family : 'JetBrains Mono', monospace !important;
-  font-size   : 2.25rem !important;
+  font-family : 'IBM Plex Mono', monospace !important;
+  font-size   : 2.1rem !important;
   font-weight : 600 !important;
   color       : var(--gold) !important;
 }}
 [data-testid="stMetricLabel"] {{
-  font-size      : 0.70rem !important;
+  font-size      : 0.68rem !important;
   font-weight    : 700 !important;
-  letter-spacing : 0.10em !important;
+  letter-spacing : 0.12em !important;
   text-transform : uppercase !important;
   color          : var(--text-muted) !important;
 }}
-[data-testid="stMetricDelta"] {{ font-size: 0.80rem !important; }}
 
-/* ══════════════════════════════════════════════════════════════════
-   FORMS
-══════════════════════════════════════════════════════════════════ */
+/* ── Forms ── */
 div[data-testid="stForm"] {{
   background    : var(--card) !important;
   border        : 1px solid var(--border) !important;
-  border-radius : 16px !important;
-  padding       : 28px 32px !important;
+  border-radius : 14px !important;
+  padding       : 24px 28px !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   INPUTS  — high-contrast, explicitly colored
-══════════════════════════════════════════════════════════════════ */
+/* ── Inputs ── */
 .stTextInput > div > div > input,
 .stTextArea  > div > div > textarea,
 .stSelectbox > div > div > div,
 .stMultiSelect > div > div > div {{
   background    : var(--input-bg)     !important;
-  color         : var(--text-primary) !important;  /* ← critical fix */
+  color         : var(--text-primary) !important;
   border        : 1px solid var(--input-border) !important;
-  border-radius : 8px !important;
-  font-family   : 'Inter', sans-serif !important;
+  border-radius : 7px !important;
+  font-family   : 'IBM Plex Sans', sans-serif !important;
   font-size     : 0.875rem !important;
   caret-color   : var(--gold) !important;
-  transition    : border-color .18s ease, box-shadow .18s ease !important;
 }}
 .stTextInput > div > div > input:focus,
 .stTextArea  > div > div > textarea:focus {{
@@ -278,284 +258,320 @@ div[data-testid="stForm"] {{
   box-shadow   : 0 0 0 3px var(--gold-bg) !important;
   outline      : none !important;
 }}
-/* Labels */
 .stTextInput label, .stTextArea label,
 .stSelectbox label, .stMultiSelect label {{
   color          : var(--text-muted)  !important;
-  font-size      : 0.70rem !important;
+  font-size      : 0.68rem !important;
   font-weight    : 700 !important;
-  letter-spacing : 0.09em !important;
+  letter-spacing : 0.10em !important;
   text-transform : uppercase !important;
 }}
-/* Placeholder text */
 .stTextInput > div > div > input::placeholder,
 .stTextArea  > div > div > textarea::placeholder {{
   color   : var(--text-muted) !important;
-  opacity : 0.7 !important;
+  opacity : 0.6 !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   BUTTONS
-══════════════════════════════════════════════════════════════════ */
+/* ── Buttons ── */
 .stButton > button {{
-  background    : var(--btn-primary) !important;
-  color         : var(--btn-text)    !important;
-  border        : none !important;
-  border-radius : 8px !important;
-  font-family   : 'Inter', sans-serif !important;
-  font-weight   : 700 !important;
-  font-size     : 0.85rem !important;
-  letter-spacing: 0.04em !important;
-  padding       : 10px 20px !important;
-  transition    : opacity .15s ease, transform .15s ease !important;
+  background     : var(--btn-primary) !important;
+  color          : var(--btn-text)    !important;
+  border         : none !important;
+  border-radius  : 7px !important;
+  font-family    : 'IBM Plex Sans', sans-serif !important;
+  font-weight    : 600 !important;
+  font-size      : 0.84rem !important;
+  letter-spacing : 0.03em !important;
+  padding        : 9px 18px !important;
+  transition     : opacity .15s ease, transform .15s ease !important;
 }}
 .stButton > button:hover  {{ opacity: .85 !important; transform: translateY(-1px) !important; }}
 .stButton > button:active {{ transform: translateY(0) !important; }}
 
-/* ══════════════════════════════════════════════════════════════════
-   TABS
-══════════════════════════════════════════════════════════════════ */
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {{
-  gap            : 2px !important;
-  background     : transparent !important;
-  border-bottom  : 2px solid var(--border) !important;
-  padding-bottom : 0 !important;
+  gap           : 2px !important;
+  background    : transparent !important;
+  border-bottom : 2px solid var(--border) !important;
 }}
 .stTabs [data-baseweb="tab"] {{
-  background     : transparent !important;
-  color          : var(--text-muted) !important;
-  border-radius  : 8px 8px 0 0 !important;
-  border         : 1px solid transparent !important;
-  border-bottom  : none !important;
-  padding        : 10px 22px !important;
-  font-weight    : 600 !important;
-  font-size      : 0.83rem !important;
-  letter-spacing : 0.04em !important;
-  transition     : color .15s !important;
+  background    : transparent !important;
+  color         : var(--text-muted) !important;
+  border-radius : 8px 8px 0 0 !important;
+  border        : 1px solid transparent !important;
+  border-bottom : none !important;
+  padding       : 10px 20px !important;
+  font-weight   : 600 !important;
+  font-size     : 0.82rem !important;
+  letter-spacing: 0.03em !important;
 }}
-.stTabs [data-baseweb="tab"]:hover {{
-  color: var(--text-primary) !important;
-}}
+.stTabs [data-baseweb="tab"]:hover {{ color: var(--text-primary) !important; }}
 .stTabs [aria-selected="true"] {{
-  background         : var(--card) !important;
-  color              : var(--gold) !important;
-  border-color       : var(--border) !important;
-  border-bottom-color: var(--card) !important;
-  margin-bottom      : -2px !important;
+  background          : var(--card) !important;
+  color               : var(--gold) !important;
+  border-color        : var(--border) !important;
+  border-bottom-color : var(--card) !important;
+  margin-bottom       : -2px !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   DATAFRAME / TABLE  — THE CRITICAL TEXT VISIBILITY FIX
-   We target every layer of the Streamlit data-grid render tree.
-══════════════════════════════════════════════════════════════════ */
-/* Outer wrapper */
-[data-testid="stDataFrame"],
-[data-testid="stDataFrameContainer"] {{
-  border        : 1px solid var(--border) !important;
-  border-radius : 12px !important;
-  overflow      : hidden !important;
+/* ════════════════════════════════════════════════════════════════
+   CRITICAL FIX — HTML TABLE TEXT VISIBILITY
+   We use st.markdown HTML tables instead of st.dataframe to
+   guarantee pixel-perfect text colour in both themes.
+════════════════════════════════════════════════════════════════ */
+.gov-table-wrap {{
+  overflow-x    : auto;
+  border        : 1px solid var(--tbl-border);
+  border-radius : 12px;
+  margin-bottom : 16px;
 }}
-/* Canvas / scroller background */
-.dvn-scroller,
-.dvn-scroller > div,
-[class*="glideDataEditor"],
-[class*="dvn-stack"] {{
-  background-color : var(--card) !important;
+.gov-table {{
+  width           : 100%;
+  border-collapse : collapse;
+  background-color: var(--tbl-bg);
+  font-family     : 'IBM Plex Sans', sans-serif;
+  font-size       : 0.82rem;
 }}
-/* All cell text — the root cause of invisible text */
-[class*="cell"],
-[class*="gdg-cell"],
-[class*="dvn-cell"],
-canvas,
-.dvn-scroller * {{
-  color       : var(--text-primary) !important;
-  font-family : 'Inter', sans-serif !important;
-  font-size   : 0.83rem !important;
+.gov-table thead tr {{
+  background-color : var(--tbl-header-bg);
+  border-bottom    : 2px solid var(--border2);
 }}
-/* Header row */
-[class*="header"],
-[class*="gdg-header"] {{
-  background-color : var(--surface2) !important;
-  color            : var(--text-muted) !important;
-  font-weight      : 700 !important;
-  font-size        : 0.72rem !important;
-  letter-spacing   : 0.08em !important;
-  text-transform   : uppercase !important;
-  border-bottom    : 1px solid var(--border2) !important;
+.gov-table th {{
+  color          : var(--tbl-header-txt) !important;
+  font-weight    : 700 !important;
+  font-size      : 0.68rem !important;
+  letter-spacing : 0.09em !important;
+  text-transform : uppercase !important;
+  padding        : 11px 14px !important;
+  white-space    : nowrap;
+  text-align     : left !important;
+  border-right   : 1px solid var(--tbl-border);
 }}
-
-/* ── Fallback: st.table (HTML table) ── */
-table {{
-  width            : 100% !important;
-  border-collapse  : collapse !important;
-  background-color : var(--card) !important;
-  color            : var(--text-primary) !important;
+.gov-table th:last-child {{ border-right: none; }}
+.gov-table td {{
+  color          : var(--tbl-text) !important;
+  padding        : 9px 14px !important;
+  font-size      : 0.82rem !important;
+  border-bottom  : 1px solid var(--tbl-border) !important;
+  border-right   : 1px solid var(--tbl-border) !important;
+  vertical-align : middle !important;
+  max-width      : 220px;
+  overflow       : hidden;
+  text-overflow  : ellipsis;
+  white-space    : nowrap;
 }}
-table th {{
-  background-color : var(--surface2) !important;
-  color            : var(--text-muted) !important;
-  font-size        : 0.72rem !important;
-  font-weight      : 700 !important;
-  letter-spacing   : 0.08em !important;
-  text-transform   : uppercase !important;
-  padding          : 10px 14px !important;
-  border-bottom    : 2px solid var(--border2) !important;
-  text-align       : left !important;
+.gov-table td:last-child {{ border-right: none; }}
+.gov-table tbody tr:hover td {{
+  background-color : var(--tbl-row-hover) !important;
 }}
-table td {{
-  color         : var(--text-primary) !important;
-  padding       : 9px 14px !important;
-  font-size     : 0.83rem !important;
-  border-bottom : 1px solid var(--border) !important;
-  vertical-align: middle !important;
-}}
-table tr:hover td {{
-  background-color: var(--surface2) !important;
+.gov-table tbody tr:last-child td {{ border-bottom: none !important; }}
+/* Row index column */
+.gov-table td.row-idx, .gov-table th.row-idx {{
+  color      : var(--text-muted) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size  : 0.72rem !important;
+  min-width  : 46px;
+  text-align : center !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   EXPANDER
-══════════════════════════════════════════════════════════════════ */
+/* Status chips inside tables */
+.s-chip {{
+  display        : inline-flex;
+  align-items    : center;
+  padding        : 2px 9px;
+  border-radius  : 99px;
+  font-size      : 0.65rem;
+  font-weight    : 700;
+  letter-spacing : 0.07em;
+  text-transform : uppercase;
+}}
+.s-done    {{ background: {P['green_bg']}; color: {P['green']}; }}
+.s-pending {{ background: {P['amber_bg']}; color: {P['amber']}; }}
+
+/* ── Filter panel ── */
+.filter-panel {{
+  background    : var(--card);
+  border        : 1px solid var(--border);
+  border-left   : 3px solid var(--gold);
+  border-radius : 10px;
+  padding       : 14px 16px;
+  margin-bottom : 16px;
+}}
+.filter-title {{
+  font-size      : 0.68rem;
+  font-weight    : 700;
+  letter-spacing : 0.12em;
+  text-transform : uppercase;
+  color          : var(--gold);
+  margin-bottom  : 10px;
+}}
+.filter-badge {{
+  display        : inline-flex;
+  align-items    : center;
+  gap            : 5px;
+  background     : var(--blue-bg);
+  color          : var(--blue) !important;
+  border         : 1px solid var(--blue);
+  border-radius  : 99px;
+  font-size      : 0.68rem;
+  font-weight    : 700;
+  padding        : 2px 9px;
+  margin-right   : 5px;
+  margin-top     : 4px;
+}}
+.result-count {{
+  font-family : 'IBM Plex Mono', monospace;
+  font-size   : 0.78rem;
+  color       : var(--text-muted);
+  padding     : 4px 0 10px;
+}}
+
+/* ── Expander ── */
 .streamlit-expanderHeader {{
   background    : var(--surface2) !important;
   color         : var(--text-primary) !important;
   border        : 1px solid var(--border) !important;
   border-radius : 8px !important;
   font-weight   : 600 !important;
-  font-size     : 0.85rem !important;
+  font-size     : 0.84rem !important;
 }}
 .streamlit-expanderContent {{
-  background  : var(--card) !important;
-  border      : 1px solid var(--border) !important;
-  border-top  : none !important;
-  border-radius: 0 0 8px 8px !important;
-  padding     : 16px !important;
+  background    : var(--card) !important;
+  border        : 1px solid var(--border) !important;
+  border-top    : none !important;
+  border-radius : 0 0 8px 8px !important;
+  padding       : 14px !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   ALERTS / INFO / SUCCESS / ERROR
-══════════════════════════════════════════════════════════════════ */
+/* ── Alerts ── */
 [data-testid="stAlert"] {{
-  border-radius : 10px !important;
+  border-radius : 9px !important;
   border        : 1px solid var(--border) !important;
 }}
 
-/* ══════════════════════════════════════════════════════════════════
-   CUSTOM COMPONENTS  (class-based, used via st.markdown)
-══════════════════════════════════════════════════════════════════ */
-
-/* ── Government Seal / Login Card ── */
-.gov-login-wrap {{
-  display         : flex;
-  flex-direction  : column;
-  align-items     : center;
-  justify-content : center;
-  min-height      : 82vh;
-}}
+/* ── Login card ── */
 .gov-login-card {{
-  width           : 100%;
-  max-width       : 460px;
-  background      : var(--card);
-  border          : 1px solid var(--border2);
-  border-top      : 4px solid var(--gold);
-  border-radius   : 18px;
-  padding         : 46px 44px 38px;
-  box-shadow      : 0 24px 64px rgba(0,0,0,0.28);
+  width         : 100%;
+  max-width     : 440px;
+  background    : var(--card);
+  border        : 1px solid var(--border2);
+  border-top    : 4px solid var(--gold);
+  border-radius : 16px;
+  padding       : 42px 40px 36px;
+  box-shadow    : 0 24px 60px rgba(0,0,0,0.26);
 }}
 .gov-seal {{
-  font-size        : 3.4rem;
-  text-align       : center;
-  margin-bottom    : 8px;
-  filter           : drop-shadow(0 2px 8px rgba(201,168,76,0.35));
+  font-size    : 3.2rem;
+  text-align   : center;
+  margin-bottom: 8px;
+  filter       : drop-shadow(0 2px 8px rgba(200,168,75,0.35));
 }}
 .gov-ministry {{
-  font-size        : 0.68rem;
-  font-weight      : 700;
-  letter-spacing   : 0.18em;
-  text-transform   : uppercase;
-  text-align       : center;
-  color            : var(--text-muted);
-  margin-bottom    : 4px;
+  font-size      : 0.65rem;
+  font-weight    : 700;
+  letter-spacing : 0.18em;
+  text-transform : uppercase;
+  text-align     : center;
+  color          : var(--text-muted);
+  margin-bottom  : 4px;
 }}
 .gov-portal-title {{
-  font-size        : 1.40rem;
-  font-weight      : 800;
-  text-align       : center;
-  color            : var(--text-primary);
-  letter-spacing   : -0.02em;
-  margin-bottom    : 4px;
+  font-size     : 1.35rem;
+  font-weight   : 700;
+  text-align    : center;
+  color         : var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom : 4px;
 }}
 .gov-portal-sub {{
-  font-size        : 0.80rem;
-  text-align       : center;
-  color            : var(--text-muted);
-  margin-bottom    : 28px;
+  font-size    : 0.78rem;
+  text-align   : center;
+  color        : var(--text-muted);
+  margin-bottom: 24px;
 }}
 .gold-divider {{
-  width      : 48px;
-  height     : 3px;
-  background : var(--gold);
+  width        : 44px;
+  height       : 3px;
+  background   : var(--gold);
   border-radius: 99px;
-  margin     : 10px auto 24px;
+  margin       : 8px auto 22px;
 }}
 
-/* ── Page / Section headers ── */
+/* ── Page / section headers ── */
 .page-title {{
-  font-size      : 1.55rem;
-  font-weight    : 800;
-  color          : var(--text-primary);
-  letter-spacing : -0.025em;
-  margin-bottom  : 2px;
+  font-size     : 1.5rem;
+  font-weight   : 700;
+  color         : var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom : 2px;
 }}
-.page-sub {{
-  font-size      : 0.82rem;
-  color          : var(--text-muted);
-  margin-bottom  : 24px;
-}}
+.page-sub {{ font-size: 0.80rem; color: var(--text-muted); margin-bottom: 20px; }}
 .section-title {{
+  display       : flex;
+  align-items   : center;
+  gap           : 9px;
+  font-size     : 0.86rem;
+  font-weight   : 700;
+  color         : var(--text-primary);
+  letter-spacing: 0.01em;
+  margin        : 20px 0 11px;
+  padding-left  : 11px;
+  border-left   : 3px solid var(--gold);
+}}
+.worklist-header {{
   display        : flex;
   align-items    : center;
-  gap            : 10px;
-  font-size      : 0.88rem;
-  font-weight    : 700;
-  color          : var(--text-primary);
-  letter-spacing : 0.01em;
-  margin         : 22px 0 12px;
-  padding-left   : 12px;
-  border-left    : 3px solid var(--gold);
+  justify-content: space-between;
+  background     : var(--surface2);
+  border         : 1px solid var(--border);
+  border-top     : 3px solid var(--blue);
+  border-radius  : 10px;
+  padding        : 12px 18px;
+  margin-bottom  : 14px;
+}}
+.worklist-title {{
+  font-size     : 0.94rem;
+  font-weight   : 700;
+  color         : var(--text-primary);
+  letter-spacing: -0.01em;
+}}
+.worklist-sub {{
+  font-size : 0.72rem;
+  color     : var(--text-muted);
+  margin-top: 2px;
 }}
 
-/* ── Progress bar ── */
+/* ── Progress ── */
 .gov-progress-wrap {{
   background    : var(--prog-track);
   border-radius : 99px;
-  height        : 7px;
+  height        : 6px;
   overflow      : hidden;
-  margin        : 6px 0 10px;
+  margin        : 5px 0 9px;
 }}
 .gov-progress-fill {{
-  height         : 100%;
-  border-radius  : 99px;
-  background     : linear-gradient(90deg, {P['prog_fill_a']}, {P['prog_fill_b']});
-  transition     : width .7s cubic-bezier(.4,0,.2,1);
+  height       : 100%;
+  border-radius: 99px;
+  background   : linear-gradient(90deg, {P['prog_fill_a']}, {P['prog_fill_b']});
+  transition   : width .7s cubic-bezier(.4,0,.2,1);
 }}
 .prog-labels {{
-  display         : flex;
-  justify-content : space-between;
-  font-size       : 0.72rem;
-  color           : var(--text-muted);
-  font-weight     : 600;
-  margin-bottom   : 3px;
+  display        : flex;
+  justify-content: space-between;
+  font-size      : 0.70rem;
+  color          : var(--text-muted);
+  font-weight    : 600;
+  margin-bottom  : 3px;
 }}
 
-/* ── Status chips ── */
+/* ── Status chips (general) ── */
 .chip {{
   display        : inline-flex;
   align-items    : center;
-  gap            : 5px;
+  gap            : 4px;
   padding        : 3px 10px;
   border-radius  : 99px;
-  font-size      : 0.70rem;
+  font-size      : 0.68rem;
   font-weight    : 700;
   letter-spacing : 0.07em;
   text-transform : uppercase;
@@ -569,8 +585,8 @@ table tr:hover td {{
 .sb-user-badge {{
   background    : var(--surface2);
   border        : 1px solid var(--border);
-  border-radius : 10px;
-  padding       : 12px 14px;
+  border-radius : 9px;
+  padding       : 11px 13px;
   margin        : 0 0 10px;
 }}
 .sb-label {{
@@ -581,149 +597,211 @@ table tr:hover td {{
   color          : var(--text-muted);
   margin-bottom  : 3px;
 }}
-.sb-email {{ font-size: 0.875rem; font-weight: 700; color: var(--text-primary); }}
+.sb-email {{ font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }}
 
-/* ── Leaderboard rows ── */
+/* ── Leaderboard ── */
 .lb-row {{
   display       : flex;
   align-items   : center;
-  gap           : 12px;
-  padding       : 11px 16px;
+  gap           : 11px;
+  padding       : 10px 14px;
   background    : var(--card2);
   border        : 1px solid var(--border);
-  border-radius : 10px;
-  margin-bottom : 7px;
-  transition    : transform .18s ease, border-color .18s ease;
+  border-radius : 9px;
+  margin-bottom : 6px;
+  transition    : transform .16s ease, border-color .16s ease;
 }}
-.lb-row:hover {{ transform: translateX(5px); border-color: var(--gold); }}
-.lb-medal {{ font-size: 1.15rem; width: 26px; text-align: center; }}
-.lb-name  {{ flex: 1; font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }}
+.lb-row:hover {{ transform: translateX(4px); border-color: var(--gold); }}
+.lb-medal {{ font-size: 1.1rem; width: 24px; text-align: center; }}
+.lb-name  {{ flex: 1; font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }}
 .lb-count {{
-  font-family : 'JetBrains Mono', monospace;
-  font-size   : 0.95rem;
+  font-family : 'IBM Plex Mono', monospace;
+  font-size   : 0.92rem;
   font-weight : 700;
   color       : var(--gold);
 }}
 
-/* ── Audit-trail log lines ── */
+/* ── Audit trail ── */
 .log-line {{
-  font-family  : 'JetBrains Mono', monospace;
-  font-size    : 0.76rem;
+  font-family  : 'IBM Plex Mono', monospace;
+  font-size    : 0.74rem;
   color        : var(--text-secondary);
   padding      : 3px 0;
   border-bottom: 1px solid var(--border);
 }}
 .log-line:last-child {{ border-bottom: none; }}
+
+/* ── Inspection form label ── */
+.inspect-row {{
+  background    : var(--card2);
+  border        : 1px solid var(--border);
+  border-radius : 8px;
+  padding       : 10px 14px;
+  margin-bottom : 8px;
+}}
+.inspect-col-name {{
+  font-size      : 0.66rem;
+  font-weight    : 700;
+  letter-spacing : 0.09em;
+  text-transform : uppercase;
+  color          : var(--text-muted);
+  margin-bottom  : 4px;
+}}
+
+/* ── Sidebar filter section ── */
+.sb-filter-section {{
+  background    : var(--surface2);
+  border        : 1px solid var(--border);
+  border-radius : 9px;
+  padding       : 12px 14px;
+  margin-bottom : 12px;
+}}
+.sb-filter-title {{
+  font-size      : 0.60rem;
+  font-weight    : 700;
+  letter-spacing : 0.14em;
+  text-transform : uppercase;
+  color          : var(--gold);
+  margin-bottom  : 10px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
 inject_css(P)
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  4 · TRANSLATIONS  (English & Kurdish Sorani)
+#  4 · TRANSLATIONS
 # ─────────────────────────────────────────────────────────────────────────────
 _LANG: dict[str, dict[str, str]] = {
     "en": {
-        "ministry"      : "Ministry of Finance & Customs",
-        "portal_title"  : "Official Tax Audit Portal",
-        "portal_sub"    : "Secure · Classified · Government Use Only",
-        "login_prompt"  : "Enter your authorised credentials to proceed",
-        "email"         : "Official Email / User ID",
-        "password"      : "Password",
-        "sign_in"       : "Authenticate",
-        "sign_out"      : "Sign Out",
-        "bad_creds"     : "Authentication failed. Verify your credentials.",
-        "theme"         : "Display Theme",
-        "language"      : "Interface Language",
-        "workspace"     : "Select Case Register",
-        "overview"      : "Case Overview",
-        "total"         : "Total Cases",
-        "processed"     : "Processed",
-        "outstanding"   : "Outstanding",
-        "search"        : "Search records (company, TIN, auditor…)",
-        "tab_queue"     : "📋  Task Queue",
-        "tab_archive"   : "✅  Processed Archive",
-        "tab_analytics" : "📊  Analytics",
-        "tab_users"     : "⚙️  User Admin",
-        "select_case"   : "Select a case to inspect",
-        "audit_trail"   : "Audit Trail",
-        "approve_save"  : "Approve & Commit Record",
-        "reopen"        : "Re-open Record (Admin)",
-        "leaderboard"   : "Auditor Productivity Leaderboard",
-        "daily_trend"   : "Daily Processing Trend",
-        "period"        : "Time Period",
-        "today"         : "Today",
-        "this_week"     : "This Week",
-        "this_month"    : "This Month",
-        "all_time"      : "All Time",
-        "add_auditor"   : "Register New Auditor",
-        "update_pw"     : "Update Password",
-        "remove_user"   : "Revoke Access",
-        "staff_dir"     : "Authorised Staff",
-        "no_records"    : "No records found for this period.",
-        "empty_sheet"   : "This register contains no data.",
-        "saved_ok"      : "Record approved and committed to the register.",
-        "dup_email"     : "This email is already registered.",
-        "fill_fields"   : "All fields are required.",
-        "signed_as"     : "Authenticated as",
-        "role_admin"    : "System Administrator",
-        "role_auditor"  : "Tax Auditor",
-        "processing"    : "Inspecting Case",
-        "no_history"    : "No audit trail for this record.",
-        "records_period": "Records (period)",
-        "active_days"   : "Active Days",
-        "avg_per_day"   : "Avg / Day",
+        "ministry"        : "Ministry of Finance & Customs",
+        "portal_title"    : "Official Tax Audit Portal",
+        "portal_sub"      : "Secure · Classified · Government Use Only",
+        "login_prompt"    : "Enter your authorised credentials to proceed",
+        "email"           : "Official Email / User ID",
+        "password"        : "Password",
+        "sign_in"         : "Authenticate",
+        "sign_out"        : "Sign Out",
+        "bad_creds"       : "Authentication failed. Verify your credentials.",
+        "theme"           : "Display Theme",
+        "language"        : "Interface Language",
+        "workspace"       : "Select Case Register",
+        "overview"        : "Case Overview",
+        "total"           : "Total Cases",
+        "processed"       : "Processed",
+        "outstanding"     : "Outstanding",
+        "worklist_title"  : "Audit Worklist",
+        "worklist_sub"    : "Active cases pending review and approval",
+        "tab_queue"       : "📋  Audit Worklist",
+        "tab_archive"     : "✅  Processed Archive",
+        "tab_analytics"   : "📊  Analytics",
+        "tab_users"       : "⚙️  User Admin",
+        "select_case"     : "Select a case to inspect",
+        "audit_trail"     : "Audit Trail",
+        "approve_save"    : "Approve & Commit Record",
+        "reopen"          : "Re-open Record (Admin)",
+        "leaderboard"     : "Auditor Productivity Leaderboard",
+        "daily_trend"     : "Daily Processing Trend",
+        "period"          : "Time Period",
+        "today"           : "Today",
+        "this_week"       : "This Week",
+        "this_month"      : "This Month",
+        "all_time"        : "All Time",
+        "add_auditor"     : "Register New Auditor",
+        "update_pw"       : "Update Password",
+        "remove_user"     : "Revoke Access",
+        "staff_dir"       : "Authorised Staff",
+        "no_records"      : "No records found for this period.",
+        "empty_sheet"     : "This register contains no data.",
+        "saved_ok"        : "Record approved and committed to the register.",
+        "dup_email"       : "This email is already registered.",
+        "fill_fields"     : "All fields are required.",
+        "signed_as"       : "Authenticated as",
+        "role_admin"      : "System Administrator",
+        "role_auditor"    : "Tax Auditor",
+        "processing"      : "Inspecting Case",
+        "no_history"      : "No audit trail for this record.",
+        "records_period"  : "Records (period)",
+        "active_days"     : "Active Days",
+        "avg_per_day"     : "Avg / Day",
+        "filters"         : "Advanced Filters",
+        "filter_email"    : "Auditor Email",
+        "filter_binder"   : "Company Binder No.",
+        "filter_company"  : "Company Name",
+        "filter_license"  : "License Number",
+        "filter_status"   : "Status",
+        "clear_filters"   : "Clear All Filters",
+        "active_filters"  : "Active filters",
+        "results_shown"   : "results shown",
+        "no_filter_match" : "No records match the applied filters.",
+        "status_all"      : "All Statuses",
+        "status_pending"  : "Pending Only",
+        "status_done"     : "Processed Only",
     },
     "ku": {
-        "ministry"      : "وەزارەتی دارایی و گومرگ",
-        "portal_title"  : "پۆرتەلی وردبینی باجی فەرمی",
-        "portal_sub"    : "پارێزراو · نهێنی · تەنها بەکارهێنانی حکومی",
-        "login_prompt"  : "زانیارییە مەرجەکانت بنووسە بۆ چوونەژوورەوە",
-        "email"         : "ئیمەیڵی فەرمی / ناساندن",
-        "password"      : "پاسۆرد",
-        "sign_in"       : "دەستپێبکە",
-        "sign_out"      : "چوونەدەرەوە",
-        "bad_creds"     : "ناسناوەکان هەڵەن. تکایە دووبارە هەوڵبدە.",
-        "theme"         : "تیمی پیشاندان",
-        "language"      : "زمانی ڕووکار",
-        "workspace"     : "تۆماری کیسەکان هەڵبژێرە",
-        "overview"      : "کورتەی کیسەکان",
-        "total"         : "کۆی کیسەکان",
-        "processed"     : "کارکراوە",
-        "outstanding"   : "ماوە",
-        "search"        : "گەڕان (کۆمپانیا، TIN، ئۆدیتۆر…)",
-        "tab_queue"     : "📋  ڕیزی کارەکان",
-        "tab_archive"   : "✅  ئەرشیفی کارکراو",
-        "tab_analytics" : "📊  ئەنالیتیکس",
-        "tab_users"     : "⚙️  بەڕێوەبردنی بەکارهێنەر",
-        "select_case"   : "کیسێک هەڵبژێرە بۆ پشکنین",
-        "audit_trail"   : "مێژووی گۆڕانکاری",
-        "approve_save"  : "پەسەندکردن و پاشەکەوتکردن",
-        "reopen"        : "کردنەوەی دووبارەی کیس (ئەدمین)",
-        "leaderboard"   : "تەختەی بەرهەمهێنانی ئۆدیتۆر",
-        "daily_trend"   : "ترەندی بەرپرسانەی ڕۆژانە",
-        "period"        : "ماوەی کات",
-        "today"         : "ئەمڕۆ",
-        "this_week"     : "ئەم هەفتەیە",
-        "this_month"    : "ئەم مانگەیە",
-        "all_time"      : "هەموو کات",
-        "add_auditor"   : "تۆمارکردنی ئۆدیتۆری نوێ",
-        "update_pw"     : "نوێکردنەوەی پاسۆرد",
-        "remove_user"   : "هەڵوەشاندنەوەی دەستپێگەیشتن",
-        "staff_dir"     : "کارمەندە مەرجداركراوەکان",
-        "no_records"    : "هیچ تۆماری نییە بۆ ئەم ماوەیە.",
-        "empty_sheet"   : "ئەم تۆمارخانە داتای تێدا نییە.",
-        "saved_ok"      : "کیسەکە پەسەندکرا و پاشەکەوتکرا.",
-        "dup_email"     : "ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
-        "fill_fields"   : "هەموو خانەکان پەیوەندییانە.",
-        "signed_as"     : "چووییتە ژوورەوە بەناوی",
-        "role_admin"    : "بەڕێوەبەری سیستەم",
-        "role_auditor"  : "ئۆدیتۆری باج",
-        "processing"    : "پشکنینی کیسی",
-        "no_history"    : "هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
-        "records_period": "تۆمارەکان (ماوە)",
-        "active_days"   : "ڕۆژی چالاک",
-        "avg_per_day"   : "تێکڕای ڕۆژانە",
+        "ministry"        : "وەزارەتی دارایی و گومرگ",
+        "portal_title"    : "پۆرتەلی وردبینی باجی فەرمی",
+        "portal_sub"      : "پارێزراو · نهێنی · تەنها بەکارهێنانی حکومی",
+        "login_prompt"    : "زانیارییە مەرجەکانت بنووسە بۆ چوونەژوورەوە",
+        "email"           : "ئیمەیڵی فەرمی / ناساندن",
+        "password"        : "پاسۆرد",
+        "sign_in"         : "دەستپێبکە",
+        "sign_out"        : "چوونەدەرەوە",
+        "bad_creds"       : "ناسناوەکان هەڵەن. تکایە دووبارە هەوڵبدە.",
+        "theme"           : "تیمی پیشاندان",
+        "language"        : "زمانی ڕووکار",
+        "workspace"       : "تۆماری کیسەکان هەڵبژێرە",
+        "overview"        : "کورتەی کیسەکان",
+        "total"           : "کۆی کیسەکان",
+        "processed"       : "کارکراوە",
+        "outstanding"     : "ماوە",
+        "worklist_title"  : "لیستی کاری وردبینی",
+        "worklist_sub"    : "کیسە چالاکەکان کە چاوەڕوانی پشکنین و پەسەندکردنن",
+        "tab_queue"       : "📋  لیستی کاری وردبینی",
+        "tab_archive"     : "✅  ئەرشیفی کارکراو",
+        "tab_analytics"   : "📊  ئەنالیتیکس",
+        "tab_users"       : "⚙️  بەڕێوەبردنی بەکارهێنەر",
+        "select_case"     : "کیسێک هەڵبژێرە بۆ پشکنین",
+        "audit_trail"     : "مێژووی گۆڕانکاری",
+        "approve_save"    : "پەسەندکردن و پاشەکەوتکردن",
+        "reopen"          : "کردنەوەی دووبارەی کیس (ئەدمین)",
+        "leaderboard"     : "تەختەی بەرهەمهێنانی ئۆدیتۆر",
+        "daily_trend"     : "ترەندی بەرپرسانەی ڕۆژانە",
+        "period"          : "ماوەی کات",
+        "today"           : "ئەمڕۆ",
+        "this_week"       : "ئەم هەفتەیە",
+        "this_month"      : "ئەم مانگەیە",
+        "all_time"        : "هەموو کات",
+        "add_auditor"     : "تۆمارکردنی ئۆدیتۆری نوێ",
+        "update_pw"       : "نوێکردنەوەی پاسۆرد",
+        "remove_user"     : "هەڵوەشاندنەوەی دەستپێگەیشتن",
+        "staff_dir"       : "کارمەندە مەرجداركراوەکان",
+        "no_records"      : "هیچ تۆماری نییە بۆ ئەم ماوەیە.",
+        "empty_sheet"     : "ئەم تۆمارخانە داتای تێدا نییە.",
+        "saved_ok"        : "کیسەکە پەسەندکرا و پاشەکەوتکرا.",
+        "dup_email"       : "ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
+        "fill_fields"     : "هەموو خانەکان پەیوەندییانە.",
+        "signed_as"       : "چووییتە ژوورەوە بەناوی",
+        "role_admin"      : "بەڕێوەبەری سیستەم",
+        "role_auditor"    : "ئۆدیتۆری باج",
+        "processing"      : "پشکنینی کیسی",
+        "no_history"      : "هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
+        "records_period"  : "تۆمارەکان (ماوە)",
+        "active_days"     : "ڕۆژی چالاک",
+        "avg_per_day"     : "تێکڕای ڕۆژانە",
+        "filters"         : "فلتەرە پێشکەوتووەکان",
+        "filter_email"    : "ئیمەیڵی ئۆدیتۆر",
+        "filter_binder"   : "ژمارەی بایندەری کۆمپانیا",
+        "filter_company"  : "ناوی کۆمپانیا",
+        "filter_license"  : "ژمارەی مۆڵەتی کۆمپانیا",
+        "filter_status"   : "دەربار",
+        "clear_filters"   : "سڕینەوەی هەموو فلتەرەکان",
+        "active_filters"  : "فلتەرە چالاکەکان",
+        "results_shown"   : "ئەنجامی پیشاندراو",
+        "no_filter_match" : "هیچ تۆماریک لەگەڵ فلتەرەکان دەگونجێ.",
+        "status_all"      : "هەموو دەرباریەکان",
+        "status_pending"  : "چاوەڕوان تەنها",
+        "status_done"     : "کارکراو تەنها",
     },
 }
 
@@ -742,7 +820,37 @@ VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  6 · HELPERS
+#  6 · COLUMN DETECTION  (fuzzy-match known Arabic/Kurdish labels)
+# ─────────────────────────────────────────────────────────────────────────────
+# These keyword lists map to the four filterable columns.
+# The detector searches column headers for any of these substrings (case-insensitive).
+_COL_KEYWORDS = {
+    "binder" : [
+        "binder", "ملف", "بايندر", "بایندەر", "file no", "file_no",
+        "رقم ملف", "رقم_ملف", "ژمارەی بایندەری",
+    ],
+    "company": [
+        "company", "اسم الشركة", "اسم_الشركة", "شركة", "كومبانيا",
+        "کۆمپانیا", "company name", "company_name",
+    ],
+    "license": [
+        "license", "ترخيص", "ترخیص", "رقم الترخيص", "رقم_الترخيص",
+        "مۆڵەت", "مۆڵەتی", "license no", "license_no",
+    ],
+}
+
+def detect_column(headers: list[str], kind: str) -> str | None:
+    """Return first header that contains any keyword for 'kind', or None."""
+    keywords = _COL_KEYWORDS.get(kind, [])
+    for h in headers:
+        hl = h.lower()
+        for kw in keywords:
+            if kw.lower() in hl:
+                return h
+    return None
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  7 · HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode("utf-8")).hexdigest()
@@ -757,18 +865,11 @@ def parse_dt(s: str) -> datetime | None:
         return None
 
 def clean_cell(value) -> str:
-    """
-    Sanitise a single cell value from Google Sheets.
-    Handles None, NaN, special characters, and encoding issues
-    that can make text invisible or break DataFrames.
-    """
     if value is None:
         return ""
     s = str(value)
-    # Replace zero-width and control characters that cause invisible text
-    s = s.replace("\u200b", "").replace("\u200c", "").replace("\u200d", "")
-    s = s.replace("\ufeff", "").replace("\xa0", " ")
-    # Strip surrounding whitespace
+    s = s.replace("\u200b","").replace("\u200c","").replace("\u200d","")
+    s = s.replace("\ufeff","").replace("\xa0"," ")
     return s.strip()
 
 def apply_period_filter(df: pd.DataFrame, col: str, period: str) -> pd.DataFrame:
@@ -788,7 +889,124 @@ def apply_period_filter(df: pd.DataFrame, col: str, period: str) -> pd.DataFrame
     return df[dates >= cutoff]
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  7 · GOOGLE SHEETS CONNECTION  (cached for performance)
+#  8 · HTML TABLE RENDERER  (guaranteed text visibility — no canvas)
+# ─────────────────────────────────────────────────────────────────────────────
+def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
+    """
+    Renders a DataFrame as a styled HTML table with guaranteed text
+    visibility in both dark and light themes.
+
+    Uses CSS variables defined in inject_css() so the table always
+    respects the active palette — no canvas, no invisible text.
+    """
+    if df.empty:
+        st.info("No records to display.")
+        return
+
+    display_df = df.head(max_rows).copy()
+
+    # ── Build header row ─────────────────────────────────────────────────────
+    th_cells = "<th class='row-idx'>#</th>"
+    for col in display_df.columns:
+        # Skip raw audit log in table — too long
+        if col == COL_LOG:
+            continue
+        th_cells += f"<th>{col}</th>"
+
+    # ── Build data rows ──────────────────────────────────────────────────────
+    rows_html = ""
+    for i, (idx, row) in enumerate(display_df.iterrows()):
+        # Alternate row shading via zebra inline style
+        row_html = f"<td class='row-idx'>{idx}</td>"
+        for col in display_df.columns:
+            if col == COL_LOG:
+                continue
+            cell_val = str(row[col]) if row[col] != "" else "—"
+            # Status chips
+            if col == COL_STATUS:
+                if cell_val == VAL_DONE:
+                    cell_val = f"<span class='s-chip s-done'>✓ {VAL_DONE}</span>"
+                elif cell_val in (VAL_PENDING, ""):
+                    cell_val = f"<span class='s-chip s-pending'>⏳ Pending</span>"
+            # Truncate long text
+            display_val = cell_val if len(str(cell_val)) <= 60 else cell_val[:57] + "…"
+            row_html += f"<td title='{str(row[col])}'>{display_val}</td>"
+        rows_html += f"<tr>{row_html}</tr>"
+
+    html = f"""
+    <div class="gov-table-wrap">
+      <table class="gov-table">
+        <thead><tr>{th_cells}</tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  9 · FILTER LOGIC
+# ─────────────────────────────────────────────────────────────────────────────
+def apply_filters(
+    df: pd.DataFrame,
+    f_email: str,
+    f_binder: str,
+    f_company: str,
+    f_license: str,
+    f_status: str,
+    col_binder: str | None,
+    col_company: str | None,
+    col_license: str | None,
+) -> pd.DataFrame:
+    """
+    Apply all active filters to df.  All string filters are
+    case-insensitive partial matches.  Returns filtered DataFrame
+    (never raises — returns empty df on zero matches).
+    """
+    result = df.copy()
+
+    # Status filter
+    if f_status == "pending":
+        result = result[result[COL_STATUS] != VAL_DONE]
+    elif f_status == "done":
+        result = result[result[COL_STATUS] == VAL_DONE]
+
+    # Auditor email
+    if f_email.strip() and COL_AUDITOR in result.columns:
+        result = result[
+            result[COL_AUDITOR].str.contains(f_email.strip(), case=False, na=False)
+        ]
+
+    # Binder number
+    if f_binder.strip() and col_binder and col_binder in result.columns:
+        result = result[
+            result[col_binder].str.contains(f_binder.strip(), case=False, na=False)
+        ]
+
+    # Company name
+    if f_company.strip() and col_company and col_company in result.columns:
+        result = result[
+            result[col_company].str.contains(f_company.strip(), case=False, na=False)
+        ]
+
+    # License number
+    if f_license.strip() and col_license and col_license in result.columns:
+        result = result[
+            result[col_license].str.contains(f_license.strip(), case=False, na=False)
+        ]
+
+    return result
+
+def active_filter_count(f_email, f_binder, f_company, f_license, f_status) -> int:
+    count = 0
+    if f_email.strip():   count += 1
+    if f_binder.strip():  count += 1
+    if f_company.strip(): count += 1
+    if f_license.strip(): count += 1
+    if f_status != "all": count += 1
+    return count
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  10 · GOOGLE SHEETS CONNECTION
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -811,34 +1029,13 @@ def get_spreadsheet():
     return client.open("site CIT QA - Tranche 4")
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  8 · ROBUST DATA LOADER  (fixes invisible-text bug at the source)
+#  11 · DATA LOADER
 # ─────────────────────────────────────────────────────────────────────────────
-def load_worksheet(
-    ws,
-) -> tuple[pd.DataFrame, list[str], dict[str, int]]:
-    """
-    Fetch and sanitise a worksheet.
-
-    Returns
-    -------
-    df        : fully cleaned DataFrame; every cell is a plain Python str
-    headers   : ordered column names matching the Google Sheet
-    col_map   : {col_name: 1-based Google Sheets column index}
-
-    Fixes applied
-    -------------
-    • Header deduplication  →  no silent column-overlap
-    • Row length normalisation  →  prevents shape-mismatch ValueError
-    • clean_cell() on every value  →  removes zero-width / control chars
-      that make text invisible while it technically exists in the DOM
-    • Fully-empty rows dropped  →  clean display
-    • System columns injected in-memory if missing
-    """
+def load_worksheet(ws) -> tuple[pd.DataFrame, list[str], dict[str, int]]:
     raw = ws.get_all_values()
     if not raw:
         return pd.DataFrame(), [], {}
 
-    # ── Deduplicate headers ──────────────────────────────────────────────────
     seen: dict[str, int] = {}
     headers: list[str] = []
     for h in raw[0]:
@@ -854,12 +1051,9 @@ def load_worksheet(
         return pd.DataFrame(), [], {}
 
     n_cols = len(headers)
-
-    # ── Normalise every data row ─────────────────────────────────────────────
     normalised: list[list[str]] = []
     for raw_row in raw[1:]:
         row = [clean_cell(c) for c in raw_row]
-        # Pad short rows / truncate long rows  →  always n_cols wide
         if len(row) < n_cols:
             row += [""] * (n_cols - len(row))
         else:
@@ -870,36 +1064,22 @@ def load_worksheet(
         return pd.DataFrame(columns=headers), headers, {}
 
     df = pd.DataFrame(normalised, columns=headers)
-
-    # ── Drop rows that are entirely empty ────────────────────────────────────
     df = df[~(df == "").all(axis=1)].reset_index(drop=True)
 
-    # ── Inject system columns (in-memory placeholder) ────────────────────────
     for sc in SYSTEM_COLS:
         if sc not in df.columns:
             df[sc] = ""
 
-    # Fill any remaining NaN / None with empty string
     df = df.fillna("").infer_objects(copy=False)
-
     col_map = {h: i + 1 for i, h in enumerate(headers)}
     return df, headers, col_map
 
 
-def ensure_system_cols(
-    ws,
-    headers: list[str],
-    col_map: dict[str, int],
-) -> tuple[list[str], dict[str, int]]:
-    """
-    Guarantee every SYSTEM_COL exists in the actual Google Sheet.
-    Automatically expands the grid before writing to avoid GridLimit errors.
-    """
+def ensure_system_cols(ws, headers, col_map):
     for sc in SYSTEM_COLS:
         if sc not in col_map:
             new_pos = len(headers) + 1
             if new_pos > ws.col_count:
-                # Add a safe buffer of 4 columns
                 ws.add_cols(max(4, new_pos - ws.col_count + 1))
             ws.update_cell(1, new_pos, sc)
             headers.append(sc)
@@ -907,10 +1087,9 @@ def ensure_system_cols(
     return headers, col_map
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  9 · AUTHENTICATION
+#  12 · AUTHENTICATION
 # ─────────────────────────────────────────────────────────────────────────────
 def authenticate(email: str, password: str, users_ws) -> str | None:
-    """Return 'admin', 'auditor', or None."""
     email = email.lower().strip()
     if email == "admin" and password == st.secrets.get("admin_password", ""):
         return "admin"
@@ -927,10 +1106,9 @@ def authenticate(email: str, password: str, users_ws) -> str | None:
     return None
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  10 · LOGIN PAGE  (full-screen, no sidebar)
+#  13 · LOGIN PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 def render_login(users_ws) -> None:
-    # Completely hide sidebar & collapse button during login
     st.markdown("""
     <style>
       [data-testid="stSidebar"],
@@ -939,7 +1117,6 @@ def render_login(users_ws) -> None:
     </style>
     """, unsafe_allow_html=True)
 
-    # Top-right micro-controls (language & theme only)
     gap, c1, c2, c3, c4 = st.columns([5, .55, .55, .55, .55])
     with c1:
         if st.button("EN", key="lg_en"): st.session_state.lang="en";  st.rerun()
@@ -950,7 +1127,6 @@ def render_login(users_ws) -> None:
     with c4:
         if st.button("🌙", key="lg_drk"):st.session_state.theme="dark"; st.rerun()
 
-    # Centre the login card
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
         st.markdown(f"""
@@ -963,25 +1139,20 @@ def render_login(users_ws) -> None:
         </div>
         """, unsafe_allow_html=True)
 
-        # The form is rendered outside the HTML block so Streamlit can handle it
         with st.form("login_form", clear_on_submit=False):
             st.markdown(
-                f"<p style='font-size:.80rem;color:var(--text-muted);text-align:center;"
-                f"margin-bottom:18px;'>{t('login_prompt')}</p>",
+                f"<p style='font-size:.78rem;color:var(--text-muted);text-align:center;"
+                f"margin-bottom:16px;'>{t('login_prompt')}</p>",
                 unsafe_allow_html=True,
             )
             email_in = st.text_input(
-                t("email"),
-                placeholder="admin  ·  or  ·  auditor@mof.gov",
+                t("email"), placeholder="admin  ·  or  ·  auditor@mof.gov"
             )
             pass_in = st.text_input(
-                t("password"),
-                type="password",
-                placeholder="••••••••",
+                t("password"), type="password", placeholder="••••••••"
             )
             submitted = st.form_submit_button(
-                f"🔐  {t('sign_in')}",
-                use_container_width=True,
+                f"🔐  {t('sign_in')}", use_container_width=True
             )
 
         if submitted:
@@ -995,18 +1166,27 @@ def render_login(users_ws) -> None:
                 st.error(t("bad_creds"))
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  11 · SIDEBAR (post-login only)
+#  14 · SIDEBAR (post-login)
 # ─────────────────────────────────────────────────────────────────────────────
-def render_sidebar() -> None:
+def render_sidebar(
+    df: pd.DataFrame,
+    headers: list[str],
+    col_binder: str | None,
+    col_company: str | None,
+    col_license: str | None,
+) -> tuple[str, str, str, str, str]:
+    """
+    Renders the sidebar and returns (f_email, f_binder, f_company, f_license, f_status).
+    """
     with st.sidebar:
-        # Brand strip with gold top-border
+        # Brand strip
         st.markdown(f"""
-        <div style="border-top:3px solid var(--gold);padding:20px 18px 16px;">
-          <div style="font-size:1.1rem;font-weight:800;letter-spacing:-.01em;
+        <div style="border-top:3px solid var(--gold);padding:18px 16px 14px;">
+          <div style="font-size:1.05rem;font-weight:700;letter-spacing:-.01em;
                       color:var(--text-primary);margin-bottom:2px;">
             🏛️&nbsp; {t('portal_title')}
           </div>
-          <div style="font-size:0.68rem;color:var(--text-muted);
+          <div style="font-size:0.64rem;color:var(--text-muted);
                       letter-spacing:.12em;text-transform:uppercase;">
             {t('ministry')}
           </div>
@@ -1014,7 +1194,7 @@ def render_sidebar() -> None:
         <hr style="margin:0;border-color:var(--border);"/>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
         # Language
         st.markdown(f"<div class='sb-label'>{t('language')}</div>", unsafe_allow_html=True)
@@ -1024,7 +1204,7 @@ def render_sidebar() -> None:
         if lc2.button("🟡  KU", use_container_width=True, key="sb_ku"):
             st.session_state.lang = "ku"; st.rerun()
 
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         # Theme
         st.markdown(f"<div class='sb-label'>{t('theme')}</div>", unsafe_allow_html=True)
@@ -1034,7 +1214,70 @@ def render_sidebar() -> None:
         if tc2.button("🌙  Dark",  use_container_width=True, key="sb_drk"):
             st.session_state.theme = "dark";  st.rerun()
 
-        st.markdown("<hr style='border-color:var(--border);margin:16px 0;'/>",
+        st.markdown("<hr style='border-color:var(--border);margin:14px 0;'/>",
+                    unsafe_allow_html=True)
+
+        # ── ADVANCED FILTER PANEL ────────────────────────────────────────────
+        st.markdown(f"""
+        <div class="sb-filter-title">🔍 {t('filters')}</div>
+        """, unsafe_allow_html=True)
+
+        # Status filter
+        status_opts = {
+            "all"    : t("status_all"),
+            "pending": t("status_pending"),
+            "done"   : t("status_done"),
+        }
+        f_status = st.selectbox(
+            t("filter_status"),
+            options=list(status_opts.keys()),
+            format_func=lambda k: status_opts[k],
+            key="f_status",
+        )
+
+        # Auditor email
+        f_email = st.text_input(
+            t("filter_email"),
+            placeholder="e.g. auditor@",
+            key="f_email",
+        )
+
+        # Binder number
+        binder_label = f"{t('filter_binder')}" + (f"  [{col_binder}]" if col_binder else " (not detected)")
+        f_binder = st.text_input(
+            binder_label,
+            placeholder="e.g. 12345",
+            key="f_binder",
+            disabled=(col_binder is None),
+        )
+
+        # Company name
+        company_label = f"{t('filter_company')}" + (f"  [{col_company}]" if col_company else " (not detected)")
+        f_company = st.text_input(
+            company_label,
+            placeholder="e.g. Al-Rasheed",
+            key="f_company",
+            disabled=(col_company is None),
+        )
+
+        # License number
+        license_label = f"{t('filter_license')}" + (f"  [{col_license}]" if col_license else " (not detected)")
+        f_license = st.text_input(
+            license_label,
+            placeholder="e.g. LIC-2024",
+            key="f_license",
+            disabled=(col_license is None),
+        )
+
+        # Clear all filters button
+        if st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clear_f"):
+            for key in ["f_email", "f_binder", "f_company", "f_license"]:
+                if key in st.session_state:
+                    st.session_state[key] = ""
+            st.session_state["f_status"] = "all"
+            st.rerun()
+
+        st.markdown("<hr style='border-color:var(--border);margin:14px 0;'/>",
                     unsafe_allow_html=True)
 
         # User badge
@@ -1055,8 +1298,57 @@ def render_sidebar() -> None:
                 st.session_state[k] = v
             st.rerun()
 
+    return (
+        st.session_state.get("f_email", ""),
+        st.session_state.get("f_binder", ""),
+        st.session_state.get("f_company", ""),
+        st.session_state.get("f_license", ""),
+        st.session_state.get("f_status", "all"),
+    )
+
 # ─────────────────────────────────────────────────────────────────────────────
-#  12 · ANALYTICS TAB
+#  15 · FILTER STATUS BAR
+# ─────────────────────────────────────────────────────────────────────────────
+def render_filter_bar(
+    total: int,
+    filtered: int,
+    f_email: str,
+    f_binder: str,
+    f_company: str,
+    f_license: str,
+    f_status: str,
+) -> None:
+    n_active = active_filter_count(f_email, f_binder, f_company, f_license, f_status)
+    if n_active == 0:
+        return
+
+    badges = ""
+    if f_status != "all":
+        badges += f"<span class='filter-badge'>⚡ Status: {f_status}</span>"
+    if f_email.strip():
+        badges += f"<span class='filter-badge'>📧 {f_email.strip()[:20]}</span>"
+    if f_binder.strip():
+        badges += f"<span class='filter-badge'>📁 {f_binder.strip()[:20]}</span>"
+    if f_company.strip():
+        badges += f"<span class='filter-badge'>🏢 {f_company.strip()[:20]}</span>"
+    if f_license.strip():
+        badges += f"<span class='filter-badge'>🪪 {f_license.strip()[:20]}</span>"
+
+    st.markdown(f"""
+    <div class="filter-panel">
+      <div class="filter-title">
+        🔍 {t('active_filters')} ({n_active})
+      </div>
+      {badges}
+      <div class="result-count" style="margin-top:8px;">
+        Showing <strong style="color:var(--gold);">{filtered}</strong> of
+        <strong>{total}</strong> {t('results_shown')}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  16 · ANALYTICS TAB
 # ─────────────────────────────────────────────────────────────────────────────
 def render_analytics(df: pd.DataFrame) -> None:
     pt = P["plotly_theme"]
@@ -1064,14 +1356,10 @@ def render_analytics(df: pd.DataFrame) -> None:
     pg = P["plot_grid"]
     fc = P["text_primary"]
 
-    # ── Period filter ────────────────────────────────────────────────────────
-    st.markdown(f"<div class='section-title'>🗓️ {t('period')}</div>",
-                unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title'>🗓️ {t('period')}</div>", unsafe_allow_html=True)
     periods = [
-        ("all",        t("all_time")),
-        ("today",      t("today")),
-        ("this_week",  t("this_week")),
-        ("this_month", t("this_month")),
+        ("all", t("all_time")), ("today", t("today")),
+        ("this_week", t("this_week")), ("this_month", t("this_month")),
     ]
     btn_cols = st.columns(len(periods))
     for col_w, (pkey, plabel) in zip(btn_cols, periods):
@@ -1086,38 +1374,28 @@ def render_analytics(df: pd.DataFrame) -> None:
         st.info(t("no_records"))
         return
 
-    # ── Summary metrics row ──────────────────────────────────────────────────
     ma, mb, mc = st.columns(3)
     ma.metric(t("records_period"), len(done_f))
 
-    # active days
     active = 0
     if COL_DATE in done_f.columns:
         active = done_f[COL_DATE].apply(
             lambda s: parse_dt(s).date() if parse_dt(s) else None
         ).nunique()
     mb.metric(t("active_days"), active)
+    mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
 
-    avg_val = f"{len(done_f)/max(active,1):.1f}"
-    mc.metric(t("avg_per_day"), avg_val)
-
-    # ── Two-column chart layout ──────────────────────────────────────────────
     left, right = st.columns([1, 1.6], gap="large")
 
-    # ── Leaderboard ──────────────────────────────────────────────────────────
     with left:
         st.markdown(f"<div class='section-title'>🏅 {t('leaderboard')}</div>",
                     unsafe_allow_html=True)
-
         if COL_AUDITOR in done_f.columns:
             lb = (
-                done_f[COL_AUDITOR]
-                .replace("", "—")
-                .value_counts()
-                .reset_index()
+                done_f[COL_AUDITOR].replace("", "—")
+                .value_counts().reset_index()
             )
             lb.columns = ["Auditor", "Count"]
-
             medals = ["🥇","🥈","🥉","④","⑤","⑥","⑦","⑧","⑨","⑩"]
             for i, row_lb in lb.head(10).iterrows():
                 medal = medals[i] if i < len(medals) else f"{i+1}."
@@ -1129,33 +1407,28 @@ def render_analytics(df: pd.DataFrame) -> None:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Horizontal bar
             fig_lb = px.bar(
-                lb.head(10), x="Count", y="Auditor",
-                orientation="h",
+                lb.head(10), x="Count", y="Auditor", orientation="h",
                 color="Count",
                 color_continuous_scale=[P["blue_accent"], P["gold"]],
                 template=pt,
             )
             fig_lb.update_layout(
                 paper_bgcolor=pb, plot_bgcolor=pb,
-                font=dict(family="Inter", color=fc, size=11),
+                font=dict(family="IBM Plex Sans", color=fc, size=11),
                 showlegend=False, coloraxis_showscale=False,
                 margin=dict(l=8, r=8, t=10, b=8),
                 xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc)),
-                yaxis=dict(gridcolor="rgba(0,0,0,0)",
-                           categoryorder="total ascending",
+                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
                            tickfont=dict(color=fc)),
                 height=min(320, max(180, 36 * len(lb.head(10)))),
             )
             fig_lb.update_traces(marker_line_width=0)
             st.plotly_chart(fig_lb, use_container_width=True)
 
-    # ── Daily trend ──────────────────────────────────────────────────────────
     with right:
         st.markdown(f"<div class='section-title'>📈 {t('daily_trend')}</div>",
                     unsafe_allow_html=True)
-
         if COL_DATE in done_f.columns:
             done_f = done_f.copy()
             done_f["_date"] = done_f[COL_DATE].apply(
@@ -1163,14 +1436,11 @@ def render_analytics(df: pd.DataFrame) -> None:
             )
             trend = (
                 done_f.dropna(subset=["_date"])
-                .groupby("_date")
-                .size()
+                .groupby("_date").size()
                 .reset_index(name="Records")
             )
             trend.columns = ["Date", "Records"]
-
             if not trend.empty:
-                # Fill date gaps for a continuous line
                 if len(trend) > 1:
                     full_rng = pd.date_range(trend["Date"].min(), trend["Date"].max())
                     trend = (
@@ -1181,51 +1451,39 @@ def render_analytics(df: pd.DataFrame) -> None:
                     trend.columns = ["Date", "Records"]
 
                 fig_line = go.Figure()
-                # Shaded area
                 fig_line.add_trace(go.Scatter(
                     x=trend["Date"], y=trend["Records"],
                     mode="none", fill="tozeroy",
                     fillcolor=P["gold_bg"], showlegend=False,
                 ))
-                # Main line
                 fig_line.add_trace(go.Scatter(
                     x=trend["Date"], y=trend["Records"],
                     mode="lines+markers",
                     line=dict(color=P["gold"], width=2.5),
-                    marker=dict(
-                        color=P["blue_accent"], size=7,
-                        line=dict(color=P["card"], width=2)
-                    ),
+                    marker=dict(color=P["blue_accent"], size=7,
+                                line=dict(color=P["card"], width=2)),
                     name=t("records_period"),
                 ))
                 fig_line.update_layout(
-                    template=pt,
-                    paper_bgcolor=pb, plot_bgcolor=pb,
-                    font=dict(family="Inter", color=fc, size=11),
-                    showlegend=False,
-                    margin=dict(l=8, r=8, t=10, b=8),
-                    xaxis=dict(
-                        gridcolor=pg, zeroline=False,
-                        tickfont=dict(color=P["text_secondary"]),
-                    ),
-                    yaxis=dict(
-                        gridcolor=pg, zeroline=False,
-                        tickfont=dict(color=P["text_secondary"]),
-                    ),
-                    height=380,
-                    hovermode="x unified",
+                    template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
+                    font=dict(family="IBM Plex Sans", color=fc, size=11),
+                    showlegend=False, margin=dict(l=8, r=8, t=10, b=8),
+                    xaxis=dict(gridcolor=pg, zeroline=False,
+                               tickfont=dict(color=P["text_secondary"])),
+                    yaxis=dict(gridcolor=pg, zeroline=False,
+                               tickfont=dict(color=P["text_secondary"])),
+                    height=380, hovermode="x unified",
                 )
                 st.plotly_chart(fig_line, use_container_width=True)
             else:
                 st.info(t("no_records"))
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  13 · USER ADMINISTRATION TAB (admin only)
+#  17 · USER ADMINISTRATION TAB
 # ─────────────────────────────────────────────────────────────────────────────
 def render_user_admin(users_ws) -> None:
     col_left, col_right = st.columns([1, 1], gap="large")
 
-    # ── Register new auditor ─────────────────────────────────────────────────
     with col_left:
         st.markdown(f"<div class='section-title'>➕ {t('add_auditor')}</div>",
                     unsafe_allow_html=True)
@@ -1234,7 +1492,7 @@ def render_user_admin(users_ws) -> None:
             nu_pass  = st.text_input("Password", type="password")
             if st.form_submit_button("Register Auditor", use_container_width=True):
                 if nu_email.strip() and nu_pass.strip():
-                    recs  = pd.DataFrame(users_ws.get_all_records())
+                    recs = pd.DataFrame(users_ws.get_all_records())
                     if not recs.empty and nu_email.lower().strip() in recs.get("email", pd.Series()).values:
                         st.error(t("dup_email"))
                     else:
@@ -1246,7 +1504,6 @@ def render_user_admin(users_ws) -> None:
                 else:
                     st.warning(t("fill_fields"))
 
-        # ── Update password ──────────────────────────────────────────────────
         st.markdown(f"<div class='section-title'>🔑 {t('update_pw')}</div>",
                     unsafe_allow_html=True)
         staff_df = pd.DataFrame(users_ws.get_all_records())
@@ -1262,14 +1519,13 @@ def render_user_admin(users_ws) -> None:
                             st.success(f"✅  Password updated for {sel_email}.")
                             time.sleep(0.7); st.rerun()
 
-    # ── Staff directory & revoke ─────────────────────────────────────────────
     with col_right:
         st.markdown(f"<div class='section-title'>📋 {t('staff_dir')}</div>",
                     unsafe_allow_html=True)
         staff_df = pd.DataFrame(users_ws.get_all_records())
         if not staff_df.empty and "email" in staff_df.columns:
             safe_cols = [c for c in ["email", "created_at"] if c in staff_df.columns]
-            st.dataframe(staff_df[safe_cols], use_container_width=True, hide_index=True)
+            render_html_table(staff_df[safe_cols].reset_index())
 
             st.markdown(f"<div class='section-title'>🚫 {t('remove_user')}</div>",
                         unsafe_allow_html=True)
@@ -1289,32 +1545,29 @@ def render_user_admin(users_ws) -> None:
             st.info("No auditor accounts registered.")
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  14 · MAIN APPLICATION CONTROLLER
+#  18 · MAIN APPLICATION CONTROLLER
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     try:
         spreadsheet   = get_spreadsheet()
         all_ws_titles = [ws.title for ws in spreadsheet.worksheets()]
 
-        # Ensure UsersDB exists
         if "UsersDB" not in all_ws_titles:
             users_ws = spreadsheet.add_worksheet(title="UsersDB", rows="500", cols="3")
             users_ws.append_row(["email", "password", "created_at"])
         else:
             users_ws = spreadsheet.worksheet("UsersDB")
 
-        # ── AUTHENTICATION GATE ──────────────────────────────────────────────
+        # ── AUTH GATE ────────────────────────────────────────────────────────
         if not st.session_state.logged_in:
             render_login(users_ws)
-            return    # ← nothing below runs until authenticated
+            return
 
         # ── AUTHENTICATED SHELL ──────────────────────────────────────────────
-        # Make sidebar visible
         st.markdown(
             "<style>[data-testid='stSidebar']{display:flex!important;}</style>",
             unsafe_allow_html=True,
         )
-        render_sidebar()
 
         # Page header
         ts = datetime.now(TZ).strftime("%A, %d %B %Y  ·  %H:%M")
@@ -1326,8 +1579,7 @@ def main() -> None:
         # Workspace selector
         data_sheets = [n for n in all_ws_titles if n != "UsersDB"]
         ws_name = st.selectbox(
-            t("workspace"), data_sheets, key="ws_sel",
-            label_visibility="visible",
+            t("workspace"), data_sheets, key="ws_sel", label_visibility="visible"
         )
         current_ws           = spreadsheet.worksheet(ws_name)
         df, headers, col_map = load_worksheet(current_ws)
@@ -1336,12 +1588,21 @@ def main() -> None:
             st.warning(t("empty_sheet"))
             return
 
+        # ── Detect filterable columns ────────────────────────────────────────
+        col_binder  = detect_column(headers, "binder")
+        col_company = detect_column(headers, "company")
+        col_license = detect_column(headers, "license")
+
         is_admin = (st.session_state.user_role == "admin")
+
+        # ── SIDEBAR + FILTERS ────────────────────────────────────────────────
+        f_email, f_binder, f_company, f_license, f_status = render_sidebar(
+            df, headers, col_binder, col_company, col_license
+        )
 
         # ── OVERVIEW METRICS ─────────────────────────────────────────────────
         st.markdown(f"<div class='section-title'>📊 {t('overview')}</div>",
                     unsafe_allow_html=True)
-
         total_n   = len(df)
         done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
         pending_n = total_n - done_n
@@ -1356,23 +1617,24 @@ def main() -> None:
 
         st.markdown(f"""
         <div class="prog-labels">
-          <span>{t('processed')}</span>
-          <span>{int(pct*100)}%</span>
+          <span>{t('processed')}</span><span>{int(pct*100)}%</span>
         </div>
         <div class="gov-progress-wrap">
           <div class="gov-progress-fill" style="width:{int(pct*100)}%;"></div>
         </div>
         """, unsafe_allow_html=True)
 
-        # ── GLOBAL SEARCH ────────────────────────────────────────────────────
-        q = st.text_input(t("search"), key="gsearch").strip()
-        if q:
-            mask   = df.astype(str).apply(
-                lambda col: col.str.contains(q, case=False, na=False)
-            ).any(axis=1)
-            view_df = df[mask].copy()
-        else:
-            view_df = df.copy()
+        # ── Apply all filters to full df ─────────────────────────────────────
+        filtered_df = apply_filters(
+            df, f_email, f_binder, f_company, f_license, f_status,
+            col_binder, col_company, col_license,
+        )
+
+        # Show filter bar (only if filters active)
+        render_filter_bar(
+            total_n, len(filtered_df),
+            f_email, f_binder, f_company, f_license, f_status,
+        )
 
         # ── TABS ─────────────────────────────────────────────────────────────
         tab_names = [t("tab_queue"), t("tab_archive"), t("tab_analytics")]
@@ -1381,117 +1643,144 @@ def main() -> None:
         tabs = st.tabs(tab_names)
 
         # ══════════════════════════════════════════════════════════════════════
-        #  TAB 1 — TASK QUEUE
+        #  TAB 1 — AUDIT WORKLIST
         # ══════════════════════════════════════════════════════════════════════
         with tabs[0]:
-            pending_view = view_df[view_df[COL_STATUS] != VAL_DONE].copy()
-            # Align index with Google Sheets row numbers (row 1 = header)
-            pending_view.index = pending_view.index + 2
+            # Pending records from filtered set
+            pending_view = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
 
-            # ── Table display with explicit dtype string cast ─────────────────
-            # Convert every column to str before displaying to prevent Arrow
-            # serialisation issues that can cause invisible / broken text.
-            display_pending = pending_view.astype(str)
-            st.dataframe(
-                display_pending,
-                use_container_width=True,
-                height=340,
-            )
+            # ── CRITICAL: re-align index to Google Sheets row numbers ─────────
+            # The original df has 0-based index matching sheet rows (header=row1).
+            # Sheet row = df_index + 2 (1 for header, 1 for 0-vs-1 indexing).
+            # We must preserve the original integer index from df — not reset it —
+            # so row selection maps back correctly.
+            pending_display = pending_view.copy()
+            pending_display.index = pending_display.index + 2  # sheet row numbers
 
-            st.markdown(f"<div class='section-title'>🔍 {t('select_case')}</div>",
-                        unsafe_allow_html=True)
+            # ── Worklist header banner ────────────────────────────────────────
+            p_count = len(pending_display)
+            st.markdown(f"""
+            <div class="worklist-header">
+              <div>
+                <div class="worklist-title">📋 {t('worklist_title')}</div>
+                <div class="worklist-sub">{t('worklist_sub')}</div>
+              </div>
+              <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Build option list using first non-system column as label
-            label_col = next(
-                (h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row"
-            )
-            opts = ["—"] + [
-                f"Row {idx}  ·  {str(row.get(label_col, ''))[:55]}"
-                for idx, row in pending_view.iterrows()
-            ]
-            row_sel = st.selectbox(
-                "", opts, key="row_sel", label_visibility="collapsed"
-            )
+            if pending_display.empty:
+                if active_filter_count(f_email, f_binder, f_company, f_license, f_status) > 0:
+                    st.warning(t("no_filter_match"))
+                else:
+                    st.success("✅  All cases have been processed.")
+            else:
+                # ── HTML table — guaranteed text visibility ────────────────────
+                render_html_table(pending_display)
 
-            if row_sel != "—":
-                sheet_row = int(row_sel.split("  ·  ")[0].replace("Row ", "").strip())
-                record    = df.iloc[sheet_row - 2].to_dict()
+                st.markdown(f"<div class='section-title'>🔍 {t('select_case')}</div>",
+                            unsafe_allow_html=True)
 
-                # ── Audit trail ───────────────────────────────────────────────
-                with st.expander(f"📜  {t('audit_trail')}", expanded=False):
-                    history = str(record.get(COL_LOG, "")).strip()
-                    if history:
-                        for line in history.split("\n"):
-                            if line.strip():
-                                st.markdown(
-                                    f'<div class="log-line">{line}</div>',
-                                    unsafe_allow_html=True,
-                                )
-                    else:
-                        st.caption(t("no_history"))
-
-                # ── Vertical edit form ────────────────────────────────────────
-                st.markdown(
-                    f"<div class='section-title'>✏️ {t('processing')} #{sheet_row}</div>",
-                    unsafe_allow_html=True,
+                label_col = next(
+                    (h for h in headers if h not in SYSTEM_COLS),
+                    headers[0] if headers else "Row"
                 )
-                SKIP   = set(SYSTEM_COLS)
-                fields = {k: v for k, v in record.items() if k not in SKIP}
+                opts = ["—"] + [
+                    f"Row {idx}  ·  {str(row.get(label_col, ''))[:55]}"
+                    for idx, row in pending_display.iterrows()
+                ]
+                row_sel = st.selectbox(
+                    "", opts, key="row_sel", label_visibility="collapsed"
+                )
 
-                with st.form("audit_form"):
-                    new_vals: dict[str, str] = {}
-                    for fname, fval in fields.items():
-                        # One full-width input per row  → vertical layout
-                        new_vals[fname] = st.text_input(
-                            fname,
-                            value=clean_cell(fval),
-                            key=f"field_{fname}",
-                        )
+                if row_sel != "—":
+                    sheet_row = int(row_sel.split("  ·  ")[0].replace("Row ", "").strip())
+                    # Retrieve record from original df using (sheet_row - 2)
+                    record = df.iloc[sheet_row - 2].to_dict()
 
-                    do_submit = st.form_submit_button(
-                        f"✅  {t('approve_save')}",
-                        use_container_width=True,
+                    with st.expander(f"📜  {t('audit_trail')}", expanded=False):
+                        history = str(record.get(COL_LOG, "")).strip()
+                        if history:
+                            for line in history.split("\n"):
+                                if line.strip():
+                                    st.markdown(
+                                        f'<div class="log-line">{line}</div>',
+                                        unsafe_allow_html=True,
+                                    )
+                        else:
+                            st.caption(t("no_history"))
+
+                    st.markdown(
+                        f"<div class='section-title'>✏️ {t('processing')} #{sheet_row}</div>",
+                        unsafe_allow_html=True,
                     )
+                    SKIP   = set(SYSTEM_COLS)
+                    fields = {k: v for k, v in record.items() if k not in SKIP}
 
-                if do_submit:
-                    with st.spinner("Committing to register…"):
-                        # Ensure system columns exist in the sheet
-                        headers, col_map = ensure_system_cols(
-                            current_ws, headers, col_map
+                    with st.form("audit_form"):
+                        new_vals: dict[str, str] = {}
+                        for fname, fval in fields.items():
+                            new_vals[fname] = st.text_input(
+                                fname,
+                                value=clean_cell(fval),
+                                key=f"field_{fname}",
+                            )
+                        do_submit = st.form_submit_button(
+                            f"✅  {t('approve_save')}",
+                            use_container_width=True,
                         )
-                        # Write only changed user fields
-                        for fname, fval in new_vals.items():
-                            if fname in col_map and clean_cell(record.get(fname, "")) != fval:
-                                current_ws.update_cell(sheet_row, col_map[fname], fval)
 
-                        # Automated identity & timestamp — never entered by user
-                        ts_now   = now_str()
-                        auditor  = st.session_state.user_email
-                        old_log  = str(record.get(COL_LOG, "")).strip()
-                        new_log  = f"✔  {auditor}  |  {ts_now}\n{old_log}".strip()
+                    if do_submit:
+                        with st.spinner("Committing to register…"):
+                            headers, col_map = ensure_system_cols(
+                                current_ws, headers, col_map
+                            )
+                            for fname, fval in new_vals.items():
+                                if fname in col_map and clean_cell(record.get(fname, "")) != fval:
+                                    current_ws.update_cell(sheet_row, col_map[fname], fval)
 
-                        current_ws.update_cell(sheet_row, col_map[COL_STATUS],  VAL_DONE)
-                        current_ws.update_cell(sheet_row, col_map[COL_LOG],     new_log)
-                        current_ws.update_cell(sheet_row, col_map[COL_AUDITOR], auditor)
-                        current_ws.update_cell(sheet_row, col_map[COL_DATE],    ts_now)
+                            ts_now  = now_str()
+                            auditor = st.session_state.user_email
+                            old_log = str(record.get(COL_LOG, "")).strip()
+                            new_log = f"✔  {auditor}  |  {ts_now}\n{old_log}".strip()
 
-                    st.success(t("saved_ok"))
-                    time.sleep(0.8)
-                    st.rerun()
+                            current_ws.update_cell(sheet_row, col_map[COL_STATUS],  VAL_DONE)
+                            current_ws.update_cell(sheet_row, col_map[COL_LOG],     new_log)
+                            current_ws.update_cell(sheet_row, col_map[COL_AUDITOR], auditor)
+                            current_ws.update_cell(sheet_row, col_map[COL_DATE],    ts_now)
+
+                        st.success(t("saved_ok"))
+                        time.sleep(0.8)
+                        st.rerun()
 
         # ══════════════════════════════════════════════════════════════════════
         #  TAB 2 — PROCESSED ARCHIVE
         # ══════════════════════════════════════════════════════════════════════
         with tabs[1]:
-            done_view = view_df[view_df[COL_STATUS] == VAL_DONE].copy()
+            done_view = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
             done_view.index = done_view.index + 2
 
-            st.dataframe(
-                done_view.astype(str),
-                use_container_width=True,
-            )
+            # ── Worklist header banner ────────────────────────────────────────
+            d_count = len(done_view)
+            st.markdown(f"""
+            <div class="worklist-header">
+              <div>
+                <div class="worklist-title">✅ {t('tab_archive')}</div>
+                <div class="worklist-sub">Completed and committed audit records</div>
+              </div>
+              <span class="chip chip-done">{d_count} {t('processed')}</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Admin: re-open a processed record
+            if done_view.empty:
+                if active_filter_count(f_email, f_binder, f_company, f_license, f_status) > 0:
+                    st.warning(t("no_filter_match"))
+                else:
+                    st.info("No processed records yet.")
+            else:
+                render_html_table(done_view)
+
+            # Admin: re-open
             if is_admin and not done_view.empty:
                 st.markdown("---")
                 st.markdown(
@@ -1516,7 +1805,7 @@ def main() -> None:
             render_analytics(df)
 
         # ══════════════════════════════════════════════════════════════════════
-        #  TAB 4 — USER ADMINISTRATION  (admin only)
+        #  TAB 4 — USER ADMIN
         # ══════════════════════════════════════════════════════════════════════
         if is_admin:
             with tabs[3]:
