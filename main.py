@@ -6,6 +6,7 @@ import json
 import textwrap
 from datetime import datetime
 import pytz
+import time
 
 st.set_page_config(page_title="سیستمی ئۆدیتی حکومی", layout="wide", initial_sidebar_state="expanded")
 tz = pytz.timezone('Asia/Baghdad')
@@ -47,12 +48,9 @@ try:
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.subheader("📂 هەڵبژاردنی شیت")
-        selected_sheet_name = st.selectbox("کام شیت دەتەوێت بیکەیتەوە؟", sheet_names)
+        selected_sheet_name = st.selectbox("📂 کام شیت دەتەوێت بیکەیتەوە؟", sheet_names)
     
     sheet = spreadsheet.worksheet(selected_sheet_name)
-    
-    # چارەسەری کێشەی ستوونە دووبارەکان و بەتاڵەکان
     raw_data = sheet.get_all_values()
     
     if not raw_data or len(raw_data) < 2:
@@ -60,111 +58,179 @@ try:
     else:
         headers = raw_data[0]
         
-        # دروستکردنی ناوی جیاواز بۆ ستوونە دووبارەکان بۆ ئەوەی پایتۆن تێک نەچێت
+        # ڕێکخستنی ستوونەکان
         unique_headers = []
         seen = {}
         for h in headers:
             h = str(h).strip()
-            if not h:
-                h = "ستوونی_بەتاڵ"
-            
+            if not h: h = "ستوونی_بەتاڵ"
             if h in seen:
                 seen[h] += 1
                 unique_headers.append(f"{h} ({seen[h]})")
             else:
                 seen[h] = 0
                 unique_headers.append(h)
-        
-        # تۆمارکردنی شوێنی ستوونەکان (Index) بۆ کاتی ئاپدەیتکردن
+                
         col_index_map = {unique_headers[i]: i + 1 for i in range(len(unique_headers))}
-        
         data_rows = raw_data[1:]
         df = pd.DataFrame(data_rows, columns=unique_headers)
         
-        st.markdown("---")
-        st.subheader("🔍 بزوێنەری گەڕان")
-        search_query = st.text_input("وشەیەک بنووسە (ناوی کۆمپانیا، بریکار، ژمارەی مۆڵەت...):", placeholder="لێرە بگەڕێ...")
+        # دانانی ستوونی دۆخی فایل ئەگەر نەبوو
+        STATUS_COL = "دۆخی فایل"
+        LOG_COL = "مێژووی گۆڕانکارییەکان (Audit Log)"
         
-        if search_query:
-            mask = df.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
-            filtered_df = df[mask]
+        if STATUS_COL not in df.columns:
+            df[STATUS_COL] = "نەکراوە"
         else:
-            filtered_df = df
-
-        st.caption(f"📊 ئەنجام: {len(filtered_df)} فایل دۆزرایەوە لەناو ئەم شیتەدا")
+            df[STATUS_COL] = df[STATUS_COL].fillna("نەکراوە").replace("", "نەکراوە")
+            
+        # جیاکردنەوەی داتاکان بەپێی دۆخ
+        pending_df = df[df[STATUS_COL] != "تەواوکراوە"]
+        completed_df = df[df[STATUS_COL] == "تەواوکراوە"]
         
-        st.dataframe(filtered_df, use_container_width=True, height=200)
+        st.markdown("---")
+        
+        # ئەگەر ئەدمین بێت دوو تاب دەبینێت، ئەگەر نا تەنها یەک تاب
+        if is_admin:
+            tab1, tab2 = st.tabs(["📝 لیستی نەکراوەکان (بۆ کارمەند)", "✅ لیستی کراوەکان (تایبەت بە ئەدمین)"])
+        else:
+            tab1 = st.container()
+            st.subheader("📝 لیستی نەکراوەکان (Pending)")
+            tab2 = None # کارمەند ئەمە نابینێت
 
-        if not filtered_df.empty:
-            st.markdown("---")
-            st.subheader("📝 دەستکاریکردنی فایل")
+        # ==========================================
+        # بەشی یەکەم: لیستی نەکراوەکان (Pending)
+        # ==========================================
+        with tab1:
+            search_query1 = st.text_input("🔍 گەڕان لەناو فایلە نەکراوەکان:", placeholder="ناوی کۆمپانیا، مۆڵەت...")
             
-            options = []
-            for idx, row in filtered_df.iterrows():
-                company_name = row.get('اسم الشركة / کۆمپانیای / Company Name', row.get('Company Name', 'بێ ناو'))
-                options.append(f"ڕیزی {idx + 2} - {company_name}")
-                
-            selected_option = st.selectbox("📌 ئەو ڕیزە هەڵبژێرە کە دەتەوێت دەستکاری بکەیت:", ["هەڵبژێرە..."] + options)
-            
-            if selected_option != "هەڵبژێرە...":
-                actual_df_index = int(selected_option.split(" - ")[0].replace("ڕیزی", "").strip()) - 2
-                actual_row_in_sheet = actual_df_index + 2
-                current_data = df.iloc[actual_df_index].to_dict()
-                
-                log_col_name = "مێژووی گۆڕانکارییەکان (Audit Log)"
-                
-                if is_admin:
-                    log_data = current_data.get(log_col_name, "هیچ مێژوویەک نییە")
-                    with st.expander("👁️‍🗨️ بینینی مێژووی گۆڕانکارییەکانی ئەم فایلە (تایبەت بە ئەدمین)", expanded=True):
-                        st.text(log_data)
-                
-                with st.form("edit_form"):
-                    cols = st.columns(2)
-                    col_idx = 0
-                    new_data = {}
+            if search_query1:
+                mask = pending_df.astype(str).apply(lambda x: x.str.contains(search_query1, case=False, na=False)).any(axis=1)
+                show_pending_df = pending_df[mask]
+            else:
+                show_pending_df = pending_df
+
+            st.caption(f"📊 {len(show_pending_df)} فایلی نەکراوە ماوە")
+            st.dataframe(show_pending_df, use_container_width=True, height=200)
+
+            if not show_pending_df.empty:
+                st.markdown("---")
+                options = []
+                for idx, row in show_pending_df.iterrows():
+                    company_name = row.get('اسم الشركة / کۆمپانیای / Company Name', row.get('Company Name', 'بێ ناو'))
+                    options.append(f"ڕیزی {idx + 2} - {company_name}")
                     
-                    for key, value in current_data.items():
-                        # ستوونە بەتاڵەکان و مێژووەکە لە فۆڕمەکەدا نیشان نادەین
-                        if key != log_col_name and not key.startswith("ستوونی_بەتاڵ"):
-                            new_val = cols[col_idx % 2].text_input(f"{key}", value=str(value))
-                            new_data[key] = new_val
-                            col_idx += 1
+                selected_option = st.selectbox("📌 هەڵبژاردنی فایلێک بۆ پشکنین و سەبمیتکردن:", ["هەڵبژێرە..."] + options, key="pending_select")
+                
+                if selected_option != "هەڵبژێرە...":
+                    actual_df_index = int(selected_option.split(" - ")[0].replace("ڕیزی", "").strip()) - 2
+                    actual_row_in_sheet = actual_df_index + 2
+                    current_data = df.iloc[actual_df_index].to_dict()
                     
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    submit_button = st.form_submit_button("سەبمیتکردن و نوێکردنەوە 💾", use_container_width=True)
+                    if is_admin:
+                        log_data = current_data.get(LOG_COL, "هیچ مێژوویەک نییە")
+                        with st.expander("👁️‍🗨️ مێژووی ئەم فایلە", expanded=False):
+                            st.text(log_data)
                     
-                    if submit_button:
-                        changes_made = []
-                        for key in new_data:
-                            old_val = str(current_data[key])
-                            new_val = str(new_data[key])
-                            if old_val != new_val:
-                                changes_made.append(f"[{key}] گۆڕدرا لە '{old_val}' بۆ '{new_val}'")
+                    with st.form("edit_form"):
+                        cols = st.columns(2)
+                        col_idx = 0
+                        new_data = {}
                         
-                        if changes_made:
-                            with st.spinner('خەریکی نوێکردنەوەیە...'):
+                        for key, value in current_data.items():
+                            if key not in [LOG_COL, STATUS_COL] and not key.startswith("ستوونی_بەتاڵ"):
+                                new_val = cols[col_idx % 2].text_input(f"{key}", value=str(value))
+                                new_data[key] = new_val
+                                col_idx += 1
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        submit_button = st.form_submit_button("سەبمیتکردن و ناردن بۆ لیستی کراوەکان ✅", use_container_width=True)
+                        
+                        if submit_button:
+                            changes_made = ["[دۆخی فایل] گۆڕدرا بۆ 'تەواوکراوە'"]
+                            for key in new_data:
+                                if str(current_data[key]) != str(new_data[key]):
+                                    changes_made.append(f"[{key}] گۆڕدرا لە '{current_data[key]}' بۆ '{new_data[key]}'")
+                            
+                            with st.spinner('خەریکی نوێکردنەوە و گواستنەوەیە...'):
+                                # دروستکردنی ستوونەکان ئەگەر نەبوون
+                                for col_to_check in [LOG_COL, STATUS_COL]:
+                                    if col_to_check not in unique_headers:
+                                        new_idx = len(unique_headers) + 1
+                                        sheet.update_cell(1, new_idx, col_to_check)
+                                        unique_headers.append(col_to_check)
+                                        col_index_map[col_to_check] = new_idx
                                 
-                                if log_col_name not in unique_headers:
-                                    new_col_index = len(unique_headers) + 1
-                                    sheet.update_cell(1, new_col_index, log_col_name)
-                                    unique_headers.append(log_col_name)
-                                    col_index_map[log_col_name] = new_col_index
+                                log_col_index = col_index_map[LOG_COL]
+                                status_col_index = col_index_map[STATUS_COL]
                                 
-                                log_col_index = col_index_map[log_col_name]
-                                current_log = current_data.get(log_col_name, "")
+                                current_log = current_data.get(LOG_COL, "")
                                 now_str = datetime.now(tz).strftime("%Y-%m-%d %I:%M:%S %p")
-                                new_log_entry = f"🔹 ڤێرژنی نوێ ({now_str}):\n" + "\n".join(changes_made)
+                                new_log_entry = f"🔹 پەسەندکرا ({now_str}):\n" + "\n".join(changes_made)
                                 updated_log = f"{new_log_entry}\n\n{current_log}".strip()
                                 
+                                # ناردنی داتاکان
                                 for key in new_data:
                                     if str(current_data[key]) != str(new_data[key]):
-                                        col_index = col_index_map[key]
-                                        sheet.update_cell(actual_row_in_sheet, col_index, new_data[key])
-                                
+                                        sheet.update_cell(actual_row_in_sheet, col_index_map[key], new_data[key])
+                                        
+                                sheet.update_cell(actual_row_in_sheet, status_col_index, "تەواوکراوە")
                                 sheet.update_cell(actual_row_in_sheet, log_col_index, updated_log)
-                                st.success("کارەکە سەرکەوتوو بوو! گۆڕانکارییەکان تۆمارکران. ✅")
-                        else:
-                            st.warning("هیچ گۆڕانکارییەک نەکراوە.")
+                                
+                                st.success("سەرکەوتوو بوو! فایلەکە چوو بۆ لیستی کراوەکان.")
+                                time.sleep(1.5)
+                                st.rerun() # ئەمە لاپەڕەکە ڕیفرێش دەکات تا فایلەکە ون بێت
+
+        # ==========================================
+        # بەشی دووەم: لیستی کراوەکان (تایبەت بە ئەدمین)
+        # ==========================================
+        if is_admin and tab2 is not None:
+            with tab2:
+                search_query2 = st.text_input("🔍 گەڕان لەناو فایلە تەواوکراوەکان:", placeholder="ناوی کۆمپانیا...")
+                
+                if search_query2:
+                    mask = completed_df.astype(str).apply(lambda x: x.str.contains(search_query2, case=False, na=False)).any(axis=1)
+                    show_completed_df = completed_df[mask]
+                else:
+                    show_completed_df = completed_df
+
+                st.caption(f"📊 {len(show_completed_df)} فایل پێداچوونەوەیان بۆ کراوە")
+                st.dataframe(show_completed_df, use_container_width=True, height=200)
+                
+                if not show_completed_df.empty:
+                    st.markdown("---")
+                    options2 = []
+                    for idx, row in show_completed_df.iterrows():
+                        company_name = row.get('اسم الشركة / کۆمپانیای / Company Name', row.get('Company Name', 'بێ ناو'))
+                        options2.append(f"ڕیزی {idx + 2} - {company_name}")
+                        
+                    selected_completed = st.selectbox("📌 هەڵبژاردنی فایلێک بۆ گەڕاندنەوە:", ["هەڵبژێرە..."] + options2, key="completed_select")
+                    
+                    if selected_completed != "هەڵبژێرە...":
+                        actual_df_index2 = int(selected_completed.split(" - ")[0].replace("ڕیزی", "").strip()) - 2
+                        actual_row_in_sheet2 = actual_df_index2 + 2
+                        current_data2 = df.iloc[actual_df_index2].to_dict()
+                        
+                        log_data2 = current_data2.get(LOG_COL, "هیچ مێژوویەک نییە")
+                        with st.expander("👁️‍🗨️ بینینی مێژووی کاری کارمەندەکان لەسەر ئەم فایلە", expanded=True):
+                            st.text(log_data2)
+                            
+                        st.warning("ئایا دڵنیایت کە دەتەوێت ئەم فایلە بگەڕێنیتەوە بۆ کارمەندەکان تا دووبارە پشکنینی بۆ بکەن؟")
+                        if st.button("گەڕاندنەوە بۆ لیستی نەکراوەکان ↩️", type="primary"):
+                            with st.spinner('خەریکی گەڕاندنەوەیە...'):
+                                status_col_index = col_index_map[STATUS_COL]
+                                log_col_index = col_index_map[LOG_COL]
+                                
+                                now_str = datetime.now(tz).strftime("%Y-%m-%d %I:%M:%S %p")
+                                new_log_entry = f"❌ ڕەتکرایەوە لەلایەن ئەدمینەوە ({now_str}):\n[دۆخی فایل] گەڕێندرایەوە بۆ 'نەکراوە'"
+                                updated_log = f"{new_log_entry}\n\n{log_data2}".strip()
+                                
+                                sheet.update_cell(actual_row_in_sheet2, status_col_index, "نەکراوە")
+                                sheet.update_cell(actual_row_in_sheet2, log_col_index, updated_log)
+                                
+                                st.success("فایلەکە گەڕێندرایەوە بۆ لیستی کارمەندەکان!")
+                                time.sleep(1.5)
+                                st.rerun()
 
 except Exception as e:
     st.error(f"کێشەیەک هەیە لە بەستنەوە: {e}")
