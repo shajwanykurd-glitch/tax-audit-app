@@ -2,21 +2,17 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import os
+import json
 
-# --- ئەم بەشە نوێیە بۆ خوێندنەوەی کلیلەکەیە لە سێرڤەرەوە ---
-if not os.path.exists('key.json'):
-    with open('key.json', 'w') as f:
-        f.write(st.secrets["json_key"])
-# -----------------------------------------------------------
-
-# ڕێکخستنی پەیوەندی بە گۆگڵ شیت
 def get_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    # لێرەدا ناوی ئەو فایلە JSON ە دەنووسین کە ناوتم نا "key.json"
-    creds = ServiceAccountCredentials.from_json_keyfile_name("key.json", scope)
+    
+    # لێرەدا وشەی strict=False مان زیاد کردووە بۆ ئەوەی کێشەی دێڕی شکاو چارەسەر بکات
+    key_dict = json.loads(st.secrets["json_key"], strict=False)
+    
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
-    # ناوی گۆگڵ شیتەکەت لێرە بنووسە
+    
     sheet = client.open("site CIT QA - Tranche 4").sheet1 
     return pd.DataFrame(sheet.get_all_records())
 
@@ -31,17 +27,14 @@ try:
         results = []
         for index, row in df.iterrows():
             errors = []
-            # 1. Registration Check
             if not row.get('ID') or not row.get('Name'):
                 errors.append("زانیاری ناسنامە کەمە")
             
-            # 2. Salary Tax Check (بۆ نموونە ٥٪)
             salary = float(row.get('Salary', 0))
             tax_paid = float(row.get('Tax_Paid', 0))
             if tax_paid != (salary * 0.05):
                 errors.append(f"هەڵە لە باج: دەبێت {salary * 0.05} بێت")
             
-            # 3. Annual Filing Check
             annual = float(row.get('Annual_Total', 0))
             if annual != (salary * 12):
                 errors.append("کۆی ساڵانە لەگەڵ مانگانە یەکسان نییە")
