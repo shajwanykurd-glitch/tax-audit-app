@@ -7,92 +7,26 @@ import textwrap
 from datetime import datetime
 import pytz
 import time
+import hashlib
 
 # --- ڕێکخستنی شاشە ---
-st.set_page_config(page_title="Audit Platform", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
-
-if 'lang' not in st.session_state:
-    st.session_state.lang = 'ku'
-
-def set_lang(language):
-    st.session_state.lang = language
-
-ui = {
-    "app_title": {"ku": "⚡ پلاتفۆرمی مۆدێرنی وردبینی داتاکان", "en": "⚡ Modern Data Audit Platform"},
-    "admin_panel": {"ku": "🔒 کۆنتڕۆڵی ئەدمین", "en": "🔒 Admin Panel"},
-    "admin_pass": {"ku": "پاسۆردی ئەدمین:", "en": "Admin Password:"},
-    "welcome_admin": {"ku": "بەخێربێیت! دەسەڵاتی تەواوت هەیە.", "en": "Welcome! Full access granted."},
-    "wrong_pass": {"ku": "پاسۆرد هەڵەیە!", "en": "Incorrect Password!"},
-    "select_sheet": {"ku": "📂 شیتێک هەڵبژێرە", "en": "📂 Select a Workspace"},
-    "no_data": {"ku": "هیچ داتایەک نەدۆزرایەوە.", "en": "No data found."},
-    "stats": {"ku": "📈 ئامارەکانی شیت", "en": "📈 Workspace Analytics"},
-    "total_files": {"ku": "کۆی گشتی داتاکان", "en": "Total Records"},
-    "completed": {"ku": "تەواوکراو ✅", "en": "Completed ✅"},
-    "pending": {"ku": "نەکراو ⏳", "en": "Pending ⏳"},
-    "progress": {"ku": "ڕێژەی تەواوبوون", "en": "Completion Rate"},
-    "tab_pending": {"ku": "📝 لیستی کارەکان (Pending)", "en": "📝 Task Queue (Pending)"},
-    "tab_completed": {"ku": "✅ ئەرشیف و دابەزاندن", "en": "✅ Archive & Export"},
-    "search": {"ku": "🔍 گەڕان بەدوای زانیاری...", "en": "🔍 Search records..."},
-    "select_file": {"ku": "📌 فایلێک هەڵبژێرە بۆ کارکردن:", "en": "📌 Select a record to process:"},
-    "history": {"ku": "👁️‍🗨️ مێژووی گۆڕانکارییەکان (Audit Trail)", "en": "👁️‍🗨️ Audit Trail"},
-    "edit_info": {"ku": "پشکنین و نوێکردنەوەی داتا", "en": "Data Inspection & Update"},
-    "submit_btn": {"ku": "سەبمیتکردن و پەسەندکردن ✅", "en": "Submit & Approve ✅"},
-    "download_btn": {"ku": "📥 دابەزاندنی داتابەیس بە Excel", "en": "📥 Export Database (CSV)"},
-    "return_btn": {"ku": "گەڕاندنەوە بۆ کارمەند ↩️", "en": "Return to Queue ↩️"},
-    "success_submit": {"ku": "سەرکەوتوو بوو! داتاکە نوێکرایەوە.", "en": "Success! Record updated."},
-    "auditor_name": {"ku": "👤 ناوی ئۆدیتۆر (کارمەند):", "en": "👤 Auditor Name:"},
-    "select_auditor_warn": {"ku": "⚠️ تکایە ناوی خۆت/ئیمەیڵەکەت هەڵبژێرە پێش سەبمیتکردن!", "en": "⚠️ Please select your email/name before submitting!"},
-    # بەشی نوێ بۆ بەڕێوەبردنی کارمەند
-    "user_mgmt": {"ku": "👥 بەڕێوەبردنی کارمەند", "en": "👥 User Management"},
-    "add_user_input": {"ku": "ئیمەیڵ یان ناوی کارمەندی نوێ:", "en": "New Auditor Email/Name:"},
-    "add_user_btn": {"ku": "زیادکردن ➕", "en": "Add User ➕"},
-    "user_added": {"ku": "کارمەندەکە زیادکرا!", "en": "User added successfully!"},
-    "user_exists": {"ku": "⚠️ ئەم کارمەندە پێشتر زیادکراوە!", "en": "⚠️ This user already exists!"},
-    "auditor_list": {"ku": "📋 لیستی کارمەندەکان", "en": "📋 Auditors List"},
-    "no_auditors": {"ku": "هیچ کارمەندێک نییە.", "en": "No auditors found."}
-}
-
-def t(key):
-    return ui.get(key, {}).get(st.session_state.lang, key)
-
-st.markdown("""
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    div[data-testid="metric-container"] {
-        background-color: rgba(130, 130, 130, 0.08);
-        border: 1px solid rgba(130, 130, 130, 0.2);
-        border-radius: 12px;
-        padding: 15px 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    }
-    div[data-testid="stForm"] {
-        background-color: rgba(130, 130, 130, 0.03);
-        border: 1px solid rgba(130, 130, 130, 0.15);
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-    }
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        transition: all 0.2s;
-    }
-    .stButton>button:hover {
-        opacity: 0.85;
-        transform: scale(1.01);
-    }
-</style>
-""", unsafe_allow_html=True)
-
+st.set_page_config(page_title="Secure Audit Platform", page_icon="🔐", layout="wide")
 tz = pytz.timezone('Asia/Baghdad')
+
+# فەرهەنگی وشەکان
+if 'lang' not in st.session_state: st.session_state.lang = 'ku'
+ui = {
+    "login_title": {"ku": "🔑 چوونەژوورەوەی کارمەندان", "en": "🔑 Staff Login"},
+    "email": {"ku": "ئیمەیڵ:", "en": "Email:"},
+    "password": {"ku": "پاسۆرد:", "en": "Password:"},
+    "login_btn": {"ku": "چوونەژوورەوە", "en": "Login"},
+    "logout_btn": {"ku": "چوونەدەەرەوە", "en": "Logout"},
+    "auth_error": {"ku": "❌ ئیمەیڵ یان پاسۆرد هەڵەیە!", "en": "❌ Invalid Email or Password!"},
+    "app_title": {"ku": "⚡ پلاتفۆرمی وردبینی (پارێزراو)", "en": "⚡ Secure Audit Platform"},
+    "user_info": {"ku": "👤 بەکارهێنەر:", "en": "👤 User:"},
+    "submit_msg": {"ku": "سەرکەوتوو بوو! تۆمارکرا بەناوی:", "en": "Success! Recorded as:"}
+}
+def t(key): return ui.get(key, {}).get(st.session_state.lang, 'ku')
 
 @st.cache_resource
 def get_spreadsheet():
@@ -106,223 +40,143 @@ def get_spreadsheet():
     client = gspread.authorize(creds)
     return client.open("site CIT QA - Tranche 4")
 
-with st.sidebar:
-    st.markdown("### 🌐 Language / زمان")
-    lang_col1, lang_col2 = st.columns(2)
-    if lang_col1.button("کوردی 🇹🇯", use_container_width=True): set_lang("ku")
-    if lang_col2.button("English 🇬🇧", use_container_width=True): set_lang("en")
-    
-    st.markdown("---")
-    st.title(t("admin_panel"))
-    admin_input = st.text_input(t("admin_pass"), type="password")
-    is_admin = False
-    if admin_input == st.secrets.get("admin_password", ""):
-        is_admin = True
-        st.success(t("welcome_admin"))
-    elif admin_input:
-        st.error(t("wrong_pass"))
+# --- سیستمی لۆگین و ناسنامە ---
+def make_hashes(password): return hashlib.sha256(str.encode(password)).hexdigest()
 
-st.title(t("app_title"))
-st.markdown("---")
+def check_hashes(password, hashed_text):
+    if make_hashes(password) == hashed_text: return True
+    return False
 
 try:
     spreadsheet = get_spreadsheet()
-    all_sheet_names = [ws.title for ws in spreadsheet.worksheets()]
+    all_sheets = [ws.title for ws in spreadsheet.worksheets()]
     
-    # ---------------------------------------------------------
-    # بەشی نوێ: دروستکردن و خوێندنەوەی کارمەندەکان لە گۆگڵ شیت
-    # ---------------------------------------------------------
-    if "Auditors" not in all_sheet_names:
-        auditors_ws = spreadsheet.add_worksheet(title="Auditors", rows="100", cols="1")
-        auditors_ws.update_cell(1, 1, "Auditor_Email")
+    # دروستکردنی شیتی بەکارهێنەران ئەگەر نەبێت
+    if "UsersDB" not in all_sheets:
+        users_ws = spreadsheet.add_worksheet(title="UsersDB", rows="100", cols="2")
+        users_ws.append_row(["email", "password"])
     else:
-        auditors_ws = spreadsheet.worksheet("Auditors")
+        users_ws = spreadsheet.worksheet("UsersDB")
 
-    auditor_emails = auditors_ws.col_values(1)
-    if len(auditor_emails) > 0 and auditor_emails[0] == "Auditor_Email":
-        auditor_emails = auditor_emails[1:] # لابردنی هێدەری سەرەوە
+    # هێنانی داتای بەکارهێنەران
+    users_data = pd.DataFrame(users_ws.get_all_records())
+
+    if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+    if 'user_email' not in st.session_state: st.session_state.user_email = ""
+
+    # --- پیشاندانی شاشەی لۆگین ئەگەر نەچووبێتە ژوورەوە ---
+    if not st.session_state.logged_in:
+        st.sidebar.markdown("### 🌐 Language")
+        if st.sidebar.button("English / کوردی"):
+            st.session_state.lang = 'en' if st.session_state.lang == 'ku' else 'ku'
+            st.rerun()
+
+        with st.container():
+            st.title(t("login_title"))
+            login_email = st.text_input(t("email")).lower().strip()
+            login_pass = st.text_input(t("password"), type="password")
+            
+            if st.button(t("login_btn"), use_container_width=True):
+                # پشکنینی ئەوەی ئایا ئەدەمینە یان کارمەند
+                if login_email == "admin" and login_pass == st.secrets["admin_password"]:
+                    st.session_state.logged_in = True
+                    st.session_state.user_email = "Admin"
+                    st.rerun()
+                elif not users_data.empty and login_email in users_data['email'].values:
+                    stored_hash = users_data[users_data['email'] == login_email]['password'].values[0]
+                    if check_hashes(login_pass, stored_hash):
+                        st.session_state.logged_in = True
+                        st.session_state.user_email = login_email
+                        st.rerun()
+                    else: st.error(t("auth_error"))
+                else: st.error(t("auth_error"))
+        st.stop() # دەوەستێت لێرە و ناهێڵێت داتا ببینێت
+
+    # --- ئەگەر لۆگین کرابوو، ئەم بەشەی خوارەوە کار دەکات ---
+    st.sidebar.success(f"{t('user_info')} {st.session_state.user_email}")
+    if st.sidebar.button(t("logout_btn")):
+        st.session_state.logged_in = False
+        st.rerun()
+
+    # --- تابی بەڕێوەبردن تەنها بۆ ئەدمین ---
+    tabs_list = ["📊 Audit", "👥 Manage Users"] if st.session_state.user_email == "Admin" else ["📊 Audit"]
+    main_tabs = st.tabs(tabs_list)
+
+    with main_tabs[0]:
+        data_sheets = [n for n in all_sheets if n not in ["UsersDB", "Auditors"]]
+        selected_sheet_name = st.selectbox("📂 Select Sheet", data_sheets)
+        sheet = spreadsheet.worksheet(selected_sheet_name)
         
-    # شاردنەوەی شیتی "Auditors" لە لیستی داتاکانی سەرەوە بۆ ئەوەی کارمەند نەتوانێت بیکاتەوە
-    data_sheet_names = [name for name in all_sheet_names if name != "Auditors"]
-    
-    col_sel, _ = st.columns([1, 2])
-    with col_sel:
-        selected_sheet_name = st.selectbox(t("select_sheet"), data_sheet_names)
-    
-    sheet = spreadsheet.worksheet(selected_sheet_name)
-    raw_data = sheet.get_all_values()
-    
-    if not raw_data or len(raw_data) < 2:
-        st.info(t("no_data"))
-    else:
+        # لۆجیکی خوێندنەوەی داتاکان (هەمان کۆدەکەی پێشوو بە کەمێک دەستکارییەوە)
+        raw_data = sheet.get_all_values()
         headers = raw_data[0]
+        # دروستکردنی ناوی جیاواز بۆ ستوونەکان
         unique_headers = []
         seen = {}
         for h in headers:
-            h = str(h).strip() or "Empty_Column"
-            if h in seen:
-                seen[h] += 1
-                unique_headers.append(f"{h} ({seen[h]})")
-            else:
-                seen[h] = 0
-                unique_headers.append(h)
-                
-        col_index_map = {unique_headers[i]: i + 1 for i in range(len(unique_headers))}
+            h = str(h).strip() or "Col"
+            if h in seen: seen[h] += 1; unique_headers.append(f"{h}_{seen[h]}")
+            else: seen[h] = 0; unique_headers.append(h)
+        
         df = pd.DataFrame(raw_data[1:], columns=unique_headers)
+        STATUS_COL, LOG_COL = "دۆخی فایل", "مێژووی گۆڕانکارییەکان (Audit Log)"
+        if STATUS_COL not in df.columns: df[STATUS_COL] = "نەکراوە"
         
-        STATUS_COL = "دۆخی فایل"
-        LOG_COL = "مێژووی گۆڕانکارییەکان (Audit Log)"
-        
-        if STATUS_COL not in df.columns:
-            df[STATUS_COL] = "نەکراوە"
-        else:
-            df[STATUS_COL] = df[STATUS_COL].fillna("نەکراوە").replace("", "نەکراوە")
-            
         pending_df = df[df[STATUS_COL] != "تەواوکراوە"]
-        completed_df = df[df[STATUS_COL] == "تەواوکراوە"]
+        st.dataframe(pending_df, use_container_width=True)
+
+        selected_row = st.selectbox("📌 Select Row", ["---"] + [f"Row {i+2}" for i in pending_df.index])
         
-        st.subheader(t("stats"))
-        m1, m2, m3 = st.columns(3)
-        m1.metric(t("total_files"), len(df))
-        m2.metric(t("completed"), len(completed_df))
-        m3.metric(t("pending"), len(pending_df))
-        
-        progress = len(completed_df) / len(df) if len(df) > 0 else 0
-        st.progress(progress, text=f"{t('progress')}: {int(progress * 100)}%")
-        st.markdown("---")
-        
-        # --- زیادکردنی تابی سێیەم بۆ بەڕێوەبردنی کارمەند ---
-        if is_admin:
-            tab1, tab2, tab3 = st.tabs([t("tab_pending"), t("tab_completed"), t("user_mgmt")])
-        else:
-            tab1 = st.container()
-            st.subheader(t("tab_pending"))
-            tab2 = None
-            tab3 = None
-
-        with tab1:
-            search_query1 = st.text_input(t("search"), key="s1")
-            show_pending_df = pending_df[pending_df.astype(str).apply(lambda x: x.str.contains(search_query1, case=False, na=False)).any(axis=1)] if search_query1 else pending_df
-
-            st.dataframe(show_pending_df, use_container_width=True, height=250)
-
-            if not show_pending_df.empty:
-                st.markdown("<br>", unsafe_allow_html=True)
-                options = [f"Row {idx + 2} | {row.get('اسم الشركة / کۆمپانیای / Company Name', row.get('Company Name', 'No Name'))}" for idx, row in show_pending_df.iterrows()]
-                selected_option = st.selectbox(t("select_file"), ["---"] + options)
+        if selected_row != "---":
+            row_idx = int(selected_row.split(" ")[1])
+            current_row_data = df.iloc[row_idx-2].to_dict()
+            
+            with st.form("audit_form"):
+                st.write(f"### Editing as: **{st.session_state.user_email}**")
+                new_data = {}
+                for k, v in current_row_data.items():
+                    if k not in [STATUS_COL, LOG_COL]:
+                        new_data[k] = st.text_input(k, value=str(v))
                 
-                if selected_option != "---":
-                    actual_df_index = int(selected_option.split(" | ")[0].replace("Row ", "").strip()) - 2
-                    actual_row_in_sheet = actual_df_index + 2
-                    current_data = df.iloc[actual_df_index].to_dict()
+                if st.form_submit_button("Submit ✅"):
+                    # لێرەدا ئیمەیڵەکە بە ئۆتۆماتیکی وەردەگیرێت
+                    now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+                    log_entry = f"🔹 Verified by {st.session_state.user_email} at {now}"
                     
-                    if is_admin:
-                        with st.expander(t("history")):
-                            st.text(current_data.get(LOG_COL, "No History"))
+                    # ئاپدەیتکردنی گۆگڵ شیت
+                    col_map = {h: i+1 for i, h in enumerate(unique_headers)}
+                    # دڵنیابوون لە بوونی ستوونەکان
+                    for c in [STATUS_COL, LOG_COL]:
+                        if c not in unique_headers:
+                            sheet.update_cell(1, len(unique_headers)+1, c)
+                            unique_headers.append(c)
+                            col_map[c] = len(unique_headers)
+
+                    for k, v in new_data.items():
+                        if str(current_row_data[k]) != str(v):
+                            sheet.update_cell(row_idx, col_map[k], v)
                     
-                    with st.form("edit_form"):
-                        st.write(f"##### 📝 {t('edit_info')}")
-                        new_data = {}
-                        for key, value in current_data.items():
-                            if key not in [LOG_COL, STATUS_COL] and not key.startswith("Empty_Column"):
-                                new_data[key] = st.text_input(f"{key}", value=str(value))
-                        
-                        st.markdown("---")
-                        
-                        # لێرەدا لیستی کارمەندەکان ڕاستەوخۆ لە گۆگڵ شیتەوە دەهێنین
-                        auditor_names = ["---"] + auditor_emails
-                        selected_auditor = st.selectbox(t("auditor_name"), auditor_names)
-                        
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        submit_button = st.form_submit_button(t("submit_btn"), use_container_width=True)
-                        
-                        if submit_button:
-                            if selected_auditor == "---":
-                                st.warning(t("select_auditor_warn"))
-                            else:
-                                changes = [f"[{k}] changed from '{current_data[k]}' to '{new_data[k]}'" for k in new_data if str(current_data[k]) != str(new_data[k])]
-                                
-                                with st.spinner('Saving Data...'):
-                                    for col_to_check in [LOG_COL, STATUS_COL]:
-                                        if col_to_check not in unique_headers:
-                                            new_idx = len(unique_headers) + 1
-                                            if new_idx > sheet.col_count:
-                                                sheet.add_cols(2)
-                                            sheet.update_cell(1, new_idx, col_to_check)
-                                            unique_headers.append(col_to_check)
-                                            col_index_map[col_to_check] = new_idx
-                                    
-                                    now_str = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                                    action_str = f"🔹 پەسەندکرا لەلایەن ({selected_auditor})" if st.session_state.lang == 'ku' else f"🔹 Verified by ({selected_auditor})"
-                                    updated_log = f"{action_str} - {now_str}:\n" + "\n".join(changes) + f"\n\n{current_data.get(LOG_COL, '')}".strip()
-                                    
-                                    for key in new_data:
-                                        if str(current_data[key]) != str(new_data[key]):
-                                            sheet.update_cell(actual_row_in_sheet, col_index_map[key], new_data[key])
-                                            
-                                    sheet.update_cell(actual_row_in_sheet, col_index_map[STATUS_COL], "تەواوکراوە")
-                                    sheet.update_cell(actual_row_in_sheet, col_index_map[LOG_COL], updated_log)
-                                    
-                                    st.success(t("success_submit"))
-                                    time.sleep(1)
-                                    st.rerun()
-
-        if is_admin and tab2 is not None:
-            with tab2:
-                csv_data = df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(label=t("download_btn"), data=csv_data, file_name=f"Audit_Report.csv", mime="text/csv", type="primary")
-                st.markdown("---")
-                
-                search_query2 = st.text_input(t("search"), key="s2")
-                show_completed_df = completed_df[completed_df.astype(str).apply(lambda x: x.str.contains(search_query2, case=False, na=False)).any(axis=1)] if search_query2 else completed_df
-
-                st.dataframe(show_completed_df, use_container_width=True, height=250)
-                
-                if not show_completed_df.empty:
-                    options2 = [f"Row {idx + 2} | {row.get('اسم الشركة / کۆمپانیای / Company Name', row.get('Company Name', 'No Name'))}" for idx, row in show_completed_df.iterrows()]
-                    selected_completed = st.selectbox(t("select_file"), ["---"] + options2)
+                    old_log = current_row_data.get(LOG_COL, "")
+                    sheet.update_cell(row_idx, col_map[STATUS_COL], "تەواوکراوە")
+                    sheet.update_cell(row_idx, col_map[LOG_COL], f"{log_entry}\n{old_log}")
                     
-                    if selected_completed != "---":
-                        actual_df_index2 = int(selected_completed.split(" | ")[0].replace("Row ", "").strip()) - 2
-                        
-                        with st.expander(t("history"), expanded=True):
-                            st.text(df.iloc[actual_df_index2].to_dict().get(LOG_COL, ""))
-                            
-                        if st.button(t("return_btn")):
-                            with st.spinner('Returning to queue...'):
-                                sheet.update_cell(actual_df_index2 + 2, col_index_map[STATUS_COL], "نەکراوە")
-                                now_str = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                                old_log = df.iloc[actual_df_index2].to_dict().get(LOG_COL, "")
-                                sheet.update_cell(actual_df_index2 + 2, col_index_map[LOG_COL], f"❌ Rejected by Admin ({now_str})\n\n{old_log}")
-                                st.success(t("success_submit"))
-                                time.sleep(1)
-                                st.rerun()
+                    st.success(f"Done! Saved by {st.session_state.user_email}")
+                    time.sleep(1); st.rerun()
 
-        # --- تابی تایبەت بە ئەدمین بۆ زیادکردنی کارمەند ---
-        if is_admin and tab3 is not None:
-            with tab3:
-                st.subheader(t("user_mgmt"))
-                col_add, col_list = st.columns(2)
-                
-                with col_add:
-                    new_user = st.text_input(t("add_user_input"))
-                    if st.button(t("add_user_btn")):
-                        if new_user:
-                            if new_user not in auditor_emails:
-                                with st.spinner('زیاد دەکرێت...'):
-                                    auditors_ws.append_row([new_user])
-                                    st.success(t("user_added"))
-                                    time.sleep(1)
-                                    st.rerun()
-                            else:
-                                st.warning(t("user_exists"))
-                                
-                with col_list:
-                    st.write(f"##### {t('auditor_list')}")
-                    if auditor_emails:
-                        st.dataframe(pd.DataFrame(auditor_emails, columns=["Emails / Names"]), use_container_width=True)
-                    else:
-                        st.info(t("no_auditors"))
+    # --- بەشی بەڕێوەبردنی بەکارهێنەران (تەنها ئەدمین دەیبینێت) ---
+    if st.session_state.user_email == "Admin":
+        with main_tabs[1]:
+            st.subheader("👥 User Management")
+            new_user_email = st.text_input("New User Email:").lower().strip()
+            new_user_pass = st.text_input("New User Password:", type="password")
+            if st.button("Add Staff Account"):
+                if new_user_email and new_user_pass:
+                    users_ws.append_row([new_user_email, make_hashes(new_user_pass)])
+                    st.success("User Added!")
+                    time.sleep(1); st.rerun()
+            st.divider()
+            st.write("Current Staff Members:")
+            st.table(users_data[['email']])
 
 except Exception as e:
-    st.error(f"Error connecting to server: {e}")
+    st.error(f"System Error: {e}")
