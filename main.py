@@ -87,7 +87,7 @@ SYSTEM_SHEETS  = {"UsersDB"}
 USERS_SHEET    = "UsersDB"
 
 # ── HARDCODED VISIBLE WORKSHEETS (no dynamic manager) ────────────────────────
-VISIBLE_SHEETS = ["1-Registration", "2-Salary Tax", "3-Annual Filing"]
+VISIBLE_SHEETS = ["Registration", "Salary Tax", "Annual Filing"]
 
 COL_STATUS  = "Status"
 COL_LOG     = "Audit_Log"
