@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  ·  v10.0
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  ·  v10.1 (Smart Sheet Matching)
 #  Architecture: Optimistic UI / Local-First Mutation
 #
 #  CONCURRENCY MODEL (20 users · 9-hour shifts)
@@ -1197,7 +1197,6 @@ def render_login(spreadsheet_id: str) -> None:
             else:
                 st.error(t("bad_creds"))
 
-
 def render_sidebar(
     headers: list, col_binder: str | None, col_company: str | None, col_license: str | None,
     is_admin: bool, fetched_at: str,
@@ -1291,7 +1290,6 @@ def render_sidebar(
         st.session_state.get("f_license", ""),
         st.session_state.get("f_status",  "all"),
     )
-
 
 def render_filter_bar(
     total: int, filtered: int,
@@ -1449,7 +1447,6 @@ def render_archive(
 #  17 · TAB: ANALYTICS
 # ─────────────────────────────────────────────────────────────────────────────
 def render_analytics(df: pd.DataFrame) -> None:
-    # Light-theme Plotly colours
     pt  = "plotly_white"
     pb  = "#FFFFFF"
     pg  = "#E2E8F0"
@@ -1664,12 +1661,18 @@ def main() -> None:
         ws_title   = None
         fetched_at = "—"
 
-        # Only show sheets that actually exist in the spreadsheet
-        available = [s for s in VISIBLE_SHEETS if s in all_ws_titles]
+        # ⚡ گۆڕانکاری زیرەک بۆ دۆزینەوەی ناوەکان بێ گوێدانە سپەیس
+        actual_titles_map = {t.strip().lower(): t for t in all_ws_titles}
+        available = []
+        for s in VISIBLE_SHEETS:
+            s_clean = s.strip().lower()
+            if s_clean in actual_titles_map:
+                available.append(actual_titles_map[s_clean])
 
         if not available:
             st.warning("None of the configured worksheets were found in the spreadsheet. "
                        "Please ensure these sheets exist: " + ", ".join(VISIBLE_SHEETS))
+            st.error(f"⚠️ **زانیاری بۆ ئەدمین:** گۆگڵ شیت ئەم ناوانەی خوارەوەی بۆ ناردووین، پێدەچێت ناوەکانت سپەیسی زیادەیان تێدابێت یان جیاواز بن:\n\n `{all_ws_titles}`")
         else:
             ws_title = st.selectbox(
                 t("workspace"), available, key="ws_sel",
@@ -1747,7 +1750,7 @@ def main() -> None:
         # ── Worklist ──────────────────────────────────────────────────────────
         with t_work:
             if df.empty or ws_title is None:
-                st.warning(t("empty_sheet"))
+                pass # Warning is already shown above or handled
             else:
                 pending_view    = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
                 pending_display = pending_view.copy()
@@ -1760,7 +1763,7 @@ def main() -> None:
         # ── Archive ───────────────────────────────────────────────────────────
         with t_arch:
             if df.empty or ws_title is None:
-                st.warning(t("empty_sheet"))
+                pass
             else:
                 done_view = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
                 done_view.index = done_view.index + 2
@@ -1772,7 +1775,7 @@ def main() -> None:
         if is_admin and t_anal is not None:
             with t_anal:
                 if df.empty:
-                    st.warning(t("empty_sheet"))
+                    pass
                 else:
                     render_analytics(df)
 
