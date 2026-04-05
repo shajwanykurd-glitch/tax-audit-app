@@ -858,7 +858,6 @@ def get_visible_worksheets(spreadsheet_id: str) -> list[str]:
         return [ws.title for ws in spreadsheet.worksheets()
                 if ws.title not in SYSTEM_SHEETS]
 
-
 def add_visible_worksheet(spreadsheet_id: str, name: str) -> str:
     name = name.strip()
     if not name:
@@ -869,8 +868,11 @@ def add_visible_worksheet(spreadsheet_id: str, name: str) -> str:
         return "already"
     ws = _ensure_settings_sheet_silent(spreadsheet)
     _gsheets_call(ws.append_row, [name])
+    
+    # ⚡ چارەسەرەکە لێرەدایە: میمۆری سێتینگەکان ڕیفڕێش دەکات
+    _fetch_settings_cached.clear() 
+    
     return "added"
-
 
 def remove_visible_worksheet(spreadsheet_id: str, name: str) -> None:
     spreadsheet = get_spreadsheet()
@@ -879,8 +881,11 @@ def remove_visible_worksheet(spreadsheet_id: str, name: str) -> None:
     for i, row in enumerate(all_values):
         if row and clean_cell(row[0]) == name:
             _gsheets_call(ws.delete_rows, i + 1)
+            
+            # ⚡ چارەسەرەکە لێرەدایە: میمۆری سێتینگەکان ڕیفڕێش دەکات
+            _fetch_settings_cached.clear() 
+            
             return
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  15 · HTML TABLE RENDERER (avoids Arrow/canvas invisible-text bug)
