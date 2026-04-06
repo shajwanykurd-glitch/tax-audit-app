@@ -985,7 +985,7 @@ def render_login(spreadsheet_id: str) -> None:
         if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Single centered card — use columns [1, 1.4, 1] so middle is ~400px on typical screens
+    # Single centered card
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         # Card shell (visual only)
@@ -1007,29 +1007,24 @@ def render_login(spreadsheet_id: str) -> None:
 
         # Streamlit form — sits visually inside the card thanks to CSS
         with st.container():
-            st.markdown("""<style>
-            /* make the form blend into the card below the HTML shell */
-            div[data-testid="stForm"]{
-              border:none!important;background:transparent!important;
-              box-shadow:none!important;padding:0 40px 36px!important;
-              margin-top:-8px!important;
-              border-radius:0 0 8px 8px!important;
+            st.markdown("""
+            <style>
+            div[data-testid="stForm"] {
+              border:none!important; background:transparent!important;
+              box-shadow:none!important; padding:0 40px 36px!important;
+              margin-top:-8px!important; border-radius:0 0 8px 8px!important;
             }
-            /* white bg for the whole column so the card looks seamless */
             </style>
-            <div style="background:#ffffff;border:1px solid #dadce0;border-top:none;
-              border-radius:0 0 8px 8px;padding:0 40px 36px;margin-top:-4px;
-              box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+            <div style="background:#ffffff; border:1px solid #dadce0; border-top:none;
+                 border-radius:0 0 8px 8px; padding:0 40px 36px; margin-top:-4px;
+                 box-shadow:0 2px 10px rgba(0,0,0,0.08);">
             """, unsafe_allow_html=True)
 
             with st.form("login_form", clear_on_submit=False):
-                st.text_input(t("email_field"), placeholder="user@mof.gov.iq",
-                              key="_login_email")
-                st.text_input(t("password_field"), type="password",
-                              placeholder="••••••••••", key="_login_pw")
+                st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
+                st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
                 st.markdown("<div class='glogin-btn-wrap'>", unsafe_allow_html=True)
-                submitted = st.form_submit_button(
-                    f"🔐  {t('sign_in')}", use_container_width=True)
+                submitted = st.form_submit_button(f"🔐  {t('sign_in')}", use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("""
@@ -1037,7 +1032,8 @@ def render_login(spreadsheet_id: str) -> None:
                 Authorised personnel only · All access is logged and audited<br>
                 Ministry of Finance & Customs — Internal System
               </div>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
     if submitted:
         role = authenticate(
@@ -1053,8 +1049,6 @@ def render_login(spreadsheet_id: str) -> None:
             st.rerun()
         else:
             st.error(t("bad_creds"))
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  13 · SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
