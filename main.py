@@ -1139,6 +1139,13 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent_email):
     """Renders search inputs; returns (srch_binder, srch_company, srch_agent)."""
+    
+    # ⚡ 1. دروستکردنی فەنکشنی سڕینەوەکە (Callback) ⚡
+    def clear_search():
+        st.session_state[f"{key_prefix}_binder"] = ""
+        st.session_state[f"{key_prefix}_company"] = ""
+        st.session_state[f"{key_prefix}_agent"] = ""
+
     st.markdown(
         f"<div class='deep-search-strip'>"
         f"<div class='deep-search-title'>🔬 {t('deep_search')}"
@@ -1147,6 +1154,7 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         f"</div></div>",
         unsafe_allow_html=True,
     )
+    
     c1, c2, c3, c4 = st.columns([1, 1, 1, 0.38])
     with c1:
         srch_binder = st.text_input(
@@ -1171,10 +1179,8 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         )
     with c4:
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
-        if st.button(f"✕ {t('ds_clear')}", key=f"{key_prefix}_clr", use_container_width=True):
-            for k in (f"{key_prefix}_binder", f"{key_prefix}_company", f"{key_prefix}_agent"):
-                st.session_state[k] = ""
-            st.rerun()
+        # ⚡ 2. بەکارهێنانی on_click لەناو دوگمەکە ⚡
+        st.button(f"✕ {t('ds_clear')}", key=f"{key_prefix}_clr", use_container_width=True, on_click=clear_search)
         st.markdown("</div>", unsafe_allow_html=True)
 
     return (
@@ -1182,7 +1188,6 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         st.session_state.get(f"{key_prefix}_company", ""),
         st.session_state.get(f"{key_prefix}_agent", ""),
     )
-
 
 def apply_deep_search(df: pd.DataFrame, srch_binder: str, srch_company: str,
                       srch_agent: str, col_binder, col_company, col_agent_email) -> pd.DataFrame:
