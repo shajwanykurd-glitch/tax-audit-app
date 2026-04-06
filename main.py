@@ -1,21 +1,10 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  ·  v14.0
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.1 (Clean ASCII Version)
 #  Architecture: Optimistic UI / Local-First Mutation
 #
-#  Rule 1 — READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear())
-#  Rule 2 — OPTIMISTIC LOCAL MUTATION  (session_state.local_df, no re-fetch)
-#  Rule 3 — EXPONENTIAL BACKOFF        (tenacity on every gspread call)
-#
-#  v14 UPDATES (on top of v13):
-#    [A] REDESIGN: Google/Microsoft-style login — single centered card, no
-#                  column breakage, clean #ffffff + #1a73e8 palette
-#    [B] RBAC: 3-tier roles (admin / manager / auditor) stored in UsersDB
-#              + role-change UI in User Admin tab
-#    [C] DEEP SEARCH: binder / company / agent-email search widgets inside
-#                     Analytics and Auditor Logs tabs; charts update live
-#    [D] CHARTS: Stacked-bar "Eval Breakdown per Agent" + richer tooltips
-#
-#  Requirements: pip install streamlit gspread oauth2client pandas plotly pytz tenacity
+#  Rule 1 - READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear())
+#  Rule 2 - OPTIMISTIC LOCAL MUTATION  (session_state.local_df, no re-fetch)
+#  Rule 3 - EXPONENTIAL BACKOFF        (tenacity on every gspread call)
 # =============================================================================
 
 import streamlit as st
@@ -43,27 +32,26 @@ from tenacity import (
 import logging
 import gspread.exceptions
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  0 · LOGGING
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  0 . LOGGING
+# -----------------------------------------------------------------------------
 logging.basicConfig(level=logging.WARNING)
 _log = logging.getLogger("audit_portal")
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  1 · PAGE CONFIG
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  1 . PAGE CONFIG
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Tax Audit & Compliance Portal",
-    page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 TZ = pytz.timezone("Asia/Baghdad")
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  2 · SESSION STATE DEFAULTS
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  2 . SESSION STATE DEFAULTS
+# -----------------------------------------------------------------------------
 _DEFAULTS: dict = dict(
     logged_in        = False,
     user_email       = "",
@@ -80,9 +68,9 @@ for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  3 · CONSTANTS
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  3 . CONSTANTS
+# -----------------------------------------------------------------------------
 SYSTEM_SHEETS  = {"UsersDB"}
 USERS_SHEET    = "UsersDB"
 VISIBLE_SHEETS = ["Registration", "Salary Tax", "Annual Filing"]
@@ -100,20 +88,19 @@ VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
 
 EVAL_OPTIONS = [
-    "🟢 Good (باش)",
-    "🔴 Bad / Incorrect (خراپ)",
-    "⚠️ Duplicate (دووبارە)",
+    "Good (باش)",
+    "Bad / Incorrect (خراپ)",
+    "Duplicate (دووبارە)",
 ]
 
-# [B] Valid roles
 VALID_ROLES = ["auditor", "manager", "admin"]
 
 READ_TTL    = 600
 BACKOFF_MAX = 5
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  4 · EXPONENTIAL BACKOFF DECORATOR  (unchanged — core engine)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  4 . EXPONENTIAL BACKOFF DECORATOR
+# -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
         (gspread.exceptions.APIError, gspread.exceptions.GSpreadException)
@@ -131,19 +118,19 @@ def _gsheets_call(func, *args, **kwargs):
     return _inner()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  5 · CSS  — [A] Google-style login + all portal styles
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  5 . CSS
+# -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
-  --bg:           #F7F8FC;
-  --surface:      #FFFFFF;
-  --surface-2:    #F0F2F9;
-  --border:       #E4E7F0;
-  --border-2:     #D0D5E8;
+  --bg:            #F7F8FC;
+  --surface:       #FFFFFF;
+  --surface-2:     #F0F2F9;
+  --border:        #E4E7F0;
+  --border-2:      #D0D5E8;
   --text-primary:    #0D1117;
   --text-secondary:  #4B5563;
   --text-muted:      #9CA3AF;
@@ -165,7 +152,6 @@ def inject_css() -> None:
   --red-50:     #FFF1F2;
   --red-200:    #FECDD3;
   --red-600:    #DC2626;
-  /* Google palette for login */
   --g-blue:     #1a73e8;
   --g-blue-hov: #1557b0;
   --g-border:   #dadce0;
@@ -308,97 +294,13 @@ div[data-testid="stForm"] {
 }
 [data-testid="stAlert"] * { color: var(--text-primary) !important; }
 
-/* ── [A] GOOGLE-STYLE LOGIN ─────────────────────────────────────────────── */
-.glogin-root {
-  position: fixed; inset: 0; z-index: 9999;
-  background: #f1f3f4;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 24px 16px;
-}
-.glogin-card {
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 48px 40px 36px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-  text-align: center;
-}
-.glogin-logo {
-  width: 56px; height: 56px; margin: 0 auto 20px;
-  background: #1a73e8;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem;
-  box-shadow: 0 2px 8px rgba(26,115,232,0.35);
-}
-.glogin-org {
-  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #5f6368 !important; margin-bottom: 6px;
-}
-.glogin-title {
-  font-size: 1.5rem; font-weight: 700; color: #202124 !important;
-  letter-spacing: -0.02em; margin-bottom: 6px; line-height: 1.2;
-}
-.glogin-subtitle {
-  font-size: 0.84rem; color: #5f6368 !important; margin-bottom: 28px; font-weight: 400;
-}
-.glogin-divider {
-  height: 1px; background: #e0e0e0; margin: 24px 0;
-}
-.glogin-lang-row {
-  display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;
-}
-.glogin-footer {
-  margin-top: 24px; font-size: 0.72rem; color: #80868b !important;
-  text-align: center; line-height: 1.6;
-}
-/* Override Streamlit button ONLY inside glogin context */
-.glogin-btn-wrap .stButton > button {
-  background: #1a73e8 !important;
-  color: #ffffff !important;
-  border: none !important;
-  border-radius: 4px !important;
-  font-weight: 600 !important;
-  font-size: 0.92rem !important;
-  padding: 12px 24px !important;
-  width: 100% !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.20) !important;
-  letter-spacing: 0.01em !important;
-  transition: background 0.18s ease, box-shadow 0.18s ease !important;
-}
-.glogin-btn-wrap .stButton > button:hover {
-  background: #1557b0 !important;
-  box-shadow: 0 2px 8px rgba(26,115,232,0.40) !important;
-  transform: none !important;
-}
-/* lang mini-buttons */
-.glogin-lang-btn .stButton > button {
-  background: transparent !important;
-  color: #1a73e8 !important;
-  border: 1px solid #dadce0 !important;
-  border-radius: 4px !important;
-  font-weight: 600 !important;
-  font-size: 0.78rem !important;
-  padding: 6px 18px !important;
-  box-shadow: none !important;
-  transition: background 0.14s ease !important;
-}
-.glogin-lang-btn .stButton > button:hover {
-  background: #e8f0fe !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-/* ── [B] Role chips ─────────────────────────────────────────────────────── */
+/* ── ROLE CHIPS ─────────────────────────────────────────────────────────── */
 .chip-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA; }
 .role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 .role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 .role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 
-/* ── [C] Deep-search strip ───────────────────────────────────────────────── */
+/* ── DEEP SEARCH STRIP ──────────────────────────────────────────────────── */
 .deep-search-strip {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -420,7 +322,7 @@ div[data-testid="stForm"] {
   letter-spacing:.06em;text-transform:uppercase;padding:2px 10px;margin-left:8px;
 }
 
-/* ── PAGE / SECTION (unchanged) ─────────────────────────────────────────── */
+/* ── PAGE / SECTION ─────────────────────────────────────────────────────── */
 .page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
 .page-title  { font-size:1.55rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.03em;margin:0; }
 .page-subtitle { font-size:.78rem;color:var(--text-muted)!important;margin-top:4px;font-weight:500; }
@@ -501,15 +403,15 @@ div[data-testid="stForm"] {
 
 inject_css()
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  6 · TRANSLATIONS
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  6 . TRANSLATIONS
+# -----------------------------------------------------------------------------
 _LANG: dict[str, dict[str, str]] = {
     "en": {
         "ministry":"Ministry of Finance & Customs",
         "portal_title":"Tax Audit & Compliance Portal",
         "portal_sub":"Authorised Access Only",
-        "classified":"CLASSIFIED — GOVERNMENT USE ONLY",
+        "classified":"CLASSIFIED - GOVERNMENT USE ONLY",
         "login_prompt":"Use your authorised credentials to access the system.",
         "email_field":"Official Email / User ID","password_field":"Password",
         "sign_in":"Sign in","sign_out":"Sign Out",
@@ -518,8 +420,8 @@ _LANG: dict[str, dict[str, str]] = {
         "workspace":"Active Case Register","overview":"Case Overview",
         "total":"Total Cases","processed":"Processed","outstanding":"Outstanding",
         "worklist_title":"Audit Worklist","worklist_sub":"Active cases pending review",
-        "tab_worklist":"📋  Worklist","tab_archive":"✅  Archive",
-        "tab_analytics":"📊  Analytics","tab_logs":"🗂️  Auditor Logs","tab_users":"⚙️  User Admin",
+        "tab_worklist":"Worklist","tab_archive":"Archive",
+        "tab_analytics":"Analytics","tab_logs":"Auditor Logs","tab_users":"User Admin",
         "select_case":"Select a case to inspect","audit_trail":"Audit Trail",
         "approve_save":"Approve & Commit Record","reopen":"Re-open Record (Admin)",
         "leaderboard":"Auditor Productivity Leaderboard","daily_trend":"Daily Processing Trend",
@@ -529,7 +431,7 @@ _LANG: dict[str, dict[str, str]] = {
         "remove_user":"Revoke Access","staff_dir":"Authorised Staff",
         "no_records":"No records found for this period.",
         "empty_sheet":"This register contains no data.",
-        "saved_ok":"✅ Record approved and committed. View updated instantly — sheet syncs within 10 min.",
+        "saved_ok":"Record approved and committed. View updated instantly - sheet syncs within 10 min.",
         "dup_email":"This email address is already registered.",
         "fill_fields":"All fields are required.",
         "signed_as":"Authenticated as","role_admin":"System Administrator",
@@ -543,9 +445,9 @@ _LANG: dict[str, dict[str, str]] = {
         "active_filters":"Active filters","results_shown":"results shown",
         "no_match":"No records match the applied filters.",
         "status_all":"All Statuses","status_pending":"Pending Only","status_done":"Processed Only",
-        "retry_warning":"⏳ Google Sheets quota reached — retrying with backoff…",
+        "retry_warning":"Google Sheets quota reached - retrying with backoff...",
         "local_mode":"Optimistic UI Active","cache_age":"Cache TTL",
-        "rbac_notice":"ℹ️  Your role only has access to the Worklist and Archive.",
+        "rbac_notice":"Info: Your role only has access to the Worklist and Archive.",
         "logs_title":"Auditor Activity Logs",
         "logs_sub":"Full processing history from project start",
         "logs_filter_all":"All Auditors",
@@ -556,42 +458,39 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_no_data":"No processed records found.",
         "logs_export_hdr":"Export Full Report",
         "logs_export_sub":"Download the complete audit log as a CSV file.",
-        "logs_export_btn":"⬇  Download CSV Report",
+        "logs_export_btn":"Download CSV Report",
         "logs_filename":"audit_log_report.csv",
         "logs_cols_shown":"Columns displayed",
         "eval_label":"Data Entry Quality (کوالێتی داتا)",
         "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
-        "feedback_placeholder":"Optional notes, issues found, corrections made…",
-        "acc_ranking_title":"🏆 Data Entry Accuracy Ranking",
+        "feedback_placeholder":"Optional notes, issues found, corrections made...",
+        "acc_ranking_title":"Data Entry Accuracy Ranking",
         "acc_agent":"Agent Email",
         "acc_total":"Total",
-        "acc_good":"✅ Good",
-        "acc_bad":"❌ Bad",
-        "acc_dup":"⚠️ Dup",
+        "acc_good":"Good",
+        "acc_bad":"Bad",
+        "acc_dup":"Dup",
         "acc_rate":"Accuracy %",
         "acc_no_data":"No evaluation data available yet.",
-        "archive_quality_note":"💡 Tip: Columns Data_Evaluation & Correction_Notes are highlighted.",
-        # [B]
+        "archive_quality_note":"Tip: Columns Data_Evaluation & Correction_Notes are highlighted.",
         "role_label":"Role",
         "change_role":"Change User Role",
         "change_role_sub":"Upgrade or downgrade any user's access level",
-        "role_updated":"✅ Role updated successfully.",
-        # [C]
+        "role_updated":"Role updated successfully.",
         "deep_search":"Deep Search",
         "ds_binder":"Filter by Binder No.",
         "ds_company":"Filter by Company",
         "ds_agent":"Filter by Agent Email",
         "ds_clear":"Clear Search",
         "ds_showing":"Showing filtered results for",
-        # [D]
-        "eval_breakdown":"📊 Evaluation Breakdown per Agent",
+        "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view of Good / Bad / Duplicate per data-entry agent",
     },
     "ku": {
         "ministry":"وەزارەتی دارایی و گومرگ",
         "portal_title":"پۆرتەلی فەرمی وردبینی باج و پابەندبوون",
         "portal_sub":"تەنها دەستپێگەیشتنی مەرجدارکراو",
-        "classified":"نهێنی — تەنها بەکارهێنانی حکومی",
+        "classified":"نهێنی - تەنها بەکارهێنانی حکومی",
         "login_prompt":"زانیارییە مەرجەکانت بنووسە بۆ چوونەژوورەوە",
         "email_field":"ئیمەیڵی فەرمی / ناساندن","password_field":"پاسۆرد",
         "sign_in":"چوونەژوورەوە","sign_out":"چوونەدەرەوە",
@@ -600,8 +499,8 @@ _LANG: dict[str, dict[str, str]] = {
         "workspace":"تۆماری کیسە چالاکەکان","overview":"کورتەی کیسەکان",
         "total":"کۆی کیسەکان","processed":"کارکراوە","outstanding":"ماوە",
         "worklist_title":"لیستی کاری وردبینی","worklist_sub":"کیسە چالاکەکانی چاوەڕوان",
-        "tab_worklist":"📋  لیستی کاری","tab_archive":"✅  ئەرشیف",
-        "tab_analytics":"📊  ئەنالیتیکس","tab_logs":"🗂️  لۆگی ئۆدیتۆر","tab_users":"⚙️  بەکارهێنەر",
+        "tab_worklist":"لیستی کاری","tab_archive":"ئەرشیف",
+        "tab_analytics":"ئەنالیتیکس","tab_logs":"لۆگی ئۆدیتۆر","tab_users":"بەکارهێنەر",
         "select_case":"کیسێک هەڵبژێرە بۆ پشکنین","audit_trail":"مێژووی گۆڕانکاری",
         "approve_save":"پەسەندکردن و پاشەکەوتکردن","reopen":"کردنەوەی دووبارەی کیس (ئەدمین)",
         "leaderboard":"تەختەی بەرهەمهێنانی ئۆدیتۆر","daily_trend":"ترەندی ڕۆژانە",
@@ -611,7 +510,7 @@ _LANG: dict[str, dict[str, str]] = {
         "remove_user":"هەڵوەشاندنەوەی دەستپێگەیشتن","staff_dir":"کارمەندە مەرجداركراوەکان",
         "no_records":"هیچ تۆماری نییە بۆ ئەم ماوەیە.",
         "empty_sheet":"ئەم تۆمارخانە داتای تێدا نییە.",
-        "saved_ok":"✅ کیسەکە پەسەندکرا. دیمەن نوێکرایەوە.",
+        "saved_ok":"کیسەکە پەسەندکرا. دیمەن نوێکرایەوە.",
         "dup_email":"ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
         "fill_fields":"هەموو خانەکان پەیوەندییانە.",
         "signed_as":"چووییتە ژوورەوە بەناوی","role_admin":"بەڕێوەبەری سیستەم",
@@ -625,9 +524,9 @@ _LANG: dict[str, dict[str, str]] = {
         "active_filters":"فلتەرە چالاکەکان","results_shown":"ئەنجامی پیشاندراو",
         "no_match":"هیچ تۆماریک لەگەڵ فلتەرەکان دەگونجێ.",
         "status_all":"هەموو","status_pending":"چاوەڕوان تەنها","status_done":"کارکراو تەنها",
-        "retry_warning":"⏳ کووتای گووگڵ شیت گەیشت — دووبارە هەوڵدەدرێت…",
+        "retry_warning":"کووتای گووگڵ شیت گەیشت - دووبارە هەوڵدەدرێت...",
         "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
-        "rbac_notice":"ℹ️  ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری و ئەرشیف هەیە.",
+        "rbac_notice":"ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری و ئەرشیف هەیە.",
         "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان",
         "logs_sub":"مێژووی تەواوی پرۆسەکردن",
         "logs_filter_all":"هەموو ئۆدیتۆرەکان",
@@ -638,32 +537,32 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_no_data":"هیچ تۆماری کارکراوی نییە.",
         "logs_export_hdr":"هەناردەکردنی ڕاپۆرتی تەواو",
         "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە.",
-        "logs_export_btn":"⬇  داگرتنی ڕاپۆرتی CSV",
+        "logs_export_btn":"داگرتنی ڕاپۆرتی CSV",
         "logs_filename":"audit_log_report.csv",
         "logs_cols_shown":"ستوونەکانی پیشاندراو",
         "eval_label":"کوالێتی داتا (Data Entry Quality)",
         "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
-        "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان…",
-        "acc_ranking_title":"🏆 رێزبەندی شیازی داخلکردنی داتا",
+        "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان...",
+        "acc_ranking_title":"رێزبەندی شیازی داخلکردنی داتا",
         "acc_agent":"ئیمەیڵی ئەجنت",
         "acc_total":"کۆی گشتی",
-        "acc_good":"✅ باش",
-        "acc_bad":"❌ خراپ",
-        "acc_dup":"⚠️ دووبارە",
+        "acc_good":"باش",
+        "acc_bad":"خراپ",
+        "acc_dup":"دووبارە",
         "acc_rate":"ڕێژەی شیازی %",
         "acc_no_data":"هیچ داتای هەڵسەنگاندنی بەردەست نییە.",
-        "archive_quality_note":"💡 تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes نیشاندراون.",
+        "archive_quality_note":"تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes نیشاندراون.",
         "role_label":"ڕۆڵ",
         "change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
         "change_role_sub":"بەرزکردنەوە یان دابەزاندنی ئاستی دەستپێگەیشتن",
-        "role_updated":"✅ ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
+        "role_updated":"ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
         "deep_search":"گەڕانی قووڵ",
         "ds_binder":"فلتەر بە ژمارەی بایندەر",
         "ds_company":"فلتەر بە ناوی کۆمپانیا",
         "ds_agent":"فلتەر بە ئیمەیڵی ئەجنت",
         "ds_clear":"سڕینەوەی گەڕان",
         "ds_showing":"پیشاندانی ئەنجامی فلتەرکراو بۆ",
-        "eval_breakdown":"📊 داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
+        "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
         "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
     },
 }
@@ -672,9 +571,9 @@ def t(key: str) -> str:
     return _LANG[st.session_state.lang].get(key, key)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  7 · HELPERS  (unchanged core engine)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  7 . HELPERS 
+# -----------------------------------------------------------------------------
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
                 "ژمارەی بایندەری کۆمپانیا","ژمارەی بایندەری","بایندەری",
@@ -767,16 +666,16 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
         old_v = clean_cell(record.get(field, ""))
         new_v_clean = clean_cell(new_v)
         if old_v != new_v_clean:
-            ov = old_v[:60] + "…" if len(old_v) > 60 else old_v
-            nv = new_v_clean[:60] + "…" if len(new_v_clean) > 60 else new_v_clean
-            lines.append(f"[{field}]: '{ov}' → '{nv}'")
+            ov = old_v[:60] + "..." if len(old_v) > 60 else old_v
+            nv = new_v_clean[:60] + "..." if len(new_v_clean) > 60 else new_v_clean
+            lines.append(f"[{field}]: '{ov}' -> '{nv}'")
     if lines: return "Auto-Log:\n" + "\n".join(lines)
     return "Auto-Log: No field changes detected."
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  8 · GOOGLE SHEETS  (unchanged core engine)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  8 . GOOGLE SHEETS
+# -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -815,9 +714,9 @@ def get_local_data(spreadsheet_id, ws_title):
             st.session_state.local_col_map, st.session_state.local_fetched_at or fetched_at)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  9 · OPTIMISTIC MUTATIONS  (unchanged core engine)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  9 . OPTIMISTIC MUTATIONS
+# -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
     ldf = st.session_state.local_df
@@ -840,9 +739,9 @@ def _apply_optimistic_reopen(df_iloc):
     st.session_state.local_df = ldf
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  10 · WRITE HELPERS  (unchanged core engine)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  10 . WRITE HELPERS
+# -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
         if sc not in col_map:
@@ -881,13 +780,11 @@ def write_reopen_to_sheet(ws_title, sheet_row, col_map):
         _gsheets_call(ws.update_cell, sheet_row, col_map[COL_STATUS], VAL_PENDING)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  [B] AUTHENTICATE — 3-tier RBAC
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  [B] AUTHENTICATE
+# -----------------------------------------------------------------------------
 def authenticate(email: str, password: str, spreadsheet_id: str):
-    """Returns 'admin' | 'manager' | 'auditor' | None."""
     email = email.lower().strip()
-    # hardcoded admin bypass (unchanged)
     if email == "admin" and password == st.secrets.get("admin_password", ""):
         return "admin"
     try:
@@ -897,7 +794,6 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
         row = df_u[df_u["email"] == email]
         if row.empty: return None
         if hash_pw(password) != str(row["password"].values[0]): return None
-        # resolve role — default to 'auditor' for legacy rows without role col
         role = "auditor"
         if "role" in df_u.columns:
             r = str(row["role"].values[0]).strip().lower()
@@ -907,16 +803,16 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
         return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  11 · HTML TABLE
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  11 . HTML TABLE
+# -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
-    if not raw or raw == "—": return "—"
-    if "🟢" in raw or "Good" in raw:
+    if not raw or raw == "-": return "-"
+    if "Good" in raw:
         return f"<span class='s-chip s-eval-good'>{raw}</span>"
-    if "🔴" in raw or "Bad" in raw or "Incorrect" in raw:
+    if "Bad" in raw or "Incorrect" in raw:
         return f"<span class='s-chip s-eval-bad'>{raw}</span>"
-    if "⚠️" in raw or "Duplicate" in raw or "دووبارە" in raw:
+    if "Duplicate" in raw:
         return f"<span class='s-chip s-eval-dup'>{raw}</span>"
     return f"<span class='s-chip s-pending'>{raw}</span>"
 
@@ -935,20 +831,20 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         r = f"<td class='row-idx'>{idx}</td>"
         for col in display_df.columns:
             if col == COL_LOG: continue
-            raw = str(row[col]) if row[col] != "" else ""; d = raw or "—"
+            raw = str(row[col]) if row[col] != "" else ""; d = raw or "-"
             if col == COL_STATUS:
-                d = ("<span class='s-chip s-done'>✓ Processed</span>" if raw == VAL_DONE
-                     else "<span class='s-chip s-pending'>⏳ Pending</span>")
+                d = ("<span class='s-chip s-done'>Processed</span>" if raw == VAL_DONE
+                     else "<span class='s-chip s-pending'>Pending</span>")
             elif col == COL_EVAL:
                 d = _eval_chip(raw)
                 r += f"<td class='col-eval'>{d}</td>"
                 continue
             elif col == COL_FEEDBACK:
-                d = raw[:160] + "…" if len(raw) > 160 else (raw or "—")
+                d = raw[:160] + "..." if len(raw) > 160 else (raw or "-")
                 r += f"<td class='col-feedback'>{d}</td>"
                 continue
             elif len(raw) > 55:
-                d = f"<span title='{raw}'>{raw[:52]}…</span>"
+                d = f"<span title='{raw}'>{raw[:52]}...</span>"
             r += f"<td>{d}</td>"
         rows += f"<tr>{r}</tr>"
     st.markdown(
@@ -956,17 +852,14 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  12 · LOGIN  — Dynamic, Centered, Premium Glassmorphism Design
-# ─────────────────────────────────────────────────────────────────────────────
+
+# -----------------------------------------------------------------------------
+#  12 . LOGIN (Glassmorphism + Animated BG)
+# -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str) -> None:
-    # ⚡ دیزاینی داینامیکی و پاشبنەمای جووڵاو ⚡
     st.markdown("""
     <style>
-    /* شاردنەوەی بەشە زیادەکان */
     [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
-    
-    /* پاشبنەمایەکی مۆدێرنی جووڵاو (Animated Gradient Background) */
     .stApp {
         background: linear-gradient(-45deg, #0F172A, #1E3A8A, #3B82F6, #1E40AF);
         background-size: 400% 400%;
@@ -977,8 +870,6 @@ def render_login(spreadsheet_id: str) -> None:
         50% {background-position: 100% 50%;}
         100% {background-position: 0% 50%;}
     }
-
-    /* هێنانە ناوەڕاستی شاشەکە بە تەواوی */
     .block-container {
         display: flex;
         flex-direction: column;
@@ -987,8 +878,6 @@ def render_login(spreadsheet_id: str) -> None:
         min-height: 100vh;
         padding: 1rem !important;
     }
-
-    /* گۆڕینی فۆڕمەکەی ستریملێت بۆ کارتێکی شوشەیی زۆر جوان */
     [data-testid="stForm"] {
         background: rgba(255, 255, 255, 0.95) !important;
         backdrop-filter: blur(12px) !important;
@@ -996,10 +885,80 @@ def render_login(spreadsheet_id: str) -> None:
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 24px !important;
         padding: 40px 30px !important;
-        box-shadow
-# ─────────────────────────────────────────────────────────────────────────────
-#  13 · SIDEBAR
-# ─────────────────────────────────────────────────────────────────────────────
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+        max-width: 420px !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+    }
+    .login-title {
+        text-align: center; font-size: 1.6rem; font-weight: 800; color: #0F172A; margin-bottom: 5px;
+    }
+    .login-sub {
+        text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 25px;
+    }
+    .login-lock {
+        display: block; text-align: center; font-size: 0.65rem; font-weight: bold;
+        color: #DC2626; background: #FEE2E2; padding: 4px 10px; border-radius: 99px;
+        width: max-content; margin: 0 auto 20px auto; letter-spacing: 1px;
+    }
+    [data-testid="stFormSubmitButton"] button {
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: bold !important;
+        font-size: 1rem !important;
+        padding: 0.6rem !important;
+        width: 100% !important;
+        margin-top: 10px !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    [data-testid="stFormSubmitButton"] button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4) !important;
+        color: white !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([8, 1, 1])
+    with c2:
+        if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
+    with c3:
+        if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
+
+    with st.form("login_form", clear_on_submit=False):
+        st.markdown(f"""
+        <div style="text-align:center; font-size:3.5rem; margin-bottom:10px;">[MOF]</div>
+        <div class="login-title">{t('portal_title')}</div>
+        <span class="login-lock">[Classified] {t('classified')}</span>
+        <div class="login-sub">{t('login_prompt')}</div>
+        """, unsafe_allow_html=True)
+        
+        st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
+        st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
+        
+        submitted = st.form_submit_button(f"{t('sign_in')}")
+
+    if submitted:
+        role = authenticate(
+            st.session_state.get("_login_email", ""),
+            st.session_state.get("_login_pw", ""),
+            spreadsheet_id,
+        )
+        if role:
+            em = st.session_state.get("_login_email", "")
+            st.session_state.logged_in  = True
+            st.session_state.user_email = "Admin" if role == "admin" else em.lower().strip()
+            st.session_state.user_role  = role
+            st.rerun()
+        else:
+            st.error(t("bad_creds"))
+
+
+# -----------------------------------------------------------------------------
+#  13 . SIDEBAR
+# -----------------------------------------------------------------------------
 def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
     def clear_all_filters():
         for k in ("f_email", "f_binder", "f_company", "f_license"):
@@ -1012,14 +971,14 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
     badge_cls   = {"admin": "role-badge-admin", "manager": "role-badge-manager",
                    "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
 
-   with st.sidebar:
-            st.markdown(f"""
-            <div class="sidebar-header">
-              <div class="sidebar-logo-text">{t('portal_title')}</div>
-              <div class="sidebar-ministry">{t('ministry')}</div>
-            </div>
-            <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
-       st.markdown(f"""
+    with st.sidebar:
+        st.markdown(f"""
+        <div class="sidebar-header">
+          <div class="sidebar-logo-text">{t('portal_title')}</div>
+          <div class="sidebar-ministry">{t('ministry')}</div>
+        </div>
+        <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
+        st.markdown(f"""
         <div class="cache-strip">
           <span class="cache-badge"> {t('local_mode')}</span>
           <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min - Last sync: {fetched_at[-8:] if fetched_at else '-'}</div>
@@ -1027,24 +986,24 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         st.markdown(f"<div class='sb-label'>{t('language')}</div>", unsafe_allow_html=True)
         lc1, lc2 = st.columns(2)
-        if lc1.button("🇬🇧  EN", use_container_width=True, key="sb_en"): st.session_state.lang = "en"; st.rerun()
-        if lc2.button("🟡  KU", use_container_width=True, key="sb_ku"): st.session_state.lang = "ku"; st.rerun()
+        if lc1.button("EN", use_container_width=True, key="sb_en"): st.session_state.lang = "en"; st.rerun()
+        if lc2.button("KU", use_container_width=True, key="sb_ku"): st.session_state.lang = "ku"; st.rerun()
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='adv-filter-header'>🔍 {t('adv_filters')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='adv-filter-header'> {t('adv_filters')}</div>", unsafe_allow_html=True)
         status_opts = {"all": t("status_all"), "pending": t("status_pending"), "done": t("status_done")}
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
             ("f_email",   t("f_email"),   COL_AUDITOR,           False),
-            ("f_binder",  t("f_binder"),  col_binder  or "—",    col_binder  is None),
-            ("f_company", t("f_company"), col_company or "—",    col_company is None),
-            ("f_license", t("f_license"), col_license or "—",    col_license is None),
+            ("f_binder",  t("f_binder"),  col_binder  or "-",    col_binder  is None),
+            ("f_company", t("f_company"), col_company or "-",    col_company is None),
+            ("f_license", t("f_license"), col_license or "-",    col_license is None),
         ]:
             st.markdown(f"<div class='sb-label' style='margin-top:10px;'>{label}"
                         f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        st.button(f"✕  {t('clear_filters')}", use_container_width=True,
+        st.button(f"X  {t('clear_filters')}", use_container_width=True,
                   key="clr_f", on_click=clear_all_filters)
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"""
@@ -1053,7 +1012,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
           <div class="sb-email">{st.session_state.user_email}</div>
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
-        if st.button(f"→  {t('sign_out')}", use_container_width=True, key="sb_logout"):
+        if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
             for k, v in _DEFAULTS.items(): st.session_state[k] = v
             st.rerun()
     return (st.session_state.get("f_email", ""), st.session_state.get("f_binder", ""),
@@ -1064,11 +1023,11 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
     if n == 0: return
     badges = ""
-    if f_status != "all":   badges += f"<span class='filter-badge'>⚡ {f_status}</span> "
-    if f_email.strip():     badges += f"<span class='filter-badge'>📧 {f_email.strip()[:20]}</span> "
-    if f_binder.strip():    badges += f"<span class='filter-badge'>📁 {f_binder.strip()[:20]}</span> "
-    if f_company.strip():   badges += f"<span class='filter-badge'>🏢 {f_company.strip()[:20]}</span> "
-    if f_license.strip():   badges += f"<span class='filter-badge'>🪪 {f_license.strip()[:20]}</span> "
+    if f_status != "all":   badges += f"<span class='filter-badge'>{f_status}</span> "
+    if f_email.strip():     badges += f"<span class='filter-badge'>{f_email.strip()[:20]}</span> "
+    if f_binder.strip():    badges += f"<span class='filter-badge'>{f_binder.strip()[:20]}</span> "
+    if f_company.strip():   badges += f"<span class='filter-badge'>{f_company.strip()[:20]}</span> "
+    if f_license.strip():   badges += f"<span class='filter-badge'>{f_license.strip()[:20]}</span> "
     st.markdown(f"""<div class="filter-result-bar">
       <span style="font-size:.70rem;font-weight:800;color:var(--indigo-600);text-transform:uppercase;letter-spacing:.08em;">
         {t('active_filters')} ({n})</span> {badges}
@@ -1076,13 +1035,10 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
     </div>""", unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  [C] DEEP SEARCH WIDGET — reusable strip used in Analytics & Logs
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  [C] DEEP SEARCH WIDGET 
+# -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent_email):
-    """Renders search inputs; returns (srch_binder, srch_company, srch_agent)."""
-    
-    # ⚡ 1. دروستکردنی فەنکشنی سڕینەوەکە (Callback) ⚡
     def clear_search():
         st.session_state[f"{key_prefix}_binder"] = ""
         st.session_state[f"{key_prefix}_company"] = ""
@@ -1090,13 +1046,12 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
 
     st.markdown(
         f"<div class='deep-search-strip'>"
-        f"<div class='deep-search-title'>🔬 {t('deep_search')}"
+        f"<div class='deep-search-title'>{t('deep_search')}"
         f"<span style='font-size:.60rem;font-weight:400;text-transform:none;letter-spacing:0;"
-        f"color:var(--text-muted);'>— {t('ds_showing')} binder / company / agent</span>"
+        f"color:var(--text-muted);'>- {t('ds_showing')} binder / company / agent</span>"
         f"</div></div>",
         unsafe_allow_html=True,
     )
-    
     c1, c2, c3, c4 = st.columns([1, 1, 1, 0.38])
     with c1:
         srch_binder = st.text_input(
@@ -1121,8 +1076,7 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         )
     with c4:
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
-        # ⚡ 2. بەکارهێنانی on_click لەناو دوگمەکە ⚡
-        st.button(f"✕ {t('ds_clear')}", key=f"{key_prefix}_clr", use_container_width=True, on_click=clear_search)
+        st.button(f"X {t('ds_clear')}", key=f"{key_prefix}_clr", use_container_width=True, on_click=clear_search)
         st.markdown("</div>", unsafe_allow_html=True)
 
     return (
@@ -1131,9 +1085,9 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         st.session_state.get(f"{key_prefix}_agent", ""),
     )
 
+
 def apply_deep_search(df: pd.DataFrame, srch_binder: str, srch_company: str,
                       srch_agent: str, col_binder, col_company, col_agent_email) -> pd.DataFrame:
-    """Filter df using the three deep-search inputs."""
     r = df.copy()
     if srch_binder.strip() and col_binder and col_binder in r.columns:
         r = r[r[col_binder].str.contains(srch_binder.strip(), case=False, na=False)]
@@ -1148,39 +1102,39 @@ def _deep_search_active(b, c, a) -> bool:
     return any(x.strip() for x in (b, c, a))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  14 · WORKLIST
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  14 . WORKLIST
+# -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     f_email, f_binder, f_company, f_license, f_status):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
-      <div><div class="worklist-title">📋 {t('worklist_title')}</div>
+      <div><div class="worklist-title">{t('worklist_title')}</div>
       <div class="worklist-sub">{t('worklist_sub')}</div></div>
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
     </div>""", unsafe_allow_html=True)
     if pending_display.empty:
         msg = (t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-               else "✅  All cases processed.")
+               else "All cases processed.")
         st.info(msg); return
     render_html_table(pending_display)
-    st.markdown(f"<div class='section-title'>🔍 {t('select_case')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
     label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
-    opts = ["—"] + [f"Row {idx}  ·  {str(row.get(label_col,''))[:55]}"
+    opts = ["-"] + [f"Row {idx} - {str(row.get(label_col,''))[:55]}"
                     for idx, row in pending_display.iterrows()]
     row_sel = st.selectbox("", opts, key="row_sel", label_visibility="collapsed")
-    if row_sel == "—": return
-    sheet_row = int(row_sel.split("  ·  ")[0].replace("Row ", "").strip())
+    if row_sel == "-": return
+    sheet_row = int(row_sel.split(" - ")[0].replace("Row ", "").strip())
     df_iloc   = sheet_row - 2
     if df_iloc < 0 or df_iloc >= len(df): st.error("Row index out of range."); return
     record = df.iloc[df_iloc].to_dict()
-    with st.expander(f"📜  {t('audit_trail')}", expanded=False):
+    with st.expander(f"{t('audit_trail')}", expanded=False):
         history = str(record.get(COL_LOG, "")).strip()
         if history:
             for line in history.split("\n"):
                 if line.strip(): st.markdown(f'<div class="log-line">{line}</div>', unsafe_allow_html=True)
         else: st.caption(t("no_history"))
-    st.markdown(f"<div class='section-title'>✏️ {t('processing')} #{sheet_row}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>", unsafe_allow_html=True)
     SKIP = set(SYSTEM_COLS); fields = {k: v for k, v in record.items() if k not in SKIP}
 
     with st.form("audit_form"):
@@ -1192,35 +1146,35 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         eval_val = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
                                     key="form_feedback", height=100)
-        do_submit = st.form_submit_button(f"✅  {t('approve_save')}", use_container_width=True)
+        do_submit = st.form_submit_button(f"{t('approve_save')}", use_container_width=True)
 
     if do_submit:
         ts_now     = now_str()
         auditor    = st.session_state.user_email
-        log_prefix = f"✔  {auditor}  |  {ts_now}"
+        log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
-        with st.spinner("Committing record to Google Sheets…"):
+        with st.spinner("Committing record to Google Sheets..."):
             try:
                 write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
                     new_vals, record, auditor, ts_now, log_prefix,
                     eval_val=eval_val, feedback_val=feedback_combined)
             except gspread.exceptions.APIError as e:
-                st.error(f"🚨 Write failed: {e}"); return
+                st.error(f"Write failed: {e}"); return
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
         st.success(t("saved_ok")); time.sleep(0.6); st.rerun()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  15 · ARCHIVE
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  15 . ARCHIVE
+# -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    f_email, f_binder, f_company, f_license, f_status):
     d_count = len(done_view)
     st.markdown(f"""<div class="worklist-header">
-      <div><div class="worklist-title">✅ Processed Archive</div>
+      <div><div class="worklist-title">Processed Archive</div>
       <div class="worklist-sub">Completed and committed audit records</div></div>
       <span class="chip chip-done">{d_count} {t('processed')}</span>
     </div>""", unsafe_allow_html=True)
@@ -1242,21 +1196,21 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='section-title'>↩️ {t('reopen')}</div>", unsafe_allow_html=True)
-        ropts = ["—"] + [f"Row {idx}" for idx in done_view.index]
+        st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
+        ropts = ["-"] + [f"Row {idx}" for idx in done_view.index]
         rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
-        if rsel != "—":
+        if rsel != "-":
             ridx = int(rsel.split(" ")[1]); df_iloc = ridx - 2
             if st.button(t("reopen"), key="reopen_btn"):
-                with st.spinner("Re-opening…"):
+                with st.spinner("Re-opening..."):
                     try:    write_reopen_to_sheet(ws_title, ridx, col_map)
-                    except gspread.exceptions.APIError as e: st.error(f"🚨 {e}"); return
+                    except gspread.exceptions.APIError as e: st.error(f"Error: {e}"); return
                 _apply_optimistic_reopen(df_iloc); st.rerun()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  16 · ANALYTICS  — [C] deep search  [D] stacked bar + richer tooltips
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  16 . ANALYTICS 
+# -----------------------------------------------------------------------------
 def render_analytics(
     df: pd.DataFrame,
     col_agent_email: str | None = None,
@@ -1266,7 +1220,6 @@ def render_analytics(
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
     nvy = "#4F46E5"; blu = "#60A5FA"
 
-    # ── [C] Deep Search ───────────────────────────────────────────────────────
     srch_binder, srch_company, srch_agent = render_deep_search_strip(
         "anal", col_binder, col_company, col_agent_email)
 
@@ -1279,16 +1232,15 @@ def render_analytics(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"🔍 {t('ds_showing')} <strong>{' · '.join(terms)}</strong> "
-            f"— <strong>{len(work_df)}</strong> records matched"
+            f"{t('ds_showing')} <strong>{'-'.join(terms)}</strong> "
+            f"- <strong>{len(work_df)}</strong> records matched"
             f"</div>", unsafe_allow_html=True)
 
-    # ── Period filter ─────────────────────────────────────────────────────────
-    st.markdown(f"<div class='section-title'>🗓️ {t('period')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title'>{t('period')}</div>", unsafe_allow_html=True)
     periods = [("all", t("all_time")), ("today", t("today")),
                ("this_week", t("this_week")), ("this_month", t("this_month"))]
     for cw, (pk, pl) in zip(st.columns(len(periods)), periods):
-        lbl = f"✓  {pl}" if st.session_state.date_filter == pk else pl
+        lbl = f"[{pl}]" if st.session_state.date_filter == pk else pl
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
             st.session_state.date_filter = pk; st.rerun()
 
@@ -1305,13 +1257,12 @@ def render_analytics(
 
     left, right = st.columns([1, 1.6], gap="large")
 
-    # ── Leaderboard ───────────────────────────────────────────────────────────
     with left:
-        st.markdown(f"<div class='section-title'>🏅 {t('leaderboard')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('leaderboard')}</div>", unsafe_allow_html=True)
         if COL_AUDITOR in done_f.columns:
-            lb = done_f[COL_AUDITOR].replace("", "—").value_counts().reset_index()
+            lb = done_f[COL_AUDITOR].replace("", "-").value_counts().reset_index()
             lb.columns = ["Auditor", "Count"]
-            medals = ["🥇","🥈","🥉","④","⑤","⑥","⑦","⑧","⑨","⑩"]
+            medals = ["1.","2.","3.","4.","5.","6.","7.","8.","9.","10."]
             for i, r in lb.head(10).iterrows():
                 m = medals[i] if i < len(medals) else f"{i+1}."
                 st.markdown(f'<div class="lb-row"><span class="lb-medal">{m}</span>'
@@ -1336,9 +1287,8 @@ def render_analytics(
                 height=min(320, max(180, 36*len(lb.head(10)))))
             st.plotly_chart(fig, use_container_width=True)
 
-    # ── Daily trend ───────────────────────────────────────────────────────────
     with right:
-        st.markdown(f"<div class='section-title'>📈 {t('daily_trend')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
             done_f = done_f.copy()
             done_f["_date"] = done_f[COL_DATE].apply(
@@ -1372,17 +1322,16 @@ def render_analytics(
                 st.plotly_chart(fig2, use_container_width=True)
             else: st.info(t("no_records"))
 
-    # ── Accuracy ranking table ────────────────────────────────────────────────
     st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
 
     if col_agent_email and col_agent_email in done_f.columns and COL_EVAL in done_f.columns:
         eval_df = done_f[[col_agent_email, COL_EVAL]].copy()
-        eval_df[col_agent_email] = eval_df[col_agent_email].replace("", "—")
+        eval_df[col_agent_email] = eval_df[col_agent_email].replace("", "-")
 
         def _classify(v: str) -> str:
-            if "🟢" in v or "Good" in v:                          return "good"
-            if "🔴" in v or "Bad" in v or "Incorrect" in v:       return "bad"
-            if "⚠️" in v or "Duplicate" in v or "دووبارە" in v:   return "dup"
+            if "Good" in v:            return "good"
+            if "Bad" in v or "Incorrect" in v: return "bad"
+            if "Duplicate" in v:       return "dup"
             return "unrated"
 
         eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
@@ -1425,7 +1374,6 @@ def render_analytics(
             f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
             unsafe_allow_html=True)
 
-        # ── [D] Stacked bar chart — eval breakdown per agent ──────────────────
         st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>",
                     unsafe_allow_html=True)
         st.caption(t("eval_breakdown_sub"))
@@ -1433,57 +1381,56 @@ def render_analytics(
         if not acc.empty:
             fig_stack = go.Figure()
 
-            # Build rich hover info: show pct of each category
             good_pct  = (acc["good"]    / acc["Total"].replace(0, 1) * 100).round(1)
             bad_pct   = (acc["bad"]     / acc["Total"].replace(0, 1) * 100).round(1)
             dup_pct   = (acc["dup"]     / acc["Total"].replace(0, 1) * 100).round(1)
             unr_pct   = (acc["unrated"] / acc["Total"].replace(0, 1) * 100).round(1)
 
             fig_stack.add_trace(go.Bar(
-                name="✅ Good",
+                name="Good",
                 x=acc[col_agent_email],
                 y=acc["good"],
                 marker_color="#16A34A",
                 hovertemplate=(
                     "<b>%{x}</b><br>"
-                    "✅ Good: <b>%{y}</b> (%{customdata[0]}%)<br>"
+                    "Good: <b>%{y}</b> (%{customdata[0]}%)<br>"
                     "Total records: %{customdata[1]}<extra></extra>"
                 ),
                 customdata=list(zip(good_pct, acc["Total"])),
             ))
             fig_stack.add_trace(go.Bar(
-                name="❌ Bad / Incorrect",
+                name="Bad / Incorrect",
                 x=acc[col_agent_email],
                 y=acc["bad"],
                 marker_color="#DC2626",
                 hovertemplate=(
                     "<b>%{x}</b><br>"
-                    "❌ Bad: <b>%{y}</b> (%{customdata[0]}%)<br>"
+                    "Bad: <b>%{y}</b> (%{customdata[0]}%)<br>"
                     "Total records: %{customdata[1]}<extra></extra>"
                 ),
                 customdata=list(zip(bad_pct, acc["Total"])),
             ))
             fig_stack.add_trace(go.Bar(
-                name="⚠️ Duplicate",
+                name="Duplicate",
                 x=acc[col_agent_email],
                 y=acc["dup"],
                 marker_color="#F59E0B",
                 hovertemplate=(
                     "<b>%{x}</b><br>"
-                    "⚠️ Duplicate: <b>%{y}</b> (%{customdata[0]}%)<br>"
+                    "Duplicate: <b>%{y}</b> (%{customdata[0]}%)<br>"
                     "Total records: %{customdata[1]}<extra></extra>"
                 ),
                 customdata=list(zip(dup_pct, acc["Total"])),
             ))
             if acc["unrated"].sum() > 0:
                 fig_stack.add_trace(go.Bar(
-                    name="— Unrated",
+                    name="Unrated",
                     x=acc[col_agent_email],
                     y=acc["unrated"],
                     marker_color="#9CA3AF",
                     hovertemplate=(
                         "<b>%{x}</b><br>"
-                        "— Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>"
+                        "Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>"
                     ),
                     customdata=unr_pct,
                 ))
@@ -1523,12 +1470,12 @@ def render_analytics(
     else:
         st.info(t("acc_no_data")
                 + ("" if col_agent_email else
-                   " (Agent Email column not detected — check sheet headers.)"))
+                   " (Agent Email column not detected - check sheet headers.)"))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  17 · AUDITOR LOGS  — [C] deep search added
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  17 . AUDITOR LOGS
+# -----------------------------------------------------------------------------
 def render_auditor_logs(
     df: pd.DataFrame,
     col_company: str | None,
@@ -1538,13 +1485,12 @@ def render_auditor_logs(
     st.markdown(f"""
     <div class="worklist-header">
       <div>
-        <div class="worklist-title">🗂️ {t('logs_title')}</div>
+        <div class="worklist-title">{t('logs_title')}</div>
         <div class="worklist-sub">{t('logs_sub')}</div>
       </div>
       <span class="chip chip-admin">Admin / Manager</span>
     </div>""", unsafe_allow_html=True)
 
-    # ── [C] Deep Search ───────────────────────────────────────────────────────
     srch_binder, srch_company, srch_agent = render_deep_search_strip(
         "logs", col_binder, col_company, col_agent_email)
 
@@ -1552,7 +1498,6 @@ def render_auditor_logs(
     if done_df.empty:
         st.info(t("logs_no_data")); return
 
-    # apply deep search to the done set
     done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent,
                                 col_binder, col_company, col_agent_email)
     if _deep_search_active(srch_binder, srch_company, srch_agent):
@@ -1561,8 +1506,8 @@ def render_auditor_logs(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"🔍 {t('ds_showing')} <strong>{' · '.join(terms)}</strong> "
-            f"— <strong>{len(done_df)}</strong> records matched</div>",
+            f"{t('ds_showing')} <strong>{'-'.join(terms)}</strong> "
+            f"- <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
 
     if done_df.empty:
@@ -1580,7 +1525,7 @@ def render_auditor_logs(
                     if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
 
     auditor_list = sorted(
-        [a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("", "—")],
+        [a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")],
         key=str.lower)
     all_option  = t("logs_filter_all")
     sel_auditor = st.selectbox(t("logs_auditor_sel"),
@@ -1592,9 +1537,9 @@ def render_auditor_logs(
     total_processed = len(view_df)
     unique_auditors = view_df[COL_AUDITOR].nunique()
     parsed_dates    = view_df[COL_DATE].apply(parse_dt).dropna()
-    date_range_str  = (f"{parsed_dates.min().strftime('%Y-%m-%d')} → "
+    date_range_str  = (f"{parsed_dates.min().strftime('%Y-%m-%d')} - "
                        f"{parsed_dates.max().strftime('%Y-%m-%d')}"
-                       if not parsed_dates.empty else "—")
+                       if not parsed_dates.empty else "-")
 
     st.markdown(f"""
     <div class="log-summary-card">
@@ -1616,9 +1561,9 @@ def render_auditor_logs(
       </div>
     </div>""", unsafe_allow_html=True)
 
-    shown_label = " · ".join(display_cols)
+    shown_label = " - ".join(display_cols)
     st.markdown(
-        f"<div class='section-title'>📋 {t('logs_cols_shown')}: "
+        f"<div class='section-title'>{t('logs_cols_shown')}: "
         f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{shown_label}</span></div>",
         unsafe_allow_html=True)
 
@@ -1630,7 +1575,6 @@ def render_auditor_logs(
     table_df = table_df.reset_index(drop=True)
     render_html_table(table_df, max_rows=1000)
 
-    # Export
     export_df = table_df.copy()
     csv_buffer = io.StringIO()
     export_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
@@ -1643,8 +1587,8 @@ def render_auditor_logs(
     st.markdown(f"""
     <div class="export-strip">
       <div>
-        <div class="export-text">📥 {t('logs_export_hdr')}</div>
-        <div class="export-sub">{t('logs_export_sub')} · {total_processed} rows · {len(display_cols)} columns</div>
+        <div class="export-text">{t('logs_export_hdr')}</div>
+        <div class="export-sub">{t('logs_export_sub')} - {total_processed} rows - {len(display_cols)} columns</div>
       </div>
     </div>""", unsafe_allow_html=True)
     st.download_button(
@@ -1653,17 +1597,14 @@ def render_auditor_logs(
         key="logs_csv_download", use_container_width=False)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  18 · USER ADMIN  — [B] role column + role-change feature
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  18 . USER ADMIN
+# -----------------------------------------------------------------------------
 def _ensure_role_col(uws, df_u: pd.DataFrame) -> pd.DataFrame:
-    """Add 'role' column to UsersDB sheet if missing, default all rows to 'auditor'."""
     if "role" not in df_u.columns:
-        # find the column count and append header
         col_idx = len(df_u.columns) + 1
         try:
             _gsheets_call(uws.update_cell, 1, col_idx, "role")
-            # fill existing rows with 'auditor'
             for i in range(2, len(df_u) + 2):
                 _gsheets_call(uws.update_cell, i, col_idx, "auditor")
         except Exception: pass
@@ -1674,15 +1615,13 @@ def render_user_admin(spreadsheet_id):
     staff_raw = _fetch_users_cached(spreadsheet_id)
     staff     = pd.DataFrame(staff_raw) if staff_raw else pd.DataFrame()
 
-    # Ensure role column exists
     if not staff.empty:
         staff = _ensure_role_col(uws, staff)
 
     cl, cr = st.columns([1, 1], gap="large")
 
-    # ── Left: Add + Update PW ────────────────────────────────────────────────
     with cl:
-        st.markdown(f"<div class='section-title'>➕ {t('add_auditor')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('add_auditor')}</div>", unsafe_allow_html=True)
         with st.form("add_user_form"):
             nu_e = st.text_input("Email", placeholder="user@mof.gov")
             nu_p = st.text_input("Password", type="password")
@@ -1697,11 +1636,11 @@ def render_user_admin(spreadsheet_id):
                         _gsheets_call(uws.append_row,
                                       [nu_e.lower().strip(), hash_pw(nu_p.strip()),
                                        nu_r, now_str()])
-                        st.success(f"✅  {nu_e} registered as {nu_r}.")
+                        st.success(f"{nu_e} registered as {nu_r}.")
                         time.sleep(0.7); st.rerun()
                 else: st.warning(t("fill_fields"))
 
-        st.markdown(f"<div class='section-title'>🔑 {t('update_pw')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('update_pw')}</div>", unsafe_allow_html=True)
         if not staff.empty and "email" in staff.columns:
             with st.form("upd_pw_form"):
                 se  = st.selectbox("Select staff", staff["email"].tolist(), key="upd_pw_sel")
@@ -1711,12 +1650,11 @@ def render_user_admin(spreadsheet_id):
                         cell = _gsheets_call(uws.find, se)
                         if cell:
                             _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip()))
-                            st.success(f"✅  Updated for {se}.")
+                            st.success(f"Updated for {se}.")
                             time.sleep(0.7); st.rerun()
 
-        # ── [B] Role Change ───────────────────────────────────────────────────
         st.markdown(
-            f"<div class='section-title'>🎭 {t('change_role')}</div>", unsafe_allow_html=True)
+            f"<div class='section-title'>{t('change_role')}</div>", unsafe_allow_html=True)
         st.caption(t("change_role_sub"))
         if not staff.empty and "email" in staff.columns:
             with st.form("change_role_form"):
@@ -1726,40 +1664,35 @@ def render_user_admin(spreadsheet_id):
                                         format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
-                        # Find 'role' column index in sheet (1-based)
                         header_row = _gsheets_call(uws.row_values, 1)
                         if "role" in header_row:
                             role_col_idx = header_row.index("role") + 1
                         else:
-                            # append role header if truly missing
                             role_col_idx = len(header_row) + 1
                             _gsheets_call(uws.update_cell, 1, role_col_idx, "role")
                         user_cell = _gsheets_call(uws.find, cr_email)
                         if user_cell:
                             _gsheets_call(uws.update_cell, user_cell.row, role_col_idx, cr_role)
-                            st.success(f"{t('role_updated')} ({cr_email} → {cr_role})")
+                            st.success(f"{t('role_updated')} ({cr_email} -> {cr_role})")
                             time.sleep(0.7); st.rerun()
                         else:
                             st.error("User not found in sheet.")
                     except Exception as e:
-                        st.error(f"🚨 Role update failed: {e}")
+                        st.error(f"Role update failed: {e}")
 
-    # ── Right: Staff directory + revoke ──────────────────────────────────────
     with cr:
-        st.markdown(f"<div class='section-title'>📋 {t('staff_dir')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('staff_dir')}</div>", unsafe_allow_html=True)
         staff_fresh = pd.DataFrame(_fetch_users_cached(spreadsheet_id)) if staff_raw else pd.DataFrame()
         if not staff_fresh.empty and "email" in staff_fresh.columns:
-            # Build role-badge HTML inline in table
             show_cols = [c for c in ["email", "role", "created_at"] if c in staff_fresh.columns]
             tbl = staff_fresh[show_cols].copy().reset_index()
 
-            # Render a custom table with role chips
             th_html = "<tr><th class='row-idx'>#</th>" + "".join(f"<th>{c}</th>" for c in show_cols) + "</tr>"
             td_html = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
                 for c in show_cols:
-                    val = str(row[c]) if row.get(c) else "—"
+                    val = str(row[c]) if row.get(c) else "-"
                     if c == "role":
                         badge = f"<span class='role-badge-{val}' style='font-size:.60rem;'>{val.title()}</span>"
                         tr += f"<td>{badge}</td>"
@@ -1771,24 +1704,24 @@ def render_user_admin(spreadsheet_id):
                 f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
                 f"</table></div>", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='section-title'>🚫 {t('remove_user')}</div>",
+            st.markdown(f"<div class='section-title'>{t('remove_user')}</div>",
                         unsafe_allow_html=True)
             de = st.selectbox("Select to revoke",
-                              ["—"] + staff_fresh["email"].tolist(), key="del_sel")
-            if de != "—":
-                if st.button(f"Revoke access — {de}", key="del_btn"):
+                              ["-"] + staff_fresh["email"].tolist(), key="del_sel")
+            if de != "-":
+                if st.button(f"Revoke access - {de}", key="del_btn"):
                     cell = _gsheets_call(uws.find, de)
                     if cell:
                         _gsheets_call(uws.delete_rows, cell.row)
-                        st.success(f"✅  {de} revoked.")
+                        st.success(f"{de} revoked.")
                         time.sleep(0.7); st.rerun()
         else:
             st.info("No auditor accounts registered yet.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  19 · MAIN CONTROLLER  — [B] 3-tier tab visibility
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+#  19 . MAIN CONTROLLER
+# -----------------------------------------------------------------------------
 def main():
     try:
         spr = get_spreadsheet(); sid = spr.id
@@ -1805,15 +1738,14 @@ def main():
 
         role     = st.session_state.user_role
         is_admin = (role == "admin")
-        # [B] managers see analytics + logs but not user admin
         is_manager   = (role == "manager")
         can_analytics = is_admin or is_manager
 
-        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  ·  %H:%M")
+        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
         st.markdown(f"""
         <div class="page-header">
           <div>
-            <div class="page-title">🏛️  {t('portal_title')}</div>
+            <div class="page-title">{t('portal_title')}</div>
             <div class="page-subtitle">{t('ministry')}</div>
           </div>
           <div class="page-timestamp">{ts_str}</div>
@@ -1822,11 +1754,11 @@ def main():
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS if s.strip().lower() in atm]
 
-        df = pd.DataFrame(); headers = []; col_map = {}; ws_title = None; fetched_at = "—"
+        df = pd.DataFrame(); headers = []; col_map = {}; ws_title = None; fetched_at = "-"
 
         if not available:
             st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
-            st.error(f"⚠️ Found: `{all_titles}`")
+            st.error(f"Found: `{all_titles}`")
         else:
             ws_title = st.selectbox(t("workspace"), available, key="ws_sel")
             if ws_title:
@@ -1839,7 +1771,7 @@ def main():
                 except gspread.exceptions.WorksheetNotFound:
                     st.error(f"Worksheet '{ws_title}' not found.")
                 except gspread.exceptions.APIError as e:
-                    st.error(f"🚨 {t('retry_warning')}\n\n{e}")
+                    st.error(f"{t('retry_warning')}\n\n{e}")
 
         col_binder      = detect_column(headers, "binder")
         col_company     = detect_column(headers, "company")
@@ -1850,7 +1782,7 @@ def main():
             headers, col_binder, col_company, col_license, is_admin, fetched_at)
 
         if not df.empty:
-            st.markdown(f"<div class='section-title'>📊 {t('overview')}</div>",
+            st.markdown(f"<div class='section-title'>{t('overview')}</div>",
                         unsafe_allow_html=True)
             total_n   = len(df)
             done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
@@ -1873,7 +1805,6 @@ def main():
         else:
             filtered_df = pd.DataFrame()
 
-        # ── [B] Tab construction by role ──────────────────────────────────────
         if is_admin:
             tabs = st.tabs([
                 t("tab_worklist"), t("tab_archive"),
@@ -1881,7 +1812,6 @@ def main():
             ])
             t_work, t_arch, t_anal, t_logs, t_uadm = tabs
         elif is_manager:
-            # manager sees worklist, archive, analytics, logs — no user admin
             tabs = st.tabs([
                 t("tab_worklist"), t("tab_archive"),
                 t("tab_analytics"), t("tab_logs"),
@@ -1889,14 +1819,12 @@ def main():
             t_work, t_arch, t_anal, t_logs = tabs
             t_uadm = None
         else:
-            # auditor: worklist + archive only
             st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>",
                         unsafe_allow_html=True)
             tabs = st.tabs([t("tab_worklist"), t("tab_archive")])
             t_work, t_arch = tabs
             t_anal = t_logs = t_uadm = None
 
-        # ── Worklist ──────────────────────────────────────────────────────────
         with t_work:
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
@@ -1904,7 +1832,6 @@ def main():
                 render_worklist(pd_, df, headers, col_map, ws_title,
                                 f_email, f_binder, f_company, f_license, f_status)
 
-        # ── Archive ───────────────────────────────────────────────────────────
         with t_arch:
             if not df.empty and ws_title:
                 dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
@@ -1912,7 +1839,6 @@ def main():
                 render_archive(dv, df, col_map, ws_title, is_admin,
                                f_email, f_binder, f_company, f_license, f_status)
 
-        # ── Analytics (admin + manager) ───────────────────────────────────────
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
@@ -1921,20 +1847,18 @@ def main():
                                      col_binder=col_binder,
                                      col_company=col_company)
 
-        # ── Auditor Logs (admin + manager) ────────────────────────────────────
         if can_analytics and t_logs is not None:
             with t_logs:
                 if df.empty: st.warning(t("empty_sheet"))
                 else:
                     render_auditor_logs(df, col_company, col_binder, col_agent_email)
 
-        # ── User Admin (admin only) ───────────────────────────────────────────
         if is_admin and t_uadm is not None:
             with t_uadm:
                 render_user_admin(sid)
 
     except Exception as exc:
-        st.error(f"🚨  System Error: {exc}")
+        st.error(f"System Error: {exc}")
         with st.expander("Technical Details", expanded=False):
             st.exception(exc)
 
