@@ -788,6 +788,13 @@ def render_login(spreadsheet_id: str) -> None:
 #  13 · SIDEBAR  (unchanged)
 # ─────────────────────────────────────────────────────────────────────────────
 def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
+    
+    # Callback function to clear filters SAFELY before UI renders
+    def clear_all_filters():
+        for k in ("f_email", "f_binder", "f_company", "f_license"): 
+            st.session_state[k] = ""
+        st.session_state["f_status"] = "all"
+        
     with st.sidebar:
         st.markdown(f"""
         <div class="sidebar-header">
@@ -820,9 +827,10 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
                         f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        if st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clr_f"):
-            for k in ("f_email", "f_binder", "f_company", "f_license"): st.session_state[k] = ""
-            st.session_state["f_status"] = "all"; st.rerun()
+        
+        # ⚡ The fix is right here: using on_click instead of inline session_state modification
+        st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clr_f", on_click=clear_all_filters)
+        
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         role_label = t("role_admin") if is_admin else t("role_auditor")
         chip_cls   = "chip-admin" if is_admin else "chip-audit"
@@ -838,7 +846,6 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
     return (st.session_state.get("f_email", ""), st.session_state.get("f_binder", ""),
             st.session_state.get("f_company", ""), st.session_state.get("f_license", ""),
             st.session_state.get("f_status", "all"))
-
 
 def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, f_status):
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
