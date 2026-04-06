@@ -956,99 +956,47 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-#  12 · LOGIN  — [A] Google Workspace style, single centered card
+#  12 · LOGIN  — Dynamic, Centered, Premium Glassmorphism Design
 # ─────────────────────────────────────────────────────────────────────────────
 def render_login(spreadsheet_id: str) -> None:
-    # Hide sidebar and set clean gray background
-    st.markdown("""<style>
-    [data-testid="stSidebar"],[data-testid="collapsedControl"]{display:none!important;}
-    html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"],
-    .main,.block-container{
-      background:#f1f3f4!important;
-      min-height:100vh!important;
-      padding:0!important;
-      max-width:100%!important;
+    # ⚡ دیزاینی داینامیکی و پاشبنەمای جووڵاو ⚡
+    st.markdown("""
+    <style>
+    /* شاردنەوەی بەشە زیادەکان */
+    [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
+    
+    /* پاشبنەمایەکی مۆدێرنی جووڵاو (Animated Gradient Background) */
+    .stApp {
+        background: linear-gradient(-45deg, #0F172A, #1E3A8A, #3B82F6, #1E40AF);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
     }
-    .block-container{padding-top:0!important;padding-bottom:0!important;}
-    </style>""", unsafe_allow_html=True)
+    @keyframes gradientBG {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
+    }
 
-    # Language toggles — rendered above the card via a narrow centered strip
-    lang_c1, lang_c2, lang_c3 = st.columns([3, 0.18, 0.18])
-    with lang_c2:
-        st.markdown("<div class='glogin-lang-btn'>", unsafe_allow_html=True)
-        if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-    with lang_c3:
-        st.markdown("<div class='glogin-lang-btn'>", unsafe_allow_html=True)
-        if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    /* هێنانە ناوەڕاستی شاشەکە بە تەواوی */
+    .block-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 1rem !important;
+    }
 
-    # Single centered card
-    _, mid, _ = st.columns([1, 1.4, 1])
-    with mid:
-        # Card shell (visual only)
-        st.markdown(f"""
-        <div style="padding: 32px 0 0;">
-          <div class="glogin-card">
-            <div class="glogin-logo">🏛️</div>
-            <div class="glogin-org">{t('ministry')}</div>
-            <div class="glogin-title">{t('sign_in')}</div>
-            <div class="glogin-subtitle">{t('login_prompt')}</div>
-            <div style="margin-bottom:4px;">
-              <span style="display:inline-block;background:#fce8e6;color:#c5221f;
-                border:1px solid #f5c6cb;border-radius:4px;font-size:.60rem;
-                font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-                padding:4px 12px;">🔒 {t('classified')}</span>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        # Streamlit form — sits visually inside the card thanks to CSS
-        with st.container():
-            st.markdown("""
-            <style>
-            div[data-testid="stForm"] {
-              border:none!important; background:transparent!important;
-              box-shadow:none!important; padding:0 40px 36px!important;
-              margin-top:-8px!important; border-radius:0 0 8px 8px!important;
-            }
-            </style>
-            <div style="background:#ffffff; border:1px solid #dadce0; border-top:none;
-                 border-radius:0 0 8px 8px; padding:0 40px 36px; margin-top:-4px;
-                 box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-            """, unsafe_allow_html=True)
-
-            with st.form("login_form", clear_on_submit=False):
-                st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
-                st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
-                st.markdown("<div class='glogin-btn-wrap'>", unsafe_allow_html=True)
-                submitted = st.form_submit_button(f"🔐  {t('sign_in')}", use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("""
-              <div class="glogin-footer">
-                Authorised personnel only · All access is logged and audited<br>
-                Ministry of Finance & Customs — Internal System
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    if submitted:
-        role = authenticate(
-            st.session_state.get("_login_email", ""),
-            st.session_state.get("_login_pw", ""),
-            spreadsheet_id,
-        )
-        if role:
-            em = st.session_state.get("_login_email", "")
-            st.session_state.logged_in  = True
-            st.session_state.user_email = "Admin" if role == "admin" else em.lower().strip()
-            st.session_state.user_role  = role
-            st.rerun()
-        else:
-            st.error(t("bad_creds"))
+    /* گۆڕینی فۆڕمەکەی ستریملێت بۆ کارتێکی شوشەیی زۆر جوان */
+    [data-testid="stForm"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 24px !important;
+        padding: 40px 30px !important;
+        box-shadow
 # ─────────────────────────────────────────────────────────────────────────────
 #  13 · SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
