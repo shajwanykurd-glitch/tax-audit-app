@@ -1012,13 +1012,13 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
     badge_cls   = {"admin": "role-badge-admin", "manager": "role-badge-manager",
                    "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
 
-    with st.sidebar:
-        st.markdown(f"""
-        <div class="sidebar-header">
-          <div class="sidebar-logo-text">🏛️&nbsp; {t('portal_title')}</div>
-          <div class="sidebar-ministry">{t('ministry')}</div>
-        </div>
-        <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
+   with st.sidebar:
+            st.markdown(f"""
+            <div class="sidebar-header">
+              <div class="sidebar-logo-text">{t('portal_title')}</div>
+              <div class="sidebar-ministry">{t('ministry')}</div>
+            </div>
+            <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div class="cache-strip">
           <span class="cache-badge">⚡ {t('local_mode')}</span>
