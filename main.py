@@ -1,15 +1,17 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  ·  v12.0
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  ·  v13.0
 #  Architecture: Optimistic UI / Local-First Mutation
 #
 #  Rule 1 — READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear())
 #  Rule 2 — OPTIMISTIC LOCAL MUTATION  (session_state.local_df, no re-fetch)
 #  Rule 3 — EXPONENTIAL BACKOFF        (tenacity on every gspread call)
 #
-#  v12 NEW: Admin-exclusive "🗂️ Auditor Logs" tab
-#           — per-auditor filterable history table
-#           — one-click CSV export
-#           — strictly inside is_admin block
+#  v13 UPDATES:
+#    [1] FIX: Clear-Filters callback — on_click=clear_all_filters (no SSError)
+#    [2] NEW: COL_EVAL  "Data_Evaluation"  — quality selectbox in audit form
+#    [3] NEW: COL_FEEDBACK "Correction_Notes" — manual notes + auto-diff log
+#    [4] NEW: Data Entry Accuracy Ranking in Analytics + COL_EVAL/FEEDBACK
+#             highlighted in Archive tab
 #
 #  Requirements: pip install streamlit gspread oauth2client pandas plotly pytz tenacity
 # =============================================================================
@@ -83,13 +85,25 @@ SYSTEM_SHEETS  = {"UsersDB"}
 USERS_SHEET    = "UsersDB"
 VISIBLE_SHEETS = ["Registration", "Salary Tax", "Annual Filing"]
 
-COL_STATUS  = "Status"
-COL_LOG     = "Audit_Log"
-COL_AUDITOR = "Auditor_ID"
-COL_DATE    = "Update_Date"
-SYSTEM_COLS = [COL_STATUS, COL_LOG, COL_AUDITOR, COL_DATE]
+COL_STATUS   = "Status"
+COL_LOG      = "Audit_Log"
+COL_AUDITOR  = "Auditor_ID"
+COL_DATE     = "Update_Date"
+# ── v13 new system columns ───────────────────────────────────────────────────
+COL_EVAL     = "Data_Evaluation"       # [2] quality rating by auditor
+COL_FEEDBACK = "Correction_Notes"      # [3] manual notes + auto-diff
+
+SYSTEM_COLS = [COL_STATUS, COL_LOG, COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
+
 VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
+
+# Quality selectbox options — must match exactly in analytics grouping
+EVAL_OPTIONS = [
+    "🟢 Good (باش)",
+    "🔴 Bad / Incorrect (خراپ)",
+    "⚠️ Duplicate (دووبارە)",
+]
 
 READ_TTL    = 600
 BACKOFF_MAX = 5
@@ -115,7 +129,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  5 · PREMIUM SaaS CSS  (unchanged from v11)
+#  5 · PREMIUM SaaS CSS  (unchanged from v12)
 # ─────────────────────────────────────────────────────────────────────────────
 def inject_css() -> None:
     st.markdown("""
@@ -236,8 +250,6 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   box-shadow: 0 8px 24px rgba(99,102,241,0.45) !important;
 }
 .stButton > button:active { transform: translateY(0) scale(0.99) !important; box-shadow: 0 2px 8px rgba(99,102,241,0.25) !important; }
-
-/* Download button — teal accent to distinguish from action buttons */
 [data-testid="stDownloadButton"] > button {
   background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%) !important;
   color: #FFFFFF !important; border: none !important; border-radius: var(--radius-md) !important;
@@ -250,7 +262,6 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   transform: translateY(-2px) scale(1.01) !important;
   box-shadow: 0 8px 24px rgba(13,148,136,0.45) !important;
 }
-
 div[data-testid="stForm"] {
   background: var(--surface) !important; border: 1px solid var(--border) !important;
   border-radius: var(--radius-lg) !important; padding: 28px 32px !important;
@@ -362,6 +373,9 @@ div[data-testid="stForm"] {
 .s-chip { display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
 .s-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
 .s-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+.s-eval-good { background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200); }
+.s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
+.s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
 .gov-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:18px;box-shadow:var(--shadow-md); }
 .gov-table { width:100%;border-collapse:collapse;background:var(--surface);font-size:.84rem; }
 .gov-table thead tr { background:var(--surface-2);border-bottom:1px solid var(--border); }
@@ -371,6 +385,9 @@ div[data-testid="stForm"] {
 .gov-table tbody tr:hover td { background:var(--indigo-50)!important;color:var(--text-primary)!important; }
 .gov-table tbody tr:last-child td { border-bottom:none!important; }
 .gov-table td.row-idx,.gov-table th.row-idx { color:var(--text-muted)!important;font-family:var(--mono)!important;font-size:.70rem!important;min-width:50px;text-align:center!important; }
+/* highlight system quality columns */
+.gov-table th.col-eval, .gov-table th.col-feedback { background:var(--indigo-50)!important;color:var(--indigo-600)!important;border-bottom:2px solid var(--indigo-400)!important; }
+.gov-table td.col-feedback { max-width:280px;white-space:normal!important;word-break:break-word;font-size:.75rem!important;font-family:var(--mono)!important;color:var(--text-secondary)!important; }
 .lb-row { display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;box-shadow:var(--shadow-sm);transition:all .18s cubic-bezier(.34,1.56,.64,1); }
 .lb-row:hover { transform:translateX(5px);border-color:var(--indigo-400);box-shadow:0 6px 20px rgba(99,102,241,0.12); }
 .lb-medal { font-size:1.1rem;width:26px;text-align:center; }
@@ -394,6 +411,18 @@ div[data-testid="stForm"] {
 .result-count { font-size:.76rem;color:var(--text-muted)!important;margin-left:auto;font-family:var(--mono)!important; }
 .rbac-banner { background:var(--indigo-50);border:1px solid var(--indigo-100);border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);padding:12px 18px;margin-bottom:18px;font-size:.80rem;color:var(--indigo-600)!important;font-weight:600; }
 .divider { border:none;border-top:1px solid var(--border);margin:14px 0; }
+/* ── accuracy ranking table ─────────────────────────────────────────────── */
+.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
+.acc-table th { background:var(--indigo-50)!important;color:var(--indigo-600)!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:11px 16px!important;border-bottom:2px solid var(--indigo-100)!important;text-align:left!important; }
+.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important;font-weight:500!important;color:var(--text-primary)!important;background:var(--surface)!important; }
+.acc-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
+.acc-table tbody tr:hover td { background:var(--indigo-50)!important; }
+.acc-table tbody tr:last-child td { border-bottom:none!important; }
+.acc-rate-high { color:var(--green-700)!important;font-weight:800!important;font-family:var(--mono)!important; }
+.acc-rate-mid  { color:var(--amber-700)!important;font-weight:800!important;font-family:var(--mono)!important; }
+.acc-rate-low  { color:var(--red-600)!important;font-weight:800!important;font-family:var(--mono)!important; }
+.acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
+.acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
 </style>""", unsafe_allow_html=True)
 
 inject_css()
@@ -442,20 +471,32 @@ _LANG: dict[str, dict[str, str]] = {
         "retry_warning":"⏳ Google Sheets quota reached — retrying with backoff…",
         "local_mode":"Optimistic UI Active","cache_age":"Cache TTL",
         "rbac_notice":"ℹ️  Auditor mode — Analytics and management tools are restricted to administrators.",
-        # Auditor Logs tab
-        "logs_title"      : "Auditor Activity Logs",
-        "logs_sub"        : "Full processing history from project start — Admin only",
-        "logs_filter_all" : "All Auditors",
-        "logs_auditor_sel": "Filter by Auditor",
-        "logs_total"      : "Total Processed",
-        "logs_auditors"   : "Unique Auditors",
-        "logs_date_range" : "Date Range",
-        "logs_no_data"    : "No processed records found for the selected auditor.",
-        "logs_export_hdr" : "Export Full Report",
-        "logs_export_sub" : "Download the complete audit log as a CSV file for offline archiving.",
-        "logs_export_btn" : "⬇  Download CSV Report",
-        "logs_filename"   : "audit_log_report.csv",
-        "logs_cols_shown" : "Columns displayed",
+        "logs_title":"Auditor Activity Logs",
+        "logs_sub":"Full processing history from project start — Admin only",
+        "logs_filter_all":"All Auditors",
+        "logs_auditor_sel":"Filter by Auditor",
+        "logs_total":"Total Processed",
+        "logs_auditors":"Unique Auditors",
+        "logs_date_range":"Date Range",
+        "logs_no_data":"No processed records found for the selected auditor.",
+        "logs_export_hdr":"Export Full Report",
+        "logs_export_sub":"Download the complete audit log as a CSV file for offline archiving.",
+        "logs_export_btn":"⬇  Download CSV Report",
+        "logs_filename":"audit_log_report.csv",
+        "logs_cols_shown":"Columns displayed",
+        # v13 new keys
+        "eval_label":"Data Entry Quality (کوالێتی داتا)",
+        "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
+        "feedback_placeholder":"Optional notes, issues found, corrections made…",
+        "acc_ranking_title":"🏆 Data Entry Accuracy Ranking",
+        "acc_agent":"Agent Email",
+        "acc_total":"Total",
+        "acc_good":"✅ Good",
+        "acc_bad":"❌ Bad",
+        "acc_dup":"⚠️ Dup",
+        "acc_rate":"Accuracy %",
+        "acc_no_data":"No evaluation data available yet.",
+        "archive_quality_note":"💡 Tip: Columns Data_Evaluation & Correction_Notes are highlighted for easy QA filtering.",
     },
     "ku": {
         "ministry":"وەزارەتی دارایی و گومرگ",
@@ -497,19 +538,31 @@ _LANG: dict[str, dict[str, str]] = {
         "retry_warning":"⏳ کووتای گووگڵ شیت گەیشت — دووبارە هەوڵدەدرێت…",
         "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
         "rbac_notice":"ℹ️  دیمەنی ئۆدیتۆر — ئەنالیتیکس تەنها بۆ بەڕێوەبەرەکانە.",
-        "logs_title"      : "لۆگی چالاکی ئۆدیتۆرەکان",
-        "logs_sub"        : "مێژووی تەواوی پرۆسەکردن لە دەستپێکی پرۆژەوە — تەنها ئەدمین",
-        "logs_filter_all" : "هەموو ئۆدیتۆرەکان",
-        "logs_auditor_sel": "فلتەر بە ئۆدیتۆر",
-        "logs_total"      : "کۆی گشتی کارکراو",
-        "logs_auditors"   : "ژمارەی ئۆدیتۆرەکان",
-        "logs_date_range" : "ماوەی بەروار",
-        "logs_no_data"    : "هیچ تۆماری کارکراوی نییە بۆ ئەم ئۆدیتۆرە.",
-        "logs_export_hdr" : "هەناردەکردنی ڕاپۆرتی تەواو",
-        "logs_export_sub" : "ئەم لۆگە وەک فایلی CSV داگرە بۆ پاشەکەوتکردنی دەرەکی.",
-        "logs_export_btn" : "⬇  داگرتنی ڕاپۆرتی CSV",
-        "logs_filename"   : "audit_log_report.csv",
-        "logs_cols_shown" : "ستوونەکانی پیشاندراو",
+        "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان",
+        "logs_sub":"مێژووی تەواوی پرۆسەکردن لە دەستپێکی پرۆژەوە — تەنها ئەدمین",
+        "logs_filter_all":"هەموو ئۆدیتۆرەکان",
+        "logs_auditor_sel":"فلتەر بە ئۆدیتۆر",
+        "logs_total":"کۆی گشتی کارکراو",
+        "logs_auditors":"ژمارەی ئۆدیتۆرەکان",
+        "logs_date_range":"ماوەی بەروار",
+        "logs_no_data":"هیچ تۆماری کارکراوی نییە بۆ ئەم ئۆدیتۆرە.",
+        "logs_export_hdr":"هەناردەکردنی ڕاپۆرتی تەواو",
+        "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە بۆ پاشەکەوتکردنی دەرەکی.",
+        "logs_export_btn":"⬇  داگرتنی ڕاپۆرتی CSV",
+        "logs_filename":"audit_log_report.csv",
+        "logs_cols_shown":"ستوونەکانی پیشاندراو",
+        "eval_label":"کوالێتی داتا (Data Entry Quality)",
+        "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
+        "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان…",
+        "acc_ranking_title":"🏆 رێزبەندی شیازی داخلکردنی داتا",
+        "acc_agent":"ئیمەیڵی ئەجنت",
+        "acc_total":"کۆی گشتی",
+        "acc_good":"✅ باش",
+        "acc_bad":"❌ خراپ",
+        "acc_dup":"⚠️ دووبارە",
+        "acc_rate":"ڕێژەی شیازی %",
+        "acc_no_data":"هیچ داتای هەڵسەنگاندنی بەردەست نییە.",
+        "archive_quality_note":"💡 تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes بە رووناکی نیشاندراون بۆ QA.",
     },
 }
 
@@ -518,7 +571,7 @@ def t(key: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  7 · HELPERS  (unchanged)
+#  7 · HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
@@ -529,11 +582,25 @@ _COL_KEYWORDS: dict[str, list[str]] = {
     "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
                 "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
                 "license no","license_no","license","licence"],
+    # [4] agent/data-entry email — longer/more-specific phrases first to avoid
+    #     accidentally matching the Auditor_ID column
+    "agent_email": [
+        "data entry email","agent email","data_entry_email","agent_email",
+        "ئیمەیڵی ئەجنت","ئیمەیل ئەجنت","ئیمەیل داخڵکەر",
+        "email agent","داخلكننده","وارد کننده",
+        "email",       # broad fallback — only matched when nothing more specific wins
+        "ئیمەیل","ایمیل",
+    ],
 }
 
 def detect_column(headers, kind):
+    """Return the first header that matches a keyword for the given kind.
+    For 'agent_email' we additionally skip SYSTEM_COLS to avoid aliasing Auditor_ID."""
     keywords = sorted(_COL_KEYWORDS.get(kind, []), key=len, reverse=True)
+    skip_cols = set(SYSTEM_COLS) if kind == "agent_email" else set()
     for h in headers:
+        if h in skip_cols:
+            continue
         hl = h.lower().strip()
         for kw in keywords:
             if kw.lower() in hl:
@@ -599,9 +666,25 @@ def apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status,
     if f_license.strip() and col_license and col_license in r.columns: r = r[r[col_license].str.contains(f_license.strip(), case=False, na=False)]
     return r
 
+# ── [3] Auto-diff helper ──────────────────────────────────────────────────────
+def build_auto_diff(record: dict, new_vals: dict) -> str:
+    """Compare original record with submitted new_vals and return a compact diff string."""
+    lines = []
+    for field, new_v in new_vals.items():
+        old_v = clean_cell(record.get(field, ""))
+        new_v_clean = clean_cell(new_v)
+        if old_v != new_v_clean:
+            # truncate long values for readability
+            ov = old_v[:60] + "…" if len(old_v) > 60 else old_v
+            nv = new_v_clean[:60] + "…" if len(new_v_clean) > 60 else new_v_clean
+            lines.append(f"[{field}]: '{ov}' → '{nv}'")
+    if lines:
+        return "Auto-Log:\n" + "\n".join(lines)
+    return "Auto-Log: No field changes detected."
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  8 · GOOGLE SHEETS  (unchanged)
+#  8 · GOOGLE SHEETS
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -642,19 +725,22 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  9 · OPTIMISTIC MUTATIONS  (unchanged)
+#  9 · OPTIMISTIC MUTATIONS
 # ─────────────────────────────────────────────────────────────────────────────
-def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix):
+def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
+                              eval_val: str = "", feedback_val: str = ""):
+    """Update local_df in-place — zero API calls."""
     ldf = st.session_state.local_df
     if df_iloc < 0 or df_iloc >= len(ldf): return
     for f, v in new_vals.items():
         if f in ldf.columns: ldf.at[df_iloc, f] = v
     old = str(ldf.at[df_iloc, COL_LOG]).strip() if COL_LOG in ldf.columns else ""
-    ldf.at[df_iloc, COL_STATUS]  = VAL_DONE
-    ldf.at[df_iloc, COL_AUDITOR] = auditor
-    ldf.at[df_iloc, COL_DATE]    = ts_now
-    if COL_LOG in ldf.columns:
-        ldf.at[df_iloc, COL_LOG] = f"{log_prefix}\n{old}".strip()
+    ldf.at[df_iloc, COL_STATUS]   = VAL_DONE
+    ldf.at[df_iloc, COL_AUDITOR]  = auditor
+    ldf.at[df_iloc, COL_DATE]     = ts_now
+    if COL_LOG      in ldf.columns: ldf.at[df_iloc, COL_LOG]      = f"{log_prefix}\n{old}".strip()
+    if COL_EVAL     in ldf.columns: ldf.at[df_iloc, COL_EVAL]     = eval_val
+    if COL_FEEDBACK in ldf.columns: ldf.at[df_iloc, COL_FEEDBACK] = feedback_val
     st.session_state.local_df = ldf
 
 def _apply_optimistic_reopen(df_iloc):
@@ -665,7 +751,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  10 · WRITE HELPERS  (unchanged)
+#  10 · WRITE HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -677,7 +763,9 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
     return headers, col_map
 
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
-                            auditor, ts_now, log_prefix):
+                            auditor, ts_now, log_prefix,
+                            eval_val: str = "", feedback_val: str = ""):
+    """Batch-write all changed fields + system cols to Google Sheets."""
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
     old = str(record.get(COL_LOG, "")).strip()
@@ -686,8 +774,14 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
     for f, v in new_vals.items():
         if f in col_map and clean_cell(record.get(f, "")) != v:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[f]), "values": [[v]]})
-    for cn, v in [(COL_STATUS, VAL_DONE), (COL_AUDITOR, auditor),
-                  (COL_DATE, ts_now), (COL_LOG, new_log)]:
+    for cn, v in [
+        (COL_STATUS,   VAL_DONE),
+        (COL_AUDITOR,  auditor),
+        (COL_DATE,     ts_now),
+        (COL_LOG,      new_log),
+        (COL_EVAL,     eval_val),
+        (COL_FEEDBACK, feedback_val),
+    ]:
         if cn in col_map:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[cn]), "values": [[v]]})
     if batch: _gsheets_call(ws.batch_update, batch)
@@ -710,14 +804,28 @@ def authenticate(email, password, spreadsheet_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  11 · HTML TABLE  (unchanged)
+#  11 · HTML TABLE  — updated to highlight COL_EVAL and COL_FEEDBACK
 # ─────────────────────────────────────────────────────────────────────────────
+def _eval_chip(raw: str) -> str:
+    if not raw or raw == "—": return "—"
+    if "🟢" in raw or "Good" in raw:
+        return f"<span class='s-chip s-eval-good'>{raw}</span>"
+    if "🔴" in raw or "Bad" in raw or "Incorrect" in raw:
+        return f"<span class='s-chip s-eval-bad'>{raw}</span>"
+    if "⚠️" in raw or "Duplicate" in raw or "دووبارە" in raw:
+        return f"<span class='s-chip s-eval-dup'>{raw}</span>"
+    return f"<span class='s-chip s-pending'>{raw}</span>"
+
 def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
     if df.empty: st.info("No records to display."); return
     display_df = df.head(max_rows)
     th = "<th class='row-idx'>#</th>"
     for col in display_df.columns:
-        if col != COL_LOG: th += f"<th>{col}</th>"
+        if col == COL_LOG: continue
+        extra_cls = ""
+        if col == COL_EVAL:     extra_cls = " class='col-eval'"
+        elif col == COL_FEEDBACK: extra_cls = " class='col-feedback'"
+        th += f"<th{extra_cls}>{col}</th>"
     rows = ""
     for idx, row in display_df.iterrows():
         r = f"<td class='row-idx'>{idx}</td>"
@@ -727,6 +835,15 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
             if col == COL_STATUS:
                 d = ("<span class='s-chip s-done'>✓ Processed</span>" if raw == VAL_DONE
                      else "<span class='s-chip s-pending'>⏳ Pending</span>")
+            elif col == COL_EVAL:
+                d = _eval_chip(raw)
+                r += f"<td class='col-eval'>{d}</td>"
+                continue
+            elif col == COL_FEEDBACK:
+                # show feedback/diff with wrapping
+                d = raw[:160] + "…" if len(raw) > 160 else (raw or "—")
+                r += f"<td class='col-feedback'>{d}</td>"
+                continue
             elif len(raw) > 55:
                 d = f"<span title='{raw}'>{raw[:52]}…</span>"
             r += f"<td>{d}</td>"
@@ -738,7 +855,7 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  12 · LOGIN  (unchanged)
+#  12 · LOGIN
 # ─────────────────────────────────────────────────────────────────────────────
 def render_login(spreadsheet_id: str) -> None:
     st.markdown("""<style>
@@ -785,16 +902,17 @@ def render_login(spreadsheet_id: str) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  13 · SIDEBAR  (unchanged)
+#  13 · SIDEBAR  — [1] FIX: clear_all_filters defined INSIDE render_sidebar
+#                  and passed via on_click= so it fires before widget render
 # ─────────────────────────────────────────────────────────────────────────────
 def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
-    
-    # Callback function to clear filters SAFELY before UI renders
+
+    # ── [1] FIX: callback resets keys in session_state BEFORE widgets render ──
     def clear_all_filters():
-        for k in ("f_email", "f_binder", "f_company", "f_license"): 
+        for k in ("f_email", "f_binder", "f_company", "f_license"):
             st.session_state[k] = ""
         st.session_state["f_status"] = "all"
-        
+
     with st.sidebar:
         st.markdown(f"""
         <div class="sidebar-header">
@@ -827,10 +945,11 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
                         f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        
-        # ⚡ The fix is right here: using on_click instead of inline session_state modification
-        st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clr_f", on_click=clear_all_filters)
-        
+
+        # on_click= fires the callback BEFORE any widget state is read → no SSError
+        st.button(f"✕  {t('clear_filters')}", use_container_width=True,
+                  key="clr_f", on_click=clear_all_filters)
+
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         role_label = t("role_admin") if is_admin else t("role_auditor")
         chip_cls   = "chip-admin" if is_admin else "chip-audit"
@@ -864,7 +983,7 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  14 · WORKLIST  (unchanged)
+#  14 · WORKLIST  — [2] quality selectbox  [3] feedback textarea + auto-diff
 # ─────────────────────────────────────────────────────────────────────────────
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     f_email, f_binder, f_company, f_license, f_status):
@@ -897,26 +1016,68 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         else: st.caption(t("no_history"))
     st.markdown(f"<div class='section-title'>✏️ {t('processing')} #{sheet_row}</div>", unsafe_allow_html=True)
     SKIP = set(SYSTEM_COLS); fields = {k: v for k, v in record.items() if k not in SKIP}
+
     with st.form("audit_form"):
+        # ── editable data fields ─────────────────────────────────────────────
         new_vals = {}
         for fname, fval in fields.items():
             new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
+
+        st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
+                    unsafe_allow_html=True)
+
+        # ── [2] Data Entry Quality selectbox ────────────────────────────────
+        eval_val = st.selectbox(
+            t("eval_label"),
+            options=EVAL_OPTIONS,
+            index=0,
+            key="form_eval",
+        )
+
+        # ── [3] Auditor Feedback / Notes text area ───────────────────────────
+        manual_notes = st.text_area(
+            t("feedback_label"),
+            placeholder=t("feedback_placeholder"),
+            key="form_feedback",
+            height=100,
+        )
+
         do_submit = st.form_submit_button(f"✅  {t('approve_save')}", use_container_width=True)
+
     if do_submit:
-        ts_now = now_str(); auditor = st.session_state.user_email
+        ts_now     = now_str()
+        auditor    = st.session_state.user_email
         log_prefix = f"✔  {auditor}  |  {ts_now}"
+
+        # ── [3] Auto-diff: compare original record vs submitted new_vals ─────
+        auto_diff  = build_auto_diff(record, new_vals)
+        feedback_combined = (
+            f"{manual_notes.strip()}\n{auto_diff}".strip()
+            if manual_notes.strip()
+            else auto_diff
+        )
+
         with st.spinner("Committing record to Google Sheets…"):
             try:
-                write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
-                                        new_vals, record, auditor, ts_now, log_prefix)
+                write_approval_to_sheet(
+                    ws_title, sheet_row, col_map, headers,
+                    new_vals, record, auditor, ts_now, log_prefix,
+                    eval_val=eval_val,
+                    feedback_val=feedback_combined,
+                )
             except gspread.exceptions.APIError as e:
                 st.error(f"🚨 Write failed: {e}"); return
-        _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix)
+
+        _apply_optimistic_approve(
+            df_iloc, new_vals, auditor, ts_now, log_prefix,
+            eval_val=eval_val,
+            feedback_val=feedback_combined,
+        )
         st.success(t("saved_ok")); time.sleep(0.6); st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  15 · ARCHIVE  (unchanged)
+#  15 · ARCHIVE  — [4] COL_EVAL and COL_FEEDBACK now visible + quality note
 # ─────────────────────────────────────────────────────────────────────────────
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    f_email, f_binder, f_company, f_license, f_status):
@@ -926,11 +1087,27 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
       <div class="worklist-sub">Completed and committed audit records</div></div>
       <span class="chip chip-done">{d_count} {t('processed')}</span>
     </div>""", unsafe_allow_html=True)
+
     if done_view.empty:
         st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
                 else "No processed records yet.")
     else:
-        render_html_table(done_view)
+        # Quality columns hint for admins
+        if is_admin:
+            st.markdown(
+                f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
+                f"border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);"
+                f"padding:10px 16px;margin-bottom:14px;font-size:.78rem;"
+                f"color:var(--indigo-600)!important;font-weight:600;'>"
+                f"{t('archive_quality_note')}</div>",
+                unsafe_allow_html=True,
+            )
+        # Ensure COL_EVAL and COL_FEEDBACK are in the view and pushed early for visibility
+        priority_cols = [COL_STATUS, COL_EVAL, COL_FEEDBACK, COL_AUDITOR, COL_DATE]
+        other_cols    = [c for c in done_view.columns if c not in priority_cols and c != COL_LOG]
+        ordered_cols  = [c for c in priority_cols if c in done_view.columns] + other_cols
+        render_html_table(done_view[ordered_cols], max_rows=500)
+
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>↩️ {t('reopen')}</div>", unsafe_allow_html=True)
@@ -946,11 +1123,12 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  16 · ANALYTICS  (unchanged)
+#  16 · ANALYTICS  — [4] Data Entry Accuracy Ranking added
 # ─────────────────────────────────────────────────────────────────────────────
-def render_analytics(df):
+def render_analytics(df: pd.DataFrame, col_agent_email: str | None = None) -> None:
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
     nvy = "#4F46E5"; blu = "#60A5FA"
+
     st.markdown(f"<div class='section-title'>🗓️ {t('period')}</div>", unsafe_allow_html=True)
     periods = [("all", t("all_time")), ("today", t("today")),
                ("this_week", t("this_week")), ("this_month", t("this_month"))]
@@ -958,15 +1136,21 @@ def render_analytics(df):
         lbl = f"✓  {pl}" if st.session_state.date_filter == pk else pl
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
             st.session_state.date_filter = pk; st.rerun()
+
     done_base = df[df[COL_STATUS] == VAL_DONE].copy()
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
     if done_f.empty: st.info(t("no_records")); return
+
     ma, mb, mc = st.columns(3); ma.metric(t("records_period"), len(done_f))
     active = 0
     if COL_DATE in done_f.columns:
         active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
-    mb.metric(t("active_days"), active); mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
+    mb.metric(t("active_days"), active)
+    mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
+
     left, right = st.columns([1, 1.6], gap="large")
+
+    # ── Auditor leaderboard (unchanged) ──────────────────────────────────────
     with left:
         st.markdown(f"<div class='section-title'>🏅 {t('leaderboard')}</div>", unsafe_allow_html=True)
         if COL_AUDITOR in done_f.columns:
@@ -984,10 +1168,13 @@ def render_analytics(df):
                 font=dict(family="Plus Jakarta Sans", color=fc, size=11),
                 showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
                 xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
-                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending", tickfont=dict(color="#4B5563")),
+                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
+                           tickfont=dict(color="#4B5563")),
                 height=min(320, max(180, 36*len(lb.head(10)))))
             fig.update_traces(marker_line_width=0)
             st.plotly_chart(fig, use_container_width=True)
+
+    # ── Daily trend (unchanged) ───────────────────────────────────────────────
     with right:
         st.markdown(f"<div class='section-title'>📈 {t('daily_trend')}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
@@ -1016,31 +1203,112 @@ def render_analytics(df):
                 st.plotly_chart(fig2, use_container_width=True)
             else: st.info(t("no_records"))
 
+    # ── [4] Data Entry Accuracy Ranking ──────────────────────────────────────
+    st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
+
+    if col_agent_email and col_agent_email in done_f.columns and COL_EVAL in done_f.columns:
+        eval_df = done_f[[col_agent_email, COL_EVAL]].copy()
+        eval_df[col_agent_email] = eval_df[col_agent_email].replace("", "—")
+
+        def _classify(v: str) -> str:
+            if "🟢" in v or "Good" in v:           return "good"
+            if "🔴" in v or "Bad" in v or "Incorrect" in v: return "bad"
+            if "⚠️" in v or "Duplicate" in v or "دووبارە" in v: return "dup"
+            return "unrated"
+
+        eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
+
+        acc = (
+            eval_df.groupby(col_agent_email)["_cls"]
+            .value_counts()
+            .unstack(fill_value=0)
+            .reset_index()
+        )
+        for col_need in ("good", "bad", "dup", "unrated"):
+            if col_need not in acc.columns: acc[col_need] = 0
+
+        acc["Total"]    = acc["good"] + acc["bad"] + acc["dup"] + acc["unrated"]
+        acc["Accuracy"] = (acc["good"] / acc["Total"].replace(0, 1) * 100).round(1)
+        acc = acc.sort_values("Accuracy", ascending=False).reset_index(drop=True)
+
+        # Build styled HTML table
+        th_row = (
+            f"<tr>"
+            f"<th>#</th>"
+            f"<th>{t('acc_agent')}</th>"
+            f"<th>{t('acc_total')}</th>"
+            f"<th>{t('acc_good')}</th>"
+            f"<th>{t('acc_bad')}</th>"
+            f"<th>{t('acc_dup')}</th>"
+            f"<th>{t('acc_rate')}</th>"
+            f"</tr>"
+        )
+        td_rows = ""
+        for i, row in acc.iterrows():
+            pct = row["Accuracy"]
+            if pct >= 80:   rate_cls = "acc-rate-high"; bar_col = "#16A34A"
+            elif pct >= 50: rate_cls = "acc-rate-mid";  bar_col = "#B45309"
+            else:           rate_cls = "acc-rate-low";  bar_col = "#DC2626"
+
+            bar_fill = int(pct)
+            bar_html = (
+                f"<span class='acc-bar-wrap'>"
+                f"<span class='acc-bar-fill' style='width:{bar_fill}%;background:{bar_col};display:block;'></span>"
+                f"</span>"
+            )
+            td_rows += (
+                f"<tr>"
+                f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
+                f"<td style='font-weight:600;'>{row[col_agent_email]}</td>"
+                f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['Total'])}</td>"
+                f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
+                f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
+                f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
+                f"<td class='{rate_cls}'>{pct}% {bar_html}</td>"
+                f"</tr>"
+            )
+        st.markdown(
+            f"<div class='gov-table-wrap'>"
+            f"<table class='acc-table'>"
+            f"<thead>{th_row}</thead>"
+            f"<tbody>{td_rows}</tbody>"
+            f"</table></div>",
+            unsafe_allow_html=True,
+        )
+
+        # Plotly bar for quick visual overview
+        if not acc.empty:
+            fig3 = px.bar(
+                acc, x=col_agent_email, y="Accuracy",
+                color="Accuracy",
+                color_continuous_scale=["#DC2626","#F59E0B","#16A34A"],
+                range_color=[0, 100],
+                template=pt,
+                labels={"Accuracy": "Accuracy %", col_agent_email: "Agent"},
+            )
+            fig3.update_layout(
+                paper_bgcolor=pb, plot_bgcolor=pb,
+                font=dict(family="Plus Jakarta Sans", color=fc, size=11),
+                showlegend=False, coloraxis_showscale=False,
+                margin=dict(l=8,r=8,t=10,b=8),
+                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
+                           tickangle=-30),
+                yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
+                           range=[0, 105]),
+                height=300,
+            )
+            fig3.update_traces(marker_line_width=0)
+            st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info(t("acc_no_data")
+                + ("" if col_agent_email else
+                   " (Agent Email column not detected — check sheet headers.)"))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  17 · ★ NEW: AUDITOR LOGS TAB  (Admin-exclusive)
-#
-#  Data flow:
-#    df  →  filter COL_STATUS == VAL_DONE  →  select display columns
-#        →  optional per-auditor selectbox filter (100% local Pandas)
-#        →  render_html_table()
-#        →  st.download_button() — no API call, pure in-memory CSV
-#
-#  Security:  this function is ONLY called inside `if is_admin:` in main().
-#             Even if somehow invoked, it reads only from the already-fetched
-#             local df — no privilege escalation is possible.
+#  17 · AUDITOR LOGS TAB  (Admin-exclusive — unchanged from v12)
 # ─────────────────────────────────────────────────────────────────────────────
 def render_auditor_logs(df: pd.DataFrame, col_company: str | None, col_binder: str | None) -> None:
-    """
-    Admin-exclusive auditor activity log view.
-
-    Parameters
-    ----------
-    df          : The full local DataFrame (all statuses).
-    col_company : Dynamically detected company-name column, or None.
-    col_binder  : Dynamically detected binder-number column, or None.
-    """
-    # ── Header card ───────────────────────────────────────────────────────────
     st.markdown(f"""
     <div class="worklist-header">
       <div>
@@ -1050,56 +1318,35 @@ def render_auditor_logs(df: pd.DataFrame, col_company: str | None, col_binder: s
       <span class="chip chip-admin">Admin Only</span>
     </div>""", unsafe_allow_html=True)
 
-    # ── Base dataset: only processed records ─────────────────────────────────
     done_df = df[df[COL_STATUS] == VAL_DONE].copy()
-
     if done_df.empty:
-        st.info(t("logs_no_data"))
-        return
+        st.info(t("logs_no_data")); return
 
-    # ── Build display column list dynamically ─────────────────────────────────
-    # Always include: Auditor_ID, Update_Date
-    # Include company and binder only when detected in this sheet
-    display_cols: list[str] = [COL_AUDITOR, COL_DATE]
+    display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company and col_company in done_df.columns:
         display_cols.insert(1, col_company)
     if col_binder and col_binder in done_df.columns:
         display_cols.insert(1, col_binder)
-
-    # Remove duplicates while preserving order
     seen_c: set = set()
-    display_cols = [c for c in display_cols if not (c in seen_c or seen_c.add(c))]
+    display_cols = [c for c in display_cols if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
 
-    # ── Per-auditor filter selectbox ──────────────────────────────────────────
     auditor_list = sorted(
         [a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("", "—")],
         key=str.lower,
     )
-    all_option = t("logs_filter_all")
-    sel_auditor = st.selectbox(
-        t("logs_auditor_sel"),
-        options=[all_option] + auditor_list,
-        key="logs_auditor_sel",
-    )
+    all_option  = t("logs_filter_all")
+    sel_auditor = st.selectbox(t("logs_auditor_sel"),
+                               options=[all_option] + auditor_list,
+                               key="logs_auditor_sel")
+    view_df = (done_df[done_df[COL_AUDITOR] == sel_auditor].copy()
+               if sel_auditor != all_option else done_df.copy())
 
-    # Apply local Pandas filter — zero API calls
-    if sel_auditor != all_option:
-        view_df = done_df[done_df[COL_AUDITOR] == sel_auditor].copy()
-    else:
-        view_df = done_df.copy()
-
-    # ── Summary stats card ────────────────────────────────────────────────────
-    total_processed   = len(view_df)
-    unique_auditors   = view_df[COL_AUDITOR].nunique()
-
-    # Date range from COL_DATE
-    parsed_dates = view_df[COL_DATE].apply(parse_dt).dropna()
-    if not parsed_dates.empty:
-        min_date = parsed_dates.min().strftime("%Y-%m-%d")
-        max_date = parsed_dates.max().strftime("%Y-%m-%d")
-        date_range_str = f"{min_date} → {max_date}"
-    else:
-        date_range_str = "—"
+    total_processed = len(view_df)
+    unique_auditors = view_df[COL_AUDITOR].nunique()
+    parsed_dates    = view_df[COL_DATE].apply(parse_dt).dropna()
+    date_range_str  = (f"{parsed_dates.min().strftime('%Y-%m-%d')} → "
+                       f"{parsed_dates.max().strftime('%Y-%m-%d')}"
+                       if not parsed_dates.empty else "—")
 
     st.markdown(f"""
     <div class="log-summary-card">
@@ -1121,43 +1368,34 @@ def render_auditor_logs(df: pd.DataFrame, col_company: str | None, col_binder: s
       </div>
     </div>""", unsafe_allow_html=True)
 
-    # ── Columns hint ──────────────────────────────────────────────────────────
     shown_label = " · ".join(display_cols)
     st.markdown(
         f"<div class='section-title'>📋 {t('logs_cols_shown')}: "
         f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{shown_label}</span></div>",
-        unsafe_allow_html=True,
-    )
+        unsafe_allow_html=True)
 
-    # ── Render table (display_cols only, sorted by date desc) ────────────────
     table_df = view_df[display_cols].copy()
-
-    # Sort by date descending so newest entries appear first
     if COL_DATE in table_df.columns:
         table_df["_sort"] = table_df[COL_DATE].apply(parse_dt)
         table_df = table_df.sort_values("_sort", ascending=False, na_position="last")
         table_df = table_df.drop(columns=["_sort"])
-
     table_df = table_df.reset_index(drop=True)
     render_html_table(table_df, max_rows=1000)
 
-    # ── Export strip with CSV download ────────────────────────────────────────
-    # Build CSV entirely in memory — zero API calls, zero caching side-effects
     export_df = view_df[display_cols].copy()
     if COL_DATE in export_df.columns:
         export_df["_sort"] = export_df[COL_DATE].apply(parse_dt)
         export_df = export_df.sort_values("_sort", ascending=False, na_position="last")
         export_df = export_df.drop(columns=["_sort"])
     export_df = export_df.reset_index(drop=True)
-
     csv_buffer = io.StringIO()
-    export_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")  # utf-8-sig for Excel compat
+    export_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buffer.getvalue().encode("utf-8-sig")
 
-    # Dynamic filename: include auditor name and today's date
-    date_tag      = datetime.now(TZ).strftime("%Y%m%d")
-    auditor_tag   = sel_auditor.replace("@", "_").replace(".", "_") if sel_auditor != all_option else "all_auditors"
-    export_fname  = f"audit_log_{auditor_tag}_{date_tag}.csv"
+    date_tag     = datetime.now(TZ).strftime("%Y%m%d")
+    auditor_tag  = (sel_auditor.replace("@","_").replace(".","_")
+                    if sel_auditor != all_option else "all_auditors")
+    export_fname = f"audit_log_{auditor_tag}_{date_tag}.csv"
 
     st.markdown(f"""
     <div class="export-strip">
@@ -1166,15 +1404,10 @@ def render_auditor_logs(df: pd.DataFrame, col_company: str | None, col_binder: s
         <div class="export-sub">{t('logs_export_sub')} · {total_processed} rows · {len(display_cols)} columns</div>
       </div>
     </div>""", unsafe_allow_html=True)
-
     st.download_button(
-        label    = t("logs_export_btn"),
-        data     = csv_bytes,
-        file_name= export_fname,
-        mime     = "text/csv",
-        key      = "logs_csv_download",
-        use_container_width=False,
-    )
+        label=t("logs_export_btn"), data=csv_bytes,
+        file_name=export_fname, mime="text/csv",
+        key="logs_csv_download", use_container_width=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1254,7 +1487,6 @@ def main():
           <div class="page-timestamp">{ts_str}</div>
         </div>""", unsafe_allow_html=True)
 
-        # Smart sheet matching
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS if s.strip().lower() in atm]
 
@@ -1277,9 +1509,10 @@ def main():
                 except gspread.exceptions.APIError as e:
                     st.error(f"🚨 {t('retry_warning')}\n\n{e}")
 
-        col_binder  = detect_column(headers, "binder")
-        col_company = detect_column(headers, "company")
-        col_license = detect_column(headers, "license")
+        col_binder      = detect_column(headers, "binder")
+        col_company     = detect_column(headers, "company")
+        col_license     = detect_column(headers, "license")
+        col_agent_email = detect_column(headers, "agent_email")  # [4]
 
         f_email, f_binder, f_company, f_license, f_status = render_sidebar(
             headers, col_binder, col_company, col_license, is_admin, fetched_at)
@@ -1307,15 +1540,13 @@ def main():
         else:
             filtered_df = pd.DataFrame()
 
-        # ── Tab construction ─────────────────────────────────────────────────
-        # Admin:   Worklist | Archive | Analytics | 🗂️ Auditor Logs | User Admin
-        # Auditor: Worklist | Archive  (RBAC enforced — Auditor Logs not visible)
+        # ── Tab construction ──────────────────────────────────────────────────
         if is_admin:
             tabs = st.tabs([
                 t("tab_worklist"),
                 t("tab_archive"),
                 t("tab_analytics"),
-                t("tab_logs"),       # ← NEW admin-only tab
+                t("tab_logs"),
                 t("tab_users"),
             ])
             t_work, t_arch, t_anal, t_logs, t_uadm = tabs
@@ -1324,9 +1555,9 @@ def main():
                         unsafe_allow_html=True)
             tabs = st.tabs([t("tab_worklist"), t("tab_archive")])
             t_work, t_arch = tabs
-            t_anal = t_logs = t_uadm = None   # explicitly None — never rendered below
+            t_anal = t_logs = t_uadm = None
 
-        # ── Worklist ─────────────────────────────────────────────────────────
+        # ── Worklist ──────────────────────────────────────────────────────────
         with t_work:
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
@@ -1345,15 +1576,14 @@ def main():
         # ── Analytics (admin only) ────────────────────────────────────────────
         if is_admin and t_anal is not None:
             with t_anal:
-                if not df.empty: render_analytics(df)
+                if not df.empty:
+                    render_analytics(df, col_agent_email=col_agent_email)
 
-        # ── Auditor Logs (admin only — strictly inside is_admin block) ────────
+        # ── Auditor Logs (admin only) ─────────────────────────────────────────
         if is_admin and t_logs is not None:
             with t_logs:
-                if df.empty:
-                    st.warning(t("empty_sheet"))
-                else:
-                    render_auditor_logs(df, col_company, col_binder)
+                if df.empty: st.warning(t("empty_sheet"))
+                else:        render_auditor_logs(df, col_company, col_binder)
 
         # ── User Admin (admin only) ───────────────────────────────────────────
         if is_admin and t_uadm is not None:
