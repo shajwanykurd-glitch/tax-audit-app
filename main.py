@@ -1021,7 +1021,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
             <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div class="cache-strip">
-          <span class="cache-badge">⚡ {t('local_mode')}</span>
+          <span class="cache-badge"> {t('local_mode')}</span>
           <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min · Last sync: {fetched_at[-8:] if fetched_at else '—'}</div>
         </div>""", unsafe_allow_html=True)
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
