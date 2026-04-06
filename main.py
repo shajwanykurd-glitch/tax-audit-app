@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.1 (Clean ASCII Version)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.2 (Clean ASCII + Archive Search)
 #  Architecture: Optimistic UI / Local-First Mutation
 #
 #  Rule 1 - READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear())
@@ -1171,16 +1171,46 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 #  15 . ARCHIVE
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
-                   f_email, f_binder, f_company, f_license, f_status):
+                   f_email, f_binder, f_company, f_license, f_status,
+                   col_binder=None, col_company=None, col_license=None):
+    
+    def clear_arch_search():
+        st.session_state["arch_binder"] = ""
+        st.session_state["arch_license"] = ""
+        st.session_state["arch_company"] = ""
+        st.session_state["arch_auditor"] = ""
+
     d_count = len(done_view)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">Processed Archive</div>
       <div class="worklist-sub">Completed and committed audit records</div></div>
       <span class="chip chip-done">{d_count} {t('processed')}</span>
     </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-bottom:10px; font-weight:bold; color:var(--indigo-600);'> Archive Quick Search</div>", unsafe_allow_html=True)
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 0.3])
+    with c1: s_binder = st.text_input("Binder No.", key="arch_binder", disabled=(col_binder is None))
+    with c2: s_license = st.text_input("License No.", key="arch_license", disabled=(col_license is None))
+    with c3: s_company = st.text_input("Company", key="arch_company", disabled=(col_company is None))
+    with c4: s_auditor = st.text_input("Auditor Email", key="arch_auditor")
+    with c5:
+        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+        st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
+
+    if s_binder.strip() and col_binder and col_binder in done_view.columns:
+        done_view = done_view[done_view[col_binder].astype(str).str.contains(s_binder.strip(), case=False, na=False)]
+    if s_license.strip() and col_license and col_license in done_view.columns:
+        done_view = done_view[done_view[col_license].astype(str).str.contains(s_license.strip(), case=False, na=False)]
+    if s_company.strip() and col_company and col_company in done_view.columns:
+        done_view = done_view[done_view[col_company].astype(str).str.contains(s_company.strip(), case=False, na=False)]
+    if s_auditor.strip() and COL_AUDITOR in done_view.columns:
+        done_view = done_view[done_view[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False, na=False)]
+
+    st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+
     if done_view.empty:
         st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-                else "No processed records yet.")
+                else "No processed records match the search.")
     else:
         if is_admin:
             st.markdown(
@@ -1837,7 +1867,8 @@ def main():
                 dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
                 dv.index = dv.index + 2
                 render_archive(dv, df, col_map, ws_title, is_admin,
-                               f_email, f_binder, f_company, f_license, f_status)
+                               f_email, f_binder, f_company, f_license, f_status,
+                               col_binder=col_binder, col_company=col_company, col_license=col_license)
 
         if can_analytics and t_anal is not None:
             with t_anal:
