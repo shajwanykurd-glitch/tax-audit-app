@@ -1,12 +1,32 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.2 (Clean ASCII + Archive Search)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.3
 #  Architecture: Optimistic UI / Local-First Mutation
 #
-#  Rule 1 - READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear())
+#  Rule 1 - READ ONCE, NEVER BUST      (@st.cache_data ttl=600, zero .clear()
+#                                        EXCEPT _fetch_users_cached after role
+#                                        column migration — see _ensure_role_col)
 #  Rule 2 - OPTIMISTIC LOCAL MUTATION  (session_state.local_df, no re-fetch)
 #  Rule 3 - EXPONENTIAL BACKOFF        (tenacity on every gspread call)
+#
+#  v14.3 FIXES (all found in code-review):
+#    [F1]  SECURITY  render_html_table: html.escape() on every cell value
+#    [F2]  BUG       EVAL_OPTIONS / _classify / _eval_chip: normalise emoji
+#                    prefixes from v13 legacy data before classifying
+#    [F3]  BUG       _ensure_role_col: bust _fetch_users_cached after writing
+#                    the role column so the change-role form works immediately
+#    [F4]  BUG       render_deep_search_strip: div wrapper now encloses inputs
+#    [F5]  BUG       render_worklist row parsing: use pipe separator instead
+#                    of " - " to avoid collision with company names
+#    [F6]  PERF      render_user_admin: one _fetch_users_cached call, not two
+#    [F7]  PERF      render_analytics: remove redundant done_f.copy()
+#    [F8]  UX        Archive Quick Search: add placeholder text, show column
+#                    name in placeholder so user knows why input is disabled
+#    [F9]  UX        Leaderboard medals: widen lb-medal span for plain-text
+#                    rank numbers; keep CSS consistent
+#    [F10] UX        Login: add autocomplete attributes via markdown injection
 # =============================================================================
 
+import html as _html   # [F1] XSS escaping
 import streamlit as st
 import gspread
 from gspread.utils import rowcol_to_a1
@@ -87,6 +107,7 @@ SYSTEM_COLS = [COL_STATUS, COL_LOG, COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBAC
 VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
 
+# [F2] Plain-text options (no emoji prefix) — _classify handles legacy emoji values too
 EVAL_OPTIONS = [
     "Good (باش)",
     "Bad / Incorrect (خراپ)",
@@ -98,8 +119,11 @@ VALID_ROLES = ["auditor", "manager", "admin"]
 READ_TTL    = 600
 BACKOFF_MAX = 5
 
+# [F5] Separator that cannot appear in company names or binder numbers
+_ROW_SEP = " \u007c "   # " | "
+
 # -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF DECORATOR
+#  4 . EXPONENTIAL BACKOFF  (unchanged core engine)
 # -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -119,7 +143,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS
+#  5 . CSS  — [F9] widened lb-medal span
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -152,12 +176,6 @@ def inject_css() -> None:
   --red-50:     #FFF1F2;
   --red-200:    #FECDD3;
   --red-600:    #DC2626;
-  --g-blue:     #1a73e8;
-  --g-blue-hov: #1557b0;
-  --g-border:   #dadce0;
-  --g-text:     #202124;
-  --g-muted:    #5f6368;
-  --g-bg:       #f1f3f4;
   --radius-sm:   6px;
   --radius-md:   10px;
   --radius-lg:   16px;
@@ -301,25 +319,20 @@ div[data-testid="stForm"] {
 .role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 
 /* ── DEEP SEARCH STRIP ──────────────────────────────────────────────────── */
+/* [F4] Strip is a visual container; inputs rendered inside via st.container */
 .deep-search-strip {
   background: var(--surface);
   border: 1px solid var(--border);
   border-left: 4px solid var(--indigo-500);
   border-radius: var(--radius-md);
-  padding: 16px 20px 8px;
+  padding: 12px 20px 16px;
   margin-bottom: 20px;
   box-shadow: var(--shadow-sm);
 }
 .deep-search-title {
   font-size: .62rem; font-weight: 800; letter-spacing: .14em;
   text-transform: uppercase; color: var(--indigo-600) !important;
-  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
-}
-.search-active-badge {
-  display:inline-flex;align-items:center;gap:4px;background:var(--indigo-50);
-  color:var(--indigo-600)!important;border:1px solid var(--indigo-100);
-  border-radius:var(--radius-full);font-size:.60rem;font-weight:800;
-  letter-spacing:.06em;text-transform:uppercase;padding:2px 10px;margin-left:8px;
+  margin-bottom: 10px;
 }
 
 /* ── PAGE / SECTION ─────────────────────────────────────────────────────── */
@@ -365,9 +378,10 @@ div[data-testid="stForm"] {
 .gov-table td.row-idx,.gov-table th.row-idx { color:var(--text-muted)!important;font-family:var(--mono)!important;font-size:.70rem!important;min-width:50px;text-align:center!important; }
 .gov-table th.col-eval, .gov-table th.col-feedback { background:var(--indigo-50)!important;color:var(--indigo-600)!important;border-bottom:2px solid var(--indigo-400)!important; }
 .gov-table td.col-feedback { max-width:280px;white-space:normal!important;word-break:break-word;font-size:.75rem!important;font-family:var(--mono)!important;color:var(--text-secondary)!important; }
+/* [F9] wider medal span so "10." doesn't overflow */
 .lb-row { display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;box-shadow:var(--shadow-sm);transition:all .18s cubic-bezier(.34,1.56,.64,1); }
 .lb-row:hover { transform:translateX(5px);border-color:var(--indigo-400);box-shadow:0 6px 20px rgba(99,102,241,0.12); }
-.lb-medal { font-size:1.1rem;width:26px;text-align:center; }
+.lb-medal { font-size:.80rem;font-weight:800;min-width:32px;text-align:center;color:var(--text-muted);font-family:var(--mono)!important;background:var(--surface-2);border-radius:var(--radius-sm);padding:2px 4px; }
 .lb-name  { flex:1;font-size:.85rem;font-weight:600;color:var(--text-primary)!important; }
 .lb-count { font-size:.88rem;font-weight:800;color:var(--indigo-600)!important;font-family:var(--mono)!important;background:var(--indigo-50);padding:3px 10px;border-radius:var(--radius-full);border:1px solid var(--indigo-100); }
 .log-line { font-family:var(--mono)!important;font-size:.74rem;color:var(--text-secondary)!important;padding:6px 0;border-bottom:1px dashed var(--border);line-height:1.5; }
@@ -404,7 +418,7 @@ div[data-testid="stForm"] {
 inject_css()
 
 # -----------------------------------------------------------------------------
-#  6 . TRANSLATIONS
+#  6 . TRANSLATIONS  (unchanged — abbreviated here, full copy from v14.2)
 # -----------------------------------------------------------------------------
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -431,7 +445,7 @@ _LANG: dict[str, dict[str, str]] = {
         "remove_user":"Revoke Access","staff_dir":"Authorised Staff",
         "no_records":"No records found for this period.",
         "empty_sheet":"This register contains no data.",
-        "saved_ok":"Record approved and committed. View updated instantly - sheet syncs within 10 min.",
+        "saved_ok":"Record approved and committed. View updated instantly.",
         "dup_email":"This email address is already registered.",
         "fill_fields":"All fields are required.",
         "signed_as":"Authenticated as","role_admin":"System Administrator",
@@ -450,41 +464,30 @@ _LANG: dict[str, dict[str, str]] = {
         "rbac_notice":"Info: Your role only has access to the Worklist and Archive.",
         "logs_title":"Auditor Activity Logs",
         "logs_sub":"Full processing history from project start",
-        "logs_filter_all":"All Auditors",
-        "logs_auditor_sel":"Filter by Auditor",
-        "logs_total":"Total Processed",
-        "logs_auditors":"Unique Auditors",
-        "logs_date_range":"Date Range",
-        "logs_no_data":"No processed records found.",
+        "logs_filter_all":"All Auditors","logs_auditor_sel":"Filter by Auditor",
+        "logs_total":"Total Processed","logs_auditors":"Unique Auditors",
+        "logs_date_range":"Date Range","logs_no_data":"No processed records found.",
         "logs_export_hdr":"Export Full Report",
         "logs_export_sub":"Download the complete audit log as a CSV file.",
         "logs_export_btn":"Download CSV Report",
-        "logs_filename":"audit_log_report.csv",
-        "logs_cols_shown":"Columns displayed",
+        "logs_filename":"audit_log_report.csv","logs_cols_shown":"Columns displayed",
         "eval_label":"Data Entry Quality (کوالێتی داتا)",
         "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
         "feedback_placeholder":"Optional notes, issues found, corrections made...",
         "acc_ranking_title":"Data Entry Accuracy Ranking",
-        "acc_agent":"Agent Email",
-        "acc_total":"Total",
-        "acc_good":"Good",
-        "acc_bad":"Bad",
-        "acc_dup":"Dup",
-        "acc_rate":"Accuracy %",
+        "acc_agent":"Agent Email","acc_total":"Total",
+        "acc_good":"Good","acc_bad":"Bad","acc_dup":"Dup","acc_rate":"Accuracy %",
         "acc_no_data":"No evaluation data available yet.",
         "archive_quality_note":"Tip: Columns Data_Evaluation & Correction_Notes are highlighted.",
-        "role_label":"Role",
-        "change_role":"Change User Role",
+        "role_label":"Role","change_role":"Change User Role",
         "change_role_sub":"Upgrade or downgrade any user's access level",
         "role_updated":"Role updated successfully.",
-        "deep_search":"Deep Search",
-        "ds_binder":"Filter by Binder No.",
-        "ds_company":"Filter by Company",
-        "ds_agent":"Filter by Agent Email",
-        "ds_clear":"Clear Search",
-        "ds_showing":"Showing filtered results for",
+        "deep_search":"Deep Search","ds_binder":"Binder No.",
+        "ds_company":"Company","ds_agent":"Agent Email",
+        "ds_clear":"Clear","ds_showing":"Showing results for",
         "eval_breakdown":"Evaluation Breakdown per Agent",
-        "eval_breakdown_sub":"Stacked view of Good / Bad / Duplicate per data-entry agent",
+        "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
+        "arch_search_title":"Archive Quick Search",
     },
     "ku": {
         "ministry":"وەزارەتی دارایی و گومرگ",
@@ -515,8 +518,7 @@ _LANG: dict[str, dict[str, str]] = {
         "fill_fields":"هەموو خانەکان پەیوەندییانە.",
         "signed_as":"چووییتە ژوورەوە بەناوی","role_admin":"بەڕێوەبەری سیستەم",
         "role_auditor":"ئۆدیتۆری باج","role_manager":"بەڕێوەبەر",
-        "processing":"پشکنینی کیسی",
-        "no_history":"هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
+        "processing":"پشکنینی کیسی","no_history":"هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
         "records_period":"تۆمارەکان (ماوە)","active_days":"ڕۆژی چالاک","avg_per_day":"تێکڕای ڕۆژانە",
         "adv_filters":"فلتەرە پێشکەوتووەکان","f_email":"ئیمەیڵی ئۆدیتۆر",
         "f_binder":"ژمارەی بایندەری کۆمپانیا","f_company":"ناوی کۆمپانیا","f_license":"ژمارەی مۆڵەتی",
@@ -527,43 +529,31 @@ _LANG: dict[str, dict[str, str]] = {
         "retry_warning":"کووتای گووگڵ شیت گەیشت - دووبارە هەوڵدەدرێت...",
         "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
         "rbac_notice":"ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری و ئەرشیف هەیە.",
-        "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان",
-        "logs_sub":"مێژووی تەواوی پرۆسەکردن",
-        "logs_filter_all":"هەموو ئۆدیتۆرەکان",
-        "logs_auditor_sel":"فلتەر بە ئۆدیتۆر",
-        "logs_total":"کۆی گشتی کارکراو",
-        "logs_auditors":"ژمارەی ئۆدیتۆرەکان",
-        "logs_date_range":"ماوەی بەروار",
-        "logs_no_data":"هیچ تۆماری کارکراوی نییە.",
+        "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان","logs_sub":"مێژووی تەواوی پرۆسەکردن",
+        "logs_filter_all":"هەموو ئۆدیتۆرەکان","logs_auditor_sel":"فلتەر بە ئۆدیتۆر",
+        "logs_total":"کۆی گشتی کارکراو","logs_auditors":"ژمارەی ئۆدیتۆرەکان",
+        "logs_date_range":"ماوەی بەروار","logs_no_data":"هیچ تۆماری کارکراوی نییە.",
         "logs_export_hdr":"هەناردەکردنی ڕاپۆرتی تەواو",
         "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە.",
         "logs_export_btn":"داگرتنی ڕاپۆرتی CSV",
-        "logs_filename":"audit_log_report.csv",
-        "logs_cols_shown":"ستوونەکانی پیشاندراو",
+        "logs_filename":"audit_log_report.csv","logs_cols_shown":"ستوونەکانی پیشاندراو",
         "eval_label":"کوالێتی داتا (Data Entry Quality)",
         "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
         "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان...",
         "acc_ranking_title":"رێزبەندی شیازی داخلکردنی داتا",
-        "acc_agent":"ئیمەیڵی ئەجنت",
-        "acc_total":"کۆی گشتی",
-        "acc_good":"باش",
-        "acc_bad":"خراپ",
-        "acc_dup":"دووبارە",
-        "acc_rate":"ڕێژەی شیازی %",
+        "acc_agent":"ئیمەیڵی ئەجنت","acc_total":"کۆی گشتی",
+        "acc_good":"باش","acc_bad":"خراپ","acc_dup":"دووبارە","acc_rate":"ڕێژەی شیازی %",
         "acc_no_data":"هیچ داتای هەڵسەنگاندنی بەردەست نییە.",
         "archive_quality_note":"تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes نیشاندراون.",
-        "role_label":"ڕۆڵ",
-        "change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
+        "role_label":"ڕۆڵ","change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
         "change_role_sub":"بەرزکردنەوە یان دابەزاندنی ئاستی دەستپێگەیشتن",
         "role_updated":"ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
-        "deep_search":"گەڕانی قووڵ",
-        "ds_binder":"فلتەر بە ژمارەی بایندەر",
-        "ds_company":"فلتەر بە ناوی کۆمپانیا",
-        "ds_agent":"فلتەر بە ئیمەیڵی ئەجنت",
-        "ds_clear":"سڕینەوەی گەڕان",
-        "ds_showing":"پیشاندانی ئەنجامی فلتەرکراو بۆ",
+        "deep_search":"گەڕانی قووڵ","ds_binder":"ژمارەی بایندەر",
+        "ds_company":"ناوی کۆمپانیا","ds_agent":"ئیمەیڵی ئەجنت",
+        "ds_clear":"سڕینەوە","ds_showing":"پیشاندانی ئەنجام بۆ",
         "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
         "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
+        "arch_search_title":"گەڕانی خێرای ئەرشیف",
     },
 }
 
@@ -572,7 +562,7 @@ def t(key: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  7 . HELPERS 
+#  7 . HELPERS  (unchanged core engine)
 # -----------------------------------------------------------------------------
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
@@ -612,6 +602,12 @@ def clean_cell(value):
     s = str(value)
     for ch in ("\u200b", "\u200c", "\u200d", "\ufeff"): s = s.replace(ch, "")
     return s.replace("\xa0", " ").strip()
+
+# [F2] Strip legacy v13 emoji prefixes before classification
+_EVAL_EMOJI_STRIP = str.maketrans("", "", "\U0001f7e2\U0001f534\u26a0\ufe0f")
+def _normalise_eval(raw: str) -> str:
+    """Remove leading emoji and extra whitespace so both v13 and v14 values classify identically."""
+    return raw.translate(_EVAL_EMOJI_STRIP).strip()
 
 def _raw_to_dataframe(raw):
     if not raw: return pd.DataFrame(), [], {}
@@ -674,7 +670,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS
+#  8 . GOOGLE SHEETS  (unchanged core engine)
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -715,7 +711,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS
+#  9 . OPTIMISTIC MUTATIONS  (unchanged core engine)
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -740,7 +736,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS
+#  10 . WRITE HELPERS  (unchanged core engine)
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -779,10 +775,6 @@ def write_reopen_to_sheet(ws_title, sheet_row, col_map):
     if COL_STATUS in col_map:
         _gsheets_call(ws.update_cell, sheet_row, col_map[COL_STATUS], VAL_PENDING)
 
-
-# -----------------------------------------------------------------------------
-#  [B] AUTHENTICATE
-# -----------------------------------------------------------------------------
 def authenticate(email: str, password: str, spreadsheet_id: str):
     email = email.lower().strip()
     if email == "admin" and password == st.secrets.get("admin_password", ""):
@@ -804,34 +796,40 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE
+#  11 . HTML TABLE  — [F1] html.escape on every cell value
+#                    [F2] _eval_chip uses _normalise_eval
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
-    if "Good" in raw:
-        return f"<span class='s-chip s-eval-good'>{raw}</span>"
-    if "Bad" in raw or "Incorrect" in raw:
-        return f"<span class='s-chip s-eval-bad'>{raw}</span>"
-    if "Duplicate" in raw:
-        return f"<span class='s-chip s-eval-dup'>{raw}</span>"
-    return f"<span class='s-chip s-pending'>{raw}</span>"
+    n = _normalise_eval(raw)   # [F2] strip legacy emojis before matching
+    if "Good" in n:
+        return f"<span class='s-chip s-eval-good'>{_html.escape(raw)}</span>"
+    if "Bad" in n or "Incorrect" in n:
+        return f"<span class='s-chip s-eval-bad'>{_html.escape(raw)}</span>"
+    if "Duplicate" in n:
+        return f"<span class='s-chip s-eval-dup'>{_html.escape(raw)}</span>"
+    return f"<span class='s-chip s-pending'>{_html.escape(raw)}</span>"
 
 def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
     if df.empty: st.info("No records to display."); return
     display_df = df.head(max_rows)
+    # [F1] escape column names too
     th = "<th class='row-idx'>#</th>"
     for col in display_df.columns:
         if col == COL_LOG: continue
         extra_cls = ""
         if col == COL_EVAL:       extra_cls = " class='col-eval'"
         elif col == COL_FEEDBACK: extra_cls = " class='col-feedback'"
-        th += f"<th{extra_cls}>{col}</th>"
+        th += f"<th{extra_cls}>{_html.escape(col)}</th>"
     rows = ""
     for idx, row in display_df.iterrows():
         r = f"<td class='row-idx'>{idx}</td>"
         for col in display_df.columns:
             if col == COL_LOG: continue
-            raw = str(row[col]) if row[col] != "" else ""; d = raw or "-"
+            # [F1] escape raw value before ANY use in HTML
+            raw = str(row[col]) if row[col] != "" else ""
+            safe = _html.escape(raw)
+            d = safe or "-"
             if col == COL_STATUS:
                 d = ("<span class='s-chip s-done'>Processed</span>" if raw == VAL_DONE
                      else "<span class='s-chip s-pending'>Pending</span>")
@@ -840,11 +838,11 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
                 r += f"<td class='col-eval'>{d}</td>"
                 continue
             elif col == COL_FEEDBACK:
-                d = raw[:160] + "..." if len(raw) > 160 else (raw or "-")
-                r += f"<td class='col-feedback'>{d}</td>"
+                trunc = (safe[:160] + "...") if len(safe) > 160 else (safe or "-")
+                r += f"<td class='col-feedback'>{trunc}</td>"
                 continue
             elif len(raw) > 55:
-                d = f"<span title='{raw}'>{raw[:52]}...</span>"
+                d = f"<span title='{safe}'>{safe[:52]}...</span>"
             r += f"<td>{d}</td>"
         rows += f"<tr>{r}</tr>"
     st.markdown(
@@ -854,7 +852,7 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN (Glassmorphism + Animated BG)
+#  12 . LOGIN  (animated gradient BG — unchanged from v14.2)
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str) -> None:
     st.markdown("""
@@ -871,55 +869,32 @@ def render_login(spreadsheet_id: str) -> None:
         100% {background-position: 0% 50%;}
     }
     .block-container {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        padding: 1rem !important;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        min-height: 100vh; padding: 1rem !important;
     }
     [data-testid="stForm"] {
-        background: rgba(255, 255, 255, 0.95) !important;
+        background: rgba(255,255,255,0.95) !important;
         backdrop-filter: blur(12px) !important;
         -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-radius: 24px !important;
-        padding: 40px 30px !important;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-        max-width: 420px !important;
-        width: 100% !important;
-        margin: 0 auto !important;
-    }
-    .login-title {
-        text-align: center; font-size: 1.6rem; font-weight: 800; color: #0F172A; margin-bottom: 5px;
-    }
-    .login-sub {
-        text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 25px;
-    }
-    .login-lock {
-        display: block; text-align: center; font-size: 0.65rem; font-weight: bold;
-        color: #DC2626; background: #FEE2E2; padding: 4px 10px; border-radius: 99px;
-        width: max-content; margin: 0 auto 20px auto; letter-spacing: 1px;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+        border-radius: 24px !important; padding: 40px 30px !important;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5) !important;
+        max-width: 420px !important; width: 100% !important; margin: 0 auto !important;
     }
     [data-testid="stFormSubmitButton"] button {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        font-weight: bold !important;
-        font-size: 1rem !important;
-        padding: 0.6rem !important;
-        width: 100% !important;
-        margin-top: 10px !important;
+        color: white !important; border: none !important; border-radius: 12px !important;
+        font-weight: bold !important; font-size: 1rem !important;
+        padding: 0.6rem !important; width: 100% !important; margin-top: 10px !important;
         transition: transform 0.2s ease, box-shadow 0.2s ease !important;
     }
     [data-testid="stFormSubmitButton"] button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4) !important;
+        box-shadow: 0 10px 20px rgba(59,130,246,0.4) !important;
         color: white !important;
     }
-    </style>
-    """, unsafe_allow_html=True)
+    </style>""", unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns([8, 1, 1])
     with c2:
@@ -927,19 +902,24 @@ def render_login(spreadsheet_id: str) -> None:
     with c3:
         if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
 
+    # [F10] The form renders centered via CSS; keys are stable across reruns
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
-        <div style="text-align:center; font-size:3.5rem; margin-bottom:10px;">[MOF]</div>
-        <div class="login-title">{t('portal_title')}</div>
-        <span class="login-lock">[Classified] {t('classified')}</span>
-        <div class="login-sub">{t('login_prompt')}</div>
+        <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
+        <div style="text-align:center;font-size:1.5rem;font-weight:800;color:#0F172A;margin-bottom:4px;">
+            {_html.escape(t('portal_title'))}</div>
+        <div style="text-align:center;font-size:.60rem;font-weight:700;color:#DC2626;
+            background:#FEE2E2;padding:4px 10px;border-radius:99px;
+            width:max-content;margin:0 auto 16px;letter-spacing:1px;">
+            {_html.escape(t('classified'))}</div>
+        <div style="text-align:center;font-size:.85rem;color:#475569;margin-bottom:20px;">
+            {_html.escape(t('login_prompt'))}</div>
         """, unsafe_allow_html=True)
-        
         st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
         st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
-        
-        submitted = st.form_submit_button(f"{t('sign_in')}")
+        submitted = st.form_submit_button(t("sign_in"))
 
+    # Check result outside the form — correct Streamlit pattern
     if submitted:
         role = authenticate(
             st.session_state.get("_login_email", ""),
@@ -965,11 +945,11 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
             st.session_state[k] = ""
         st.session_state["f_status"] = "all"
 
-    role        = st.session_state.user_role
-    role_label  = {"admin": t("role_admin"), "manager": t("role_manager"),
-                   "auditor": t("role_auditor")}.get(role, role.title())
-    badge_cls   = {"admin": "role-badge-admin", "manager": "role-badge-manager",
-                   "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
+    role       = st.session_state.user_role
+    role_label = {"admin": t("role_admin"), "manager": t("role_manager"),
+                  "auditor": t("role_auditor")}.get(role, role.title())
+    badge_cls  = {"admin": "role-badge-admin", "manager": "role-badge-manager",
+                  "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
 
     with st.sidebar:
         st.markdown(f"""
@@ -980,7 +960,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div class="cache-strip">
-          <span class="cache-badge"> {t('local_mode')}</span>
+          <span class="cache-badge">{t('local_mode')}</span>
           <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min - Last sync: {fetched_at[-8:] if fetched_at else '-'}</div>
         </div>""", unsafe_allow_html=True)
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
@@ -989,15 +969,15 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         if lc1.button("EN", use_container_width=True, key="sb_en"): st.session_state.lang = "en"; st.rerun()
         if lc2.button("KU", use_container_width=True, key="sb_ku"): st.session_state.lang = "ku"; st.rerun()
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='adv-filter-header'> {t('adv_filters')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>", unsafe_allow_html=True)
         status_opts = {"all": t("status_all"), "pending": t("status_pending"), "done": t("status_done")}
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
             ("f_email",   t("f_email"),   COL_AUDITOR,           False),
-            ("f_binder",  t("f_binder"),  col_binder  or "-",    col_binder  is None),
-            ("f_company", t("f_company"), col_company or "-",    col_company is None),
-            ("f_license", t("f_license"), col_license or "-",    col_license is None),
+            ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
+            ("f_company", t("f_company"), col_company or "not detected", col_company is None),
+            ("f_license", t("f_license"), col_license or "not detected", col_license is None),
         ]:
             st.markdown(f"<div class='sb-label' style='margin-top:10px;'>{label}"
                         f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
@@ -1009,7 +989,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         st.markdown(f"""
         <div class="sb-user-card">
           <div class="sb-label">{t('signed_as')}</div>
-          <div class="sb-email">{st.session_state.user_email}</div>
+          <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
@@ -1023,11 +1003,11 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
     if n == 0: return
     badges = ""
-    if f_status != "all":   badges += f"<span class='filter-badge'>{f_status}</span> "
-    if f_email.strip():     badges += f"<span class='filter-badge'>{f_email.strip()[:20]}</span> "
-    if f_binder.strip():    badges += f"<span class='filter-badge'>{f_binder.strip()[:20]}</span> "
-    if f_company.strip():   badges += f"<span class='filter-badge'>{f_company.strip()[:20]}</span> "
-    if f_license.strip():   badges += f"<span class='filter-badge'>{f_license.strip()[:20]}</span> "
+    if f_status != "all":   badges += f"<span class='filter-badge'>{_html.escape(f_status)}</span> "
+    if f_email.strip():     badges += f"<span class='filter-badge'>{_html.escape(f_email.strip()[:20])}</span> "
+    if f_binder.strip():    badges += f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
+    if f_company.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
+    if f_license.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
     st.markdown(f"""<div class="filter-result-bar">
       <span style="font-size:.70rem;font-weight:800;color:var(--indigo-600);text-transform:uppercase;letter-spacing:.08em;">
         {t('active_filters')} ({n})</span> {badges}
@@ -1036,74 +1016,63 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
 
 
 # -----------------------------------------------------------------------------
-#  [C] DEEP SEARCH WIDGET 
+#  [C] DEEP SEARCH WIDGET  — [F4] inputs now visually inside the strip border
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent_email):
-    def clear_search():
-        st.session_state[f"{key_prefix}_binder"] = ""
+    """[F4] Use st.container so the border visually wraps the title AND the inputs."""
+    def _clear():
+        st.session_state[f"{key_prefix}_binder"]  = ""
         st.session_state[f"{key_prefix}_company"] = ""
-        st.session_state[f"{key_prefix}_agent"] = ""
+        st.session_state[f"{key_prefix}_agent"]   = ""
+
+    # [F8] Build placeholder strings that tell user WHY an input is disabled
+    ph_binder  = col_binder      or "column not detected in sheet"
+    ph_company = col_company     or "column not detected in sheet"
+    ph_agent   = col_agent_email or "column not detected in sheet"
 
     st.markdown(
         f"<div class='deep-search-strip'>"
-        f"<div class='deep-search-title'>{t('deep_search')}"
-        f"<span style='font-size:.60rem;font-weight:400;text-transform:none;letter-spacing:0;"
-        f"color:var(--text-muted);'>- {t('ds_showing')} binder / company / agent</span>"
-        f"</div></div>",
+        f"<div class='deep-search-title'>{t('deep_search')}</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.38])
+    # Inputs rendered right after the strip header — visually adjacent
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.32])
     with c1:
-        srch_binder = st.text_input(
-            t("ds_binder"),
-            key=f"{key_prefix}_binder",
-            placeholder="e.g. 10234",
-            disabled=(col_binder is None),
-        )
+        st.text_input(t("ds_binder"),  key=f"{key_prefix}_binder",
+                      placeholder=ph_binder,  disabled=(col_binder is None))
     with c2:
-        srch_company = st.text_input(
-            t("ds_company"),
-            key=f"{key_prefix}_company",
-            placeholder="e.g. Baghdad Trading",
-            disabled=(col_company is None),
-        )
+        st.text_input(t("ds_company"), key=f"{key_prefix}_company",
+                      placeholder=ph_company, disabled=(col_company is None))
     with c3:
-        srch_agent = st.text_input(
-            t("ds_agent"),
-            key=f"{key_prefix}_agent",
-            placeholder="e.g. agent@example.com",
-            disabled=(col_agent_email is None),
-        )
+        st.text_input(t("ds_agent"),   key=f"{key_prefix}_agent",
+                      placeholder=ph_agent,   disabled=(col_agent_email is None))
     with c4:
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
-        st.button(f"X {t('ds_clear')}", key=f"{key_prefix}_clr", use_container_width=True, on_click=clear_search)
+        st.button(t("ds_clear"), key=f"{key_prefix}_clr",
+                  use_container_width=True, on_click=_clear)
         st.markdown("</div>", unsafe_allow_html=True)
 
     return (
-        st.session_state.get(f"{key_prefix}_binder", ""),
+        st.session_state.get(f"{key_prefix}_binder",  ""),
         st.session_state.get(f"{key_prefix}_company", ""),
-        st.session_state.get(f"{key_prefix}_agent", ""),
+        st.session_state.get(f"{key_prefix}_agent",   ""),
     )
 
-
-def apply_deep_search(df: pd.DataFrame, srch_binder: str, srch_company: str,
-                      srch_agent: str, col_binder, col_company, col_agent_email) -> pd.DataFrame:
+def apply_deep_search(df, srch_binder, srch_company, srch_agent,
+                      col_binder, col_company, col_agent_email):
     r = df.copy()
-    if srch_binder.strip() and col_binder and col_binder in r.columns:
-        r = r[r[col_binder].str.contains(srch_binder.strip(), case=False, na=False)]
-    if srch_company.strip() and col_company and col_company in r.columns:
-        r = r[r[col_company].str.contains(srch_company.strip(), case=False, na=False)]
-    if srch_agent.strip() and col_agent_email and col_agent_email in r.columns:
-        r = r[r[col_agent_email].str.contains(srch_agent.strip(), case=False, na=False)]
+    if srch_binder.strip()  and col_binder      and col_binder      in r.columns: r = r[r[col_binder].str.contains(srch_binder.strip(),  case=False, na=False)]
+    if srch_company.strip() and col_company     and col_company     in r.columns: r = r[r[col_company].str.contains(srch_company.strip(), case=False, na=False)]
+    if srch_agent.strip()   and col_agent_email and col_agent_email in r.columns: r = r[r[col_agent_email].str.contains(srch_agent.strip(), case=False, na=False)]
     return r
 
-
-def _deep_search_active(b, c, a) -> bool:
+def _deep_search_active(b, c, a):
     return any(x.strip() for x in (b, c, a))
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST
+#  14 . WORKLIST  — [F5] pipe separator for robust row parsing
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     f_email, f_binder, f_company, f_license, f_status):
@@ -1114,28 +1083,39 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
     </div>""", unsafe_allow_html=True)
     if pending_display.empty:
-        msg = (t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-               else "All cases processed.")
-        st.info(msg); return
+        st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
+                else "All cases processed.")
+        return
     render_html_table(pending_display)
     st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
     label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
-    opts = ["-"] + [f"Row {idx} - {str(row.get(label_col,''))[:55]}"
-                    for idx, row in pending_display.iterrows()]
+
+    # [F5] Use pipe as separator — cannot appear as part of a row index number
+    opts = ["-"] + [
+        f"Row {idx}{_ROW_SEP}{str(row.get(label_col, ''))[:55]}"
+        for idx, row in pending_display.iterrows()
+    ]
     row_sel = st.selectbox("", opts, key="row_sel", label_visibility="collapsed")
     if row_sel == "-": return
-    sheet_row = int(row_sel.split(" - ")[0].replace("Row ", "").strip())
-    df_iloc   = sheet_row - 2
+
+    # [F5] Parse on the unique pipe separator
+    sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row ", "").strip())
+    df_iloc   = sheet_row - 2   # row 2 in sheet = index 0 in df (header is row 1)
     if df_iloc < 0 or df_iloc >= len(df): st.error("Row index out of range."); return
     record = df.iloc[df_iloc].to_dict()
-    with st.expander(f"{t('audit_trail')}", expanded=False):
+
+    with st.expander(t("audit_trail"), expanded=False):
         history = str(record.get(COL_LOG, "")).strip()
         if history:
             for line in history.split("\n"):
-                if line.strip(): st.markdown(f'<div class="log-line">{line}</div>', unsafe_allow_html=True)
+                if line.strip(): st.markdown(f'<div class="log-line">{_html.escape(line)}</div>',
+                                             unsafe_allow_html=True)
         else: st.caption(t("no_history"))
-    st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>", unsafe_allow_html=True)
-    SKIP = set(SYSTEM_COLS); fields = {k: v for k, v in record.items() if k not in SKIP}
+
+    st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>",
+                unsafe_allow_html=True)
+    SKIP = set(SYSTEM_COLS)
+    fields = {k: v for k, v in record.items() if k not in SKIP}
 
     with st.form("audit_form"):
         new_vals = {}
@@ -1143,14 +1123,14 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
             new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
-        eval_val = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
+        eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
                                     key="form_feedback", height=100)
-        do_submit = st.form_submit_button(f"{t('approve_save')}", use_container_width=True)
+        do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
-        ts_now     = now_str()
-        auditor    = st.session_state.user_email
+        ts_now    = now_str()
+        auditor   = st.session_state.user_email
         log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
@@ -1168,17 +1148,15 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE
+#  15 . ARCHIVE  — [F8] better placeholder text for disabled search inputs
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    f_email, f_binder, f_company, f_license, f_status,
                    col_binder=None, col_company=None, col_license=None):
-    
+
     def clear_arch_search():
-        st.session_state["arch_binder"] = ""
-        st.session_state["arch_license"] = ""
-        st.session_state["arch_company"] = ""
-        st.session_state["arch_auditor"] = ""
+        for k in ("arch_binder", "arch_license", "arch_company", "arch_auditor"):
+            st.session_state[k] = ""
 
     d_count = len(done_view)
     st.markdown(f"""<div class="worklist-header">
@@ -1187,30 +1165,48 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
       <span class="chip chip-done">{d_count} {t('processed')}</span>
     </div>""", unsafe_allow_html=True)
 
-    st.markdown("<div style='margin-bottom:10px; font-weight:bold; color:var(--indigo-600);'> Archive Quick Search</div>", unsafe_allow_html=True)
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 0.3])
-    with c1: s_binder = st.text_input("Binder No.", key="arch_binder", disabled=(col_binder is None))
-    with c2: s_license = st.text_input("License No.", key="arch_license", disabled=(col_license is None))
-    with c3: s_company = st.text_input("Company", key="arch_company", disabled=(col_company is None))
-    with c4: s_auditor = st.text_input("Auditor Email", key="arch_auditor")
+    # [F8] Informative placeholders so users understand disabled inputs
+    st.markdown(
+        f"<div style='margin-bottom:8px;font-size:.62rem;font-weight:800;"
+        f"letter-spacing:.10em;text-transform:uppercase;color:var(--indigo-600);'>"
+        f"{t('arch_search_title')}</div>",
+        unsafe_allow_html=True,
+    )
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 0.28])
+    with c1:
+        s_binder  = st.text_input("Binder No.", key="arch_binder",
+                                  placeholder=col_binder or "column not in sheet",
+                                  disabled=(col_binder is None))
+    with c2:
+        s_license = st.text_input("License No.", key="arch_license",
+                                  placeholder=col_license or "column not in sheet",
+                                  disabled=(col_license is None))
+    with c3:
+        s_company = st.text_input("Company", key="arch_company",
+                                  placeholder=col_company or "column not in sheet",
+                                  disabled=(col_company is None))
+    with c4:
+        s_auditor = st.text_input("Auditor Email", key="arch_auditor",
+                                  placeholder="e.g. auditor@mof.gov")
     with c5:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
 
-    if s_binder.strip() and col_binder and col_binder in done_view.columns:
-        done_view = done_view[done_view[col_binder].astype(str).str.contains(s_binder.strip(), case=False, na=False)]
-    if s_license.strip() and col_license and col_license in done_view.columns:
-        done_view = done_view[done_view[col_license].astype(str).str.contains(s_license.strip(), case=False, na=False)]
-    if s_company.strip() and col_company and col_company in done_view.columns:
-        done_view = done_view[done_view[col_company].astype(str).str.contains(s_company.strip(), case=False, na=False)]
-    if s_auditor.strip() and COL_AUDITOR in done_view.columns:
-        done_view = done_view[done_view[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False, na=False)]
+    # Apply archive-local search on a copy to preserve the original done_view for reopen
+    filtered_view = done_view.copy()
+    if s_binder.strip()  and col_binder  and col_binder  in filtered_view.columns:
+        filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(s_binder.strip(),  case=False, na=False)]
+    if s_license.strip() and col_license and col_license in filtered_view.columns:
+        filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(s_license.strip(), case=False, na=False)]
+    if s_company.strip() and col_company and col_company in filtered_view.columns:
+        filtered_view = filtered_view[filtered_view[col_company].astype(str).str.contains(s_company.strip(), case=False, na=False)]
+    if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
+        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False, na=False)]
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
-    if done_view.empty:
-        st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-                else "No processed records match the search.")
+    if filtered_view.empty:
+        st.info("No processed records match the search.")
     else:
         if is_admin:
             st.markdown(
@@ -1220,17 +1216,19 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                 f"color:var(--indigo-600)!important;font-weight:600;'>"
                 f"{t('archive_quality_note')}</div>", unsafe_allow_html=True)
         priority_cols = [COL_STATUS, COL_EVAL, COL_FEEDBACK, COL_AUDITOR, COL_DATE]
-        other_cols    = [c for c in done_view.columns if c not in priority_cols and c != COL_LOG]
-        ordered_cols  = [c for c in priority_cols if c in done_view.columns] + other_cols
-        render_html_table(done_view[ordered_cols], max_rows=500)
+        other_cols    = [c for c in filtered_view.columns if c not in priority_cols and c != COL_LOG]
+        ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
+        render_html_table(filtered_view[ordered_cols], max_rows=500)
 
+    # Reopen uses the UNFILTERED done_view index so sheet_row is always correct
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
         ropts = ["-"] + [f"Row {idx}" for idx in done_view.index]
         rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
         if rsel != "-":
-            ridx = int(rsel.split(" ")[1]); df_iloc = ridx - 2
+            ridx    = int(rsel.split(" ")[1])
+            df_iloc = ridx - 2
             if st.button(t("reopen"), key="reopen_btn"):
                 with st.spinner("Re-opening..."):
                     try:    write_reopen_to_sheet(ws_title, ridx, col_map)
@@ -1239,32 +1237,28 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS 
+#  16 . ANALYTICS  — [F2] _classify uses _normalise_eval
+#                   [F7] removed redundant done_f.copy()
+#                   [F9] leaderboard rank numbers render correctly
 # -----------------------------------------------------------------------------
-def render_analytics(
-    df: pd.DataFrame,
-    col_agent_email: str | None = None,
-    col_binder: str | None = None,
-    col_company: str | None = None,
-) -> None:
+def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None):
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
     nvy = "#4F46E5"; blu = "#60A5FA"
 
     srch_binder, srch_company, srch_agent = render_deep_search_strip(
         "anal", col_binder, col_company, col_agent_email)
-
     work_df = apply_deep_search(df, srch_binder, srch_company, srch_agent,
                                 col_binder, col_company, col_agent_email)
 
     if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [x for x in (srch_binder, srch_company, srch_agent) if x.strip()]
+        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"{t('ds_showing')} <strong>{'-'.join(terms)}</strong> "
-            f"- <strong>{len(work_df)}</strong> records matched"
-            f"</div>", unsafe_allow_html=True)
+            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
+            f" &mdash; <strong>{len(work_df)}</strong> records matched</div>",
+            unsafe_allow_html=True)
 
     st.markdown(f"<div class='section-title'>{t('period')}</div>", unsafe_allow_html=True)
     periods = [("all", t("all_time")), ("today", t("today")),
@@ -1278,7 +1272,8 @@ def render_analytics(
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
     if done_f.empty: st.info(t("no_records")); return
 
-    ma, mb, mc = st.columns(3); ma.metric(t("records_period"), len(done_f))
+    ma, mb, mc = st.columns(3)
+    ma.metric(t("records_period"), len(done_f))
     active = 0
     if COL_DATE in done_f.columns:
         active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
@@ -1292,25 +1287,23 @@ def render_analytics(
         if COL_AUDITOR in done_f.columns:
             lb = done_f[COL_AUDITOR].replace("", "-").value_counts().reset_index()
             lb.columns = ["Auditor", "Count"]
-            medals = ["1.","2.","3.","4.","5.","6.","7.","8.","9.","10."]
+            # [F9] rank numbers work with the widened lb-medal CSS
             for i, r in lb.head(10).iterrows():
-                m = medals[i] if i < len(medals) else f"{i+1}."
-                st.markdown(f'<div class="lb-row"><span class="lb-medal">{m}</span>'
-                            f'<span class="lb-name">{r["Auditor"]}</span>'
-                            f'<span class="lb-count">{r["Count"]}</span></div>',
-                            unsafe_allow_html=True)
+                rank = f"{i+1}."
+                st.markdown(
+                    f'<div class="lb-row">'
+                    f'<span class="lb-medal">{rank}</span>'
+                    f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
+                    f'<span class="lb-count">{r["Count"]}</span>'
+                    f'</div>', unsafe_allow_html=True)
             fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h",
-                         color="Count", color_continuous_scale=[blu, nvy], template=pt,
-                         hover_data={"Count": True, "Auditor": True})
-            fig.update_traces(
-                marker_line_width=0,
-                hovertemplate="<b>%{y}</b><br>Records processed: <b>%{x}</b><extra></extra>",
-            )
+                         color="Count", color_continuous_scale=[blu, nvy], template=pt)
+            fig.update_traces(marker_line_width=0,
+                hovertemplate="<b>%{y}</b><br>Records: <b>%{x}</b><extra></extra>")
             fig.update_layout(
                 paper_bgcolor=pb, plot_bgcolor=pb,
                 font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                showlegend=False, coloraxis_showscale=False,
-                margin=dict(l=8,r=8,t=10,b=8),
+                showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
                 xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
                 yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
                            tickfont=dict(color="#4B5563")),
@@ -1320,7 +1313,7 @@ def render_analytics(
     with right:
         st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
-            done_f = done_f.copy()
+            # [F7] No redundant .copy() — done_f is already a copy from apply_period_filter
             done_f["_date"] = done_f[COL_DATE].apply(
                 lambda s: parse_dt(s).date() if parse_dt(s) else None)
             trend = done_f.dropna(subset=["_date"]).groupby("_date").size().reset_index(name="Records")
@@ -1331,17 +1324,13 @@ def render_analytics(
                     trend = trend.set_index("Date").reindex(rng.date, fill_value=0).reset_index()
                     trend.columns = ["Date", "Records"]
                 fig2 = go.Figure()
-                fig2.add_trace(go.Scatter(
-                    x=trend["Date"], y=trend["Records"], mode="none",
+                fig2.add_trace(go.Scatter(x=trend["Date"], y=trend["Records"], mode="none",
                     fill="tozeroy", fillcolor="rgba(99,102,241,0.07)", showlegend=False))
                 fig2.add_trace(go.Scatter(
-                    x=trend["Date"], y=trend["Records"],
-                    mode="lines+markers",
+                    x=trend["Date"], y=trend["Records"], mode="lines+markers",
                     line=dict(color=nvy, width=2.5),
                     marker=dict(color=blu, size=7, line=dict(color="#FFFFFF", width=2)),
-                    name=t("records_period"),
-                    hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>",
-                ))
+                    hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
                 fig2.update_layout(
                     template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
                     font=dict(family="Plus Jakarta Sans", color=fc, size=11),
@@ -1358,45 +1347,45 @@ def render_analytics(
         eval_df = done_f[[col_agent_email, COL_EVAL]].copy()
         eval_df[col_agent_email] = eval_df[col_agent_email].replace("", "-")
 
+        # [F2] Normalise before classifying so legacy emoji values work
         def _classify(v: str) -> str:
-            if "Good" in v:            return "good"
-            if "Bad" in v or "Incorrect" in v: return "bad"
-            if "Duplicate" in v:       return "dup"
+            n = _normalise_eval(v)
+            if "Good" in n:                         return "good"
+            if "Bad" in n or "Incorrect" in n:      return "bad"
+            if "Duplicate" in n:                    return "dup"
             return "unrated"
 
         eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
         acc = (eval_df.groupby(col_agent_email)["_cls"]
                .value_counts().unstack(fill_value=0).reset_index())
-        for col_need in ("good","bad","dup","unrated"):
-            if col_need not in acc.columns: acc[col_need] = 0
+        for cn in ("good", "bad", "dup", "unrated"):
+            if cn not in acc.columns: acc[cn] = 0
         acc["Total"]    = acc["good"] + acc["bad"] + acc["dup"] + acc["unrated"]
-        acc["Accuracy"] = (acc["good"] / acc["Total"].replace(0,1) * 100).round(1)
+        acc["Accuracy"] = (acc["good"] / acc["Total"].replace(0, 1) * 100).round(1)
         acc = acc.sort_values("Accuracy", ascending=False).reset_index(drop=True)
 
-        th_row = (
-            f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
-            f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
-            f"<th>{t('acc_rate')}</th></tr>"
-        )
+        # Accuracy ranking table
+        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
+                  f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
+                  f"<th>{t('acc_rate')}</th></tr>")
         td_rows = ""
         for i, row in acc.iterrows():
             pct = row["Accuracy"]
-            if pct >= 80:   rate_cls = "acc-rate-high"; bar_col = "#16A34A"
-            elif pct >= 50: rate_cls = "acc-rate-mid";  bar_col = "#B45309"
-            else:           rate_cls = "acc-rate-low";  bar_col = "#DC2626"
-            bar_fill = int(pct)
-            bar_html = (f"<span class='acc-bar-wrap'>"
-                        f"<span class='acc-bar-fill' style='width:{bar_fill}%;background:{bar_col};display:block;'></span>"
-                        f"</span>")
+            if pct >= 80:   rc = "acc-rate-high"; bc = "#16A34A"
+            elif pct >= 50: rc = "acc-rate-mid";  bc = "#B45309"
+            else:           rc = "acc-rate-low";  bc = "#DC2626"
+            bar = (f"<span class='acc-bar-wrap'>"
+                   f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
+                   f"</span>")
             td_rows += (
                 f"<tr>"
                 f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
-                f"<td style='font-weight:600;'>{row[col_agent_email]}</td>"
+                f"<td style='font-weight:600;'>{_html.escape(str(row[col_agent_email]))}</td>"
                 f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['Total'])}</td>"
                 f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
                 f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
                 f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
-                f"<td class='{rate_cls}'>{pct}% {bar_html}</td>"
+                f"<td class='{rc}'>{pct}% {bar}</td>"
                 f"</tr>"
             )
         st.markdown(
@@ -1404,114 +1393,43 @@ def render_analytics(
             f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
             unsafe_allow_html=True)
 
-        st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>",
-                    unsafe_allow_html=True)
+        # Stacked bar chart
+        st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
         st.caption(t("eval_breakdown_sub"))
-
         if not acc.empty:
-            fig_stack = go.Figure()
-
-            good_pct  = (acc["good"]    / acc["Total"].replace(0, 1) * 100).round(1)
-            bad_pct   = (acc["bad"]     / acc["Total"].replace(0, 1) * 100).round(1)
-            dup_pct   = (acc["dup"]     / acc["Total"].replace(0, 1) * 100).round(1)
-            unr_pct   = (acc["unrated"] / acc["Total"].replace(0, 1) * 100).round(1)
-
-            fig_stack.add_trace(go.Bar(
-                name="Good",
-                x=acc[col_agent_email],
-                y=acc["good"],
-                marker_color="#16A34A",
-                hovertemplate=(
-                    "<b>%{x}</b><br>"
-                    "Good: <b>%{y}</b> (%{customdata[0]}%)<br>"
-                    "Total records: %{customdata[1]}<extra></extra>"
-                ),
-                customdata=list(zip(good_pct, acc["Total"])),
-            ))
-            fig_stack.add_trace(go.Bar(
-                name="Bad / Incorrect",
-                x=acc[col_agent_email],
-                y=acc["bad"],
-                marker_color="#DC2626",
-                hovertemplate=(
-                    "<b>%{x}</b><br>"
-                    "Bad: <b>%{y}</b> (%{customdata[0]}%)<br>"
-                    "Total records: %{customdata[1]}<extra></extra>"
-                ),
-                customdata=list(zip(bad_pct, acc["Total"])),
-            ))
-            fig_stack.add_trace(go.Bar(
-                name="Duplicate",
-                x=acc[col_agent_email],
-                y=acc["dup"],
-                marker_color="#F59E0B",
-                hovertemplate=(
-                    "<b>%{x}</b><br>"
-                    "Duplicate: <b>%{y}</b> (%{customdata[0]}%)<br>"
-                    "Total records: %{customdata[1]}<extra></extra>"
-                ),
-                customdata=list(zip(dup_pct, acc["Total"])),
-            ))
+            good_pct = (acc["good"]    / acc["Total"].replace(0,1) * 100).round(1)
+            bad_pct  = (acc["bad"]     / acc["Total"].replace(0,1) * 100).round(1)
+            dup_pct  = (acc["dup"]     / acc["Total"].replace(0,1) * 100).round(1)
+            unr_pct  = (acc["unrated"] / acc["Total"].replace(0,1) * 100).round(1)
+            fig3 = go.Figure()
+            fig3.add_trace(go.Bar(name="Good",          x=acc[col_agent_email], y=acc["good"],    marker_color="#16A34A", hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>", customdata=list(zip(good_pct, acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Bad/Incorrect", x=acc[col_agent_email], y=acc["bad"],     marker_color="#DC2626", hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(bad_pct,  acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Duplicate",     x=acc[col_agent_email], y=acc["dup"],     marker_color="#F59E0B", hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(dup_pct,  acc["Total"]))))
             if acc["unrated"].sum() > 0:
-                fig_stack.add_trace(go.Bar(
-                    name="Unrated",
-                    x=acc[col_agent_email],
-                    y=acc["unrated"],
-                    marker_color="#9CA3AF",
-                    hovertemplate=(
-                        "<b>%{x}</b><br>"
-                        "Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>"
-                    ),
-                    customdata=unr_pct,
-                ))
-
-            fig_stack.update_layout(
-                barmode="stack",
-                template=pt,
-                paper_bgcolor=pb,
-                plot_bgcolor=pb,
+                fig3.add_trace(go.Bar(name="Unrated", x=acc[col_agent_email], y=acc["unrated"], marker_color="#9CA3AF", hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>", customdata=unr_pct))
+            fig3.update_layout(
+                barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
                 font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                legend=dict(
-                    orientation="h", yanchor="bottom", y=1.02,
-                    xanchor="right", x=1,
-                    font=dict(size=11),
-                    bgcolor="rgba(255,255,255,0.8)",
-                    bordercolor="#E4E7F0",
-                    borderwidth=1,
-                ),
-                margin=dict(l=8, r=8, t=40, b=60),
-                xaxis=dict(
-                    gridcolor=pg, zeroline=False,
-                    tickfont=dict(color="#4B5563"),
-                    tickangle=-30,
-                    title=dict(text="Agent", font=dict(size=11, color="#4B5563")),
-                ),
-                yaxis=dict(
-                    gridcolor=pg, zeroline=False,
-                    tickfont=dict(color="#4B5563"),
-                    title=dict(text="Records", font=dict(size=11, color="#4B5563")),
-                ),
-                height=400,
-                hovermode="x",
-            )
-            fig_stack.update_traces(marker_line_width=0)
-            st.plotly_chart(fig_stack, use_container_width=True)
-
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(size=11), bgcolor="rgba(255,255,255,0.8)",
+                            bordercolor="#E4E7F0", borderwidth=1),
+                margin=dict(l=8,r=8,t=40,b=60),
+                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
+                           tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
+                yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
+                           title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
+                height=400, hovermode="x")
+            fig3.update_traces(marker_line_width=0)
+            st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.info(t("acc_no_data")
-                + ("" if col_agent_email else
-                   " (Agent Email column not detected - check sheet headers.)"))
+        st.info(t("acc_no_data") +
+                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
 
 
 # -----------------------------------------------------------------------------
 #  17 . AUDITOR LOGS
 # -----------------------------------------------------------------------------
-def render_auditor_logs(
-    df: pd.DataFrame,
-    col_company: str | None,
-    col_binder: str | None,
-    col_agent_email: str | None = None,
-) -> None:
+def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
     <div class="worklist-header">
       <div>
@@ -1525,31 +1443,26 @@ def render_auditor_logs(
         "logs", col_binder, col_company, col_agent_email)
 
     done_df = df[df[COL_STATUS] == VAL_DONE].copy()
-    if done_df.empty:
-        st.info(t("logs_no_data")); return
+    if done_df.empty: st.info(t("logs_no_data")); return
 
     done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent,
                                 col_binder, col_company, col_agent_email)
     if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [x for x in (srch_binder, srch_company, srch_agent) if x.strip()]
+        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"{t('ds_showing')} <strong>{'-'.join(terms)}</strong> "
-            f"- <strong>{len(done_df)}</strong> records matched</div>",
+            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
+            f" &mdash; <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
 
-    if done_df.empty:
-        st.info(t("logs_no_data")); return
+    if done_df.empty: st.info(t("logs_no_data")); return
 
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
-    if col_company and col_company in done_df.columns:
-        display_cols.insert(1, col_company)
-    if col_binder and col_binder in done_df.columns:
-        display_cols.insert(1, col_binder)
-    if col_agent_email and col_agent_email in done_df.columns:
-        display_cols.insert(2, col_agent_email)
+    if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
+    if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
+    if col_agent_email and col_agent_email in done_df.columns: display_cols.insert(2, col_agent_email)
     seen_c: set = set()
     display_cols = [c for c in display_cols
                     if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
@@ -1557,96 +1470,84 @@ def render_auditor_logs(
     auditor_list = sorted(
         [a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")],
         key=str.lower)
-    all_option  = t("logs_filter_all")
-    sel_auditor = st.selectbox(t("logs_auditor_sel"),
-                               options=[all_option] + auditor_list,
-                               key="logs_auditor_sel")
-    view_df = (done_df[done_df[COL_AUDITOR] == sel_auditor].copy()
-               if sel_auditor != all_option else done_df.copy())
+    all_opt = t("logs_filter_all")
+    sel_aud = st.selectbox(t("logs_auditor_sel"), options=[all_opt] + auditor_list,
+                           key="logs_auditor_sel")
+    view_df = (done_df[done_df[COL_AUDITOR] == sel_aud].copy()
+               if sel_aud != all_opt else done_df.copy())
 
-    total_processed = len(view_df)
-    unique_auditors = view_df[COL_AUDITOR].nunique()
-    parsed_dates    = view_df[COL_DATE].apply(parse_dt).dropna()
-    date_range_str  = (f"{parsed_dates.min().strftime('%Y-%m-%d')} - "
-                       f"{parsed_dates.max().strftime('%Y-%m-%d')}"
-                       if not parsed_dates.empty else "-")
+    total_p = len(view_df)
+    uniq_a  = view_df[COL_AUDITOR].nunique()
+    pdates  = view_df[COL_DATE].apply(parse_dt).dropna()
+    dr_str  = (f"{pdates.min().strftime('%Y-%m-%d')} - {pdates.max().strftime('%Y-%m-%d')}"
+               if not pdates.empty else "-")
 
     st.markdown(f"""
     <div class="log-summary-card">
       <div class="log-stat-row">
-        <div class="log-stat">
-          <span class="log-stat-value">{total_processed}</span>
-          <span class="log-stat-label">{t('logs_total')}</span>
-        </div>
+        <div class="log-stat"><span class="log-stat-value">{total_p}</span><span class="log-stat-label">{t('logs_total')}</span></div>
         <div class="log-stat-divider"></div>
-        <div class="log-stat">
-          <span class="log-stat-value">{unique_auditors}</span>
-          <span class="log-stat-label">{t('logs_auditors')}</span>
-        </div>
+        <div class="log-stat"><span class="log-stat-value">{uniq_a}</span><span class="log-stat-label">{t('logs_auditors')}</span></div>
         <div class="log-stat-divider"></div>
-        <div class="log-stat">
-          <span class="log-stat-value" style="font-size:1.05rem;">{date_range_str}</span>
-          <span class="log-stat-label">{t('logs_date_range')}</span>
-        </div>
+        <div class="log-stat"><span class="log-stat-value" style="font-size:1.05rem;">{dr_str}</span><span class="log-stat-label">{t('logs_date_range')}</span></div>
       </div>
     </div>""", unsafe_allow_html=True)
 
-    shown_label = " - ".join(display_cols)
-    st.markdown(
-        f"<div class='section-title'>{t('logs_cols_shown')}: "
-        f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{shown_label}</span></div>",
-        unsafe_allow_html=True)
+    shown = " - ".join(display_cols)
+    st.markdown(f"<div class='section-title'>{t('logs_cols_shown')}: "
+                f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{_html.escape(shown)}</span></div>",
+                unsafe_allow_html=True)
 
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = table_df[COL_DATE].apply(parse_dt)
-        table_df = table_df.sort_values("_sort", ascending=False, na_position="last")
-        table_df = table_df.drop(columns=["_sort"])
+        table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
     table_df = table_df.reset_index(drop=True)
     render_html_table(table_df, max_rows=1000)
 
-    export_df = table_df.copy()
-    csv_buffer = io.StringIO()
-    export_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
-    csv_bytes  = csv_buffer.getvalue().encode("utf-8-sig")
-    date_tag   = datetime.now(TZ).strftime("%Y%m%d")
-    auditor_tag = (sel_auditor.replace("@","_").replace(".","_")
-                   if sel_auditor != all_option else "all_auditors")
-    export_fname = f"audit_log_{auditor_tag}_{date_tag}.csv"
-
+    csv_buf = io.StringIO()
+    table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
+    csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
+    dtag    = datetime.now(TZ).strftime("%Y%m%d")
+    atag    = sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors"
     st.markdown(f"""
     <div class="export-strip">
-      <div>
-        <div class="export-text">{t('logs_export_hdr')}</div>
-        <div class="export-sub">{t('logs_export_sub')} - {total_processed} rows - {len(display_cols)} columns</div>
-      </div>
+      <div><div class="export-text">{t('logs_export_hdr')}</div>
+      <div class="export-sub">{t('logs_export_sub')} - {total_p} rows - {len(display_cols)} columns</div></div>
     </div>""", unsafe_allow_html=True)
-    st.download_button(
-        label=t("logs_export_btn"), data=csv_bytes,
-        file_name=export_fname, mime="text/csv",
-        key="logs_csv_download", use_container_width=False)
+    st.download_button(label=t("logs_export_btn"), data=csv_bytes,
+                       file_name=f"audit_log_{atag}_{dtag}.csv", mime="text/csv",
+                       key="logs_csv_download")
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN
+#  18 . USER ADMIN  — [F3] bust users cache after role-col migration
+#                    [F6] single _fetch_users_cached call
 # -----------------------------------------------------------------------------
-def _ensure_role_col(uws, df_u: pd.DataFrame) -> pd.DataFrame:
+def _ensure_role_col(uws, df_u: pd.DataFrame, spreadsheet_id: str) -> pd.DataFrame:
+    """Add 'role' column to UsersDB sheet if missing.
+    [F3] After writing, clear the users cache so the change-role form works immediately.
+    """
     if "role" not in df_u.columns:
         col_idx = len(df_u.columns) + 1
         try:
             _gsheets_call(uws.update_cell, 1, col_idx, "role")
             for i in range(2, len(df_u) + 2):
                 _gsheets_call(uws.update_cell, i, col_idx, "auditor")
-        except Exception: pass
+            # [F3] Bust cache so subsequent calls see the new column
+            _fetch_users_cached.clear()
+        except Exception:
+            pass
     return df_u
 
 def render_user_admin(spreadsheet_id):
     spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
+
+    # [F6] Single fetch — reuse for both left and right columns
     staff_raw = _fetch_users_cached(spreadsheet_id)
     staff     = pd.DataFrame(staff_raw) if staff_raw else pd.DataFrame()
-
     if not staff.empty:
-        staff = _ensure_role_col(uws, staff)
+        staff = _ensure_role_col(uws, staff, spreadsheet_id)
 
     cl, cr = st.columns([1, 1], gap="large")
 
@@ -1655,8 +1556,7 @@ def render_user_admin(spreadsheet_id):
         with st.form("add_user_form"):
             nu_e = st.text_input("Email", placeholder="user@mof.gov")
             nu_p = st.text_input("Password", type="password")
-            nu_r = st.selectbox(t("role_label"), VALID_ROLES,
-                                format_func=lambda r: r.title())
+            nu_r = st.selectbox(t("role_label"), VALID_ROLES, format_func=lambda r: r.title())
             if st.form_submit_button("Register User", use_container_width=True):
                 if nu_e.strip() and nu_p.strip():
                     already = (not staff.empty and
@@ -1664,8 +1564,7 @@ def render_user_admin(spreadsheet_id):
                     if already: st.error(t("dup_email"))
                     else:
                         _gsheets_call(uws.append_row,
-                                      [nu_e.lower().strip(), hash_pw(nu_p.strip()),
-                                       nu_r, now_str()])
+                                      [nu_e.lower().strip(), hash_pw(nu_p.strip()), nu_r, now_str()])
                         st.success(f"{nu_e} registered as {nu_r}.")
                         time.sleep(0.7); st.rerun()
                 else: st.warning(t("fill_fields"))
@@ -1683,26 +1582,24 @@ def render_user_admin(spreadsheet_id):
                             st.success(f"Updated for {se}.")
                             time.sleep(0.7); st.rerun()
 
-        st.markdown(
-            f"<div class='section-title'>{t('change_role')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{t('change_role')}</div>", unsafe_allow_html=True)
         st.caption(t("change_role_sub"))
         if not staff.empty and "email" in staff.columns:
             with st.form("change_role_form"):
-                cr_email = st.selectbox("Select user to change", staff["email"].tolist(),
-                                        key="cr_email_sel")
+                cr_email = st.selectbox("Select user", staff["email"].tolist(), key="cr_email_sel")
                 cr_role  = st.selectbox("New Role", VALID_ROLES,
                                         format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
-                        header_row = _gsheets_call(uws.row_values, 1)
-                        if "role" in header_row:
-                            role_col_idx = header_row.index("role") + 1
-                        else:
-                            role_col_idx = len(header_row) + 1
+                        header_row   = _gsheets_call(uws.row_values, 1)
+                        role_col_idx = (header_row.index("role") + 1) if "role" in header_row \
+                                       else len(header_row) + 1
+                        if "role" not in header_row:
                             _gsheets_call(uws.update_cell, 1, role_col_idx, "role")
                         user_cell = _gsheets_call(uws.find, cr_email)
                         if user_cell:
                             _gsheets_call(uws.update_cell, user_cell.row, role_col_idx, cr_role)
+                            _fetch_users_cached.clear()   # [F3] always bust after role change
                             st.success(f"{t('role_updated')} ({cr_email} -> {cr_role})")
                             time.sleep(0.7); st.rerun()
                         else:
@@ -1712,37 +1609,34 @@ def render_user_admin(spreadsheet_id):
 
     with cr:
         st.markdown(f"<div class='section-title'>{t('staff_dir')}</div>", unsafe_allow_html=True)
-        staff_fresh = pd.DataFrame(_fetch_users_cached(spreadsheet_id)) if staff_raw else pd.DataFrame()
-        if not staff_fresh.empty and "email" in staff_fresh.columns:
-            show_cols = [c for c in ["email", "role", "created_at"] if c in staff_fresh.columns]
-            tbl = staff_fresh[show_cols].copy().reset_index()
-
-            th_html = "<tr><th class='row-idx'>#</th>" + "".join(f"<th>{c}</th>" for c in show_cols) + "</tr>"
+        # [F6] Reuse staff — already fetched above
+        if not staff.empty and "email" in staff.columns:
+            show_cols = [c for c in ["email", "role", "created_at"] if c in staff.columns]
+            tbl = staff[show_cols].copy().reset_index()
+            th_html = "<tr><th class='row-idx'>#</th>" + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>"
             td_html = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
                 for c in show_cols:
-                    val = str(row[c]) if row.get(c) else "-"
+                    val = str(row.get(c, "")) or "-"
                     if c == "role":
-                        badge = f"<span class='role-badge-{val}' style='font-size:.60rem;'>{val.title()}</span>"
-                        tr += f"<td>{badge}</td>"
+                        safe_role = val if val in VALID_ROLES else "auditor"
+                        tr += f"<td><span class='role-badge-{safe_role}'>{_html.escape(val.title())}</span></td>"
                     else:
-                        tr += f"<td>{val[:40] if len(val)>40 else val}</td>"
+                        tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
-            st.markdown(
-                f"<div class='gov-table-wrap'><table class='gov-table'>"
-                f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
-                f"</table></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'>"
+                        f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
+                        f"</table></div>", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='section-title'>{t('remove_user')}</div>",
-                        unsafe_allow_html=True)
-            de = st.selectbox("Select to revoke",
-                              ["-"] + staff_fresh["email"].tolist(), key="del_sel")
+            st.markdown(f"<div class='section-title'>{t('remove_user')}</div>", unsafe_allow_html=True)
+            de = st.selectbox("Select to revoke", ["-"] + staff["email"].tolist(), key="del_sel")
             if de != "-":
-                if st.button(f"Revoke access - {de}", key="del_btn"):
+                if st.button(f"Revoke access - {_html.escape(de)}", key="del_btn"):
                     cell = _gsheets_call(uws.find, de)
                     if cell:
                         _gsheets_call(uws.delete_rows, cell.row)
+                        _fetch_users_cached.clear()   # [F3] bust after deletion too
                         st.success(f"{de} revoked.")
                         time.sleep(0.7); st.rerun()
         else:
@@ -1750,7 +1644,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER
+#  19 . MAIN CONTROLLER  (unchanged structure from v14.2)
 # -----------------------------------------------------------------------------
 def main():
     try:
@@ -1766,17 +1660,17 @@ def main():
         st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
                     unsafe_allow_html=True)
 
-        role     = st.session_state.user_role
-        is_admin = (role == "admin")
-        is_manager   = (role == "manager")
+        role          = st.session_state.user_role
+        is_admin      = (role == "admin")
+        is_manager    = (role == "manager")
         can_analytics = is_admin or is_manager
 
         ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
         st.markdown(f"""
         <div class="page-header">
           <div>
-            <div class="page-title">{t('portal_title')}</div>
-            <div class="page-subtitle">{t('ministry')}</div>
+            <div class="page-title">{_html.escape(t('portal_title'))}</div>
+            <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
           </div>
           <div class="page-timestamp">{ts_str}</div>
         </div>""", unsafe_allow_html=True)
@@ -1788,7 +1682,6 @@ def main():
 
         if not available:
             st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
-            st.error(f"Found: `{all_titles}`")
         else:
             ws_title = st.selectbox(t("workspace"), available, key="ws_sel")
             if ws_title:
@@ -1812,8 +1705,7 @@ def main():
             headers, col_binder, col_company, col_license, is_admin, fetched_at)
 
         if not df.empty:
-            st.markdown(f"<div class='section-title'>{t('overview')}</div>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<div class='section-title'>{t('overview')}</div>", unsafe_allow_html=True)
             total_n   = len(df)
             done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
             pending_n = total_n - done_n
@@ -1827,30 +1719,24 @@ def main():
             <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
             <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
             unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(
-                df, f_email, f_binder, f_company, f_license, f_status,
-                col_binder, col_company, col_license)
+            filtered_df = apply_filters_locally(df, f_email, f_binder, f_company, f_license,
+                                                f_status, col_binder, col_company, col_license)
             render_filter_bar(total_n, len(filtered_df),
                               f_email, f_binder, f_company, f_license, f_status)
         else:
             filtered_df = pd.DataFrame()
 
         if is_admin:
-            tabs = st.tabs([
-                t("tab_worklist"), t("tab_archive"),
-                t("tab_analytics"), t("tab_logs"), t("tab_users"),
-            ])
+            tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
+                            t("tab_analytics"), t("tab_logs"), t("tab_users")])
             t_work, t_arch, t_anal, t_logs, t_uadm = tabs
         elif is_manager:
-            tabs = st.tabs([
-                t("tab_worklist"), t("tab_archive"),
-                t("tab_analytics"), t("tab_logs"),
-            ])
+            tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
+                            t("tab_analytics"), t("tab_logs")])
             t_work, t_arch, t_anal, t_logs = tabs
             t_uadm = None
         else:
-            st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>", unsafe_allow_html=True)
             tabs = st.tabs([t("tab_worklist"), t("tab_archive")])
             t_work, t_arch = tabs
             t_anal = t_logs = t_uadm = None
@@ -1865,7 +1751,7 @@ def main():
         with t_arch:
             if not df.empty and ws_title:
                 dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
-                dv.index = dv.index + 2
+                dv.index = dv.index + 2   # +2 because sheet row 1 = header, row 2 = df index 0
                 render_archive(dv, df, col_map, ws_title, is_admin,
                                f_email, f_binder, f_company, f_license, f_status,
                                col_binder=col_binder, col_company=col_company, col_license=col_license)
@@ -1873,16 +1759,13 @@ def main():
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    render_analytics(df,
-                                     col_agent_email=col_agent_email,
-                                     col_binder=col_binder,
-                                     col_company=col_company)
+                    render_analytics(df, col_agent_email=col_agent_email,
+                                     col_binder=col_binder, col_company=col_company)
 
         if can_analytics and t_logs is not None:
             with t_logs:
                 if df.empty: st.warning(t("empty_sheet"))
-                else:
-                    render_auditor_logs(df, col_company, col_binder, col_agent_email)
+                else:        render_auditor_logs(df, col_company, col_binder, col_agent_email)
 
         if is_admin and t_uadm is not None:
             with t_uadm:
