@@ -645,32 +645,17 @@ def apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status,
     r = df.copy()
     if f_status == "pending": r = r[r[COL_STATUS] != VAL_DONE]
     elif f_status == "done":  r = r[r[COL_STATUS] == VAL_DONE]
-    
     if f_email.strip():
         ecols = [c for c in r.columns if "auditor_email" in c.lower() or c == COL_AUDITOR]
         if ecols:
             mask = pd.Series(False, index=r.index)
-            for ec in ecols: mask |= r[ec].astype(str).str.contains(f_email.strip(), case=False, na=False)
+            for ec in ecols: mask |= r[ec].str.contains(f_email.strip(), case=False, na=False)
             r = r[mask]
-            
-    if f_binder.strip()  and col_binder  and col_binder  in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(f_binder.strip(),  case=False, na=False)]
-    if f_company.strip() and col_company and col_company in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(f_company.strip(), case=False, na=False)]
-    if f_license.strip() and col_license and col_license in r.columns: 
-        r = r[r[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)]
+    if f_binder.strip()  and col_binder  and col_binder  in r.columns: r = r[r[col_binder].str.contains(f_binder.strip(),  case=False, na=False)]
+    if f_company.strip() and col_company and col_company in r.columns: r = r[r[col_company].str.contains(f_company.strip(), case=False, na=False)]
+    if f_license.strip() and col_license and col_license in r.columns: r = r[r[col_license].str.contains(f_license.strip(), case=False, na=False)]
     return r
 
-def apply_deep_search(df, srch_binder, srch_company, srch_agent,
-                      col_binder, col_company, col_agent_email):
-    r = df.copy()
-    if srch_binder.strip()  and col_binder      and col_binder      in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(srch_binder.strip(),  case=False, na=False)]
-    if srch_company.strip() and col_company     and col_company     in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(srch_company.strip(), case=False, na=False)]
-    if srch_agent.strip()   and col_agent_email and col_agent_email in r.columns: 
-        r = r[r[col_agent_email].astype(str).str.contains(srch_agent.strip(), case=False, na=False)]
-    return r
 def build_auto_diff(record: dict, new_vals: dict) -> str:
     lines = []
     for field, new_v in new_vals.items():
