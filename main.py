@@ -1,8 +1,8 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.1  (UI Dropdown Fix)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.2 (Ultimate Dark UI)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Theme: Deep Charcoal · Glassmorphism · Electric Indigo · High-Contrast Text
-#  All concurrency protection, quota safety, and refresh cooldown logic intact.
+#  Theme: GitHub Dark Primer · Glassmorphism · Dropdown Fix Applied
+#  Features: Pure English UI, Safe Concurrency, Manager Refresh Cooldown
 # =============================================================================
 
 import html as _html
@@ -62,6 +62,7 @@ _DEFAULTS: dict = dict(
     local_col_map    = None,
     local_cache_key  = None,
     local_fetched_at = None,
+    last_refresh_time = 0,
 )
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -86,12 +87,7 @@ SYSTEM_COLS = [COL_STATUS, COL_LOG, COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBAC
 VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
 
-EVAL_OPTIONS = [
-    "Good (باش)",
-    "Bad / Incorrect (خراپ)",
-    "Duplicate (دووبارە)",
-]
-
+EVAL_OPTIONS = ["Good", "Bad / Incorrect", "Duplicate"]
 VALID_ROLES = ["auditor", "manager", "admin"]
 
 READ_TTL    = 600
@@ -119,914 +115,147 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic + Dropdown Fix
+#  5 · DARK MODE CSS  (Ultimate Dropdown Fix & GitHub Theme)
 # ─────────────────────────────────────────────────────────────────────────────
 def inject_css() -> None:
     st.markdown("""
 <style>
-/* ═══════════════════════════════════════════════════════════════════════════
-   FONTS
-═══════════════════════════════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS
-═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Backgrounds ── */
   --bg-canvas:      #0D1117;
   --bg-default:     #161B22;
   --bg-subtle:      #1C2128;
   --bg-muted:       #21262D;
   --bg-overlay:     #30363D;
 
-  /* ── Borders ── */
-  --border-default: rgba(240,246,252,0.10);
+  --border-default: rgba(240,246,252,0.12);
   --border-muted:   rgba(240,246,252,0.06);
-  --border-strong:  rgba(240,246,252,0.18);
 
-  /* ── Text ── */
   --text-primary:   #E6EDF3;
   --text-secondary: #8B949E;
   --text-muted:     #484F58;
-  --text-link:      #58A6FF;
 
-  /* ── Accent: Electric Indigo ── */
   --accent:         #7C3AED;
-  --accent-hover:   #6D28D9;
-  --accent-subtle:  rgba(124,58,237,0.18);
-  --accent-border:  rgba(124,58,237,0.40);
-  --accent-glow:    rgba(124,58,237,0.28);
-
-  /* ── Electric Blue (secondary) ── */
   --blue:           #388BFD;
-  --blue-subtle:    rgba(56,139,253,0.15);
-  --blue-border:    rgba(56,139,253,0.40);
-
-  /* ── Semantic ── */
-  --green:          #3FB950;
-  --green-subtle:   rgba(63,185,80,0.14);
-  --green-border:   rgba(63,185,80,0.35);
-  --amber:          #D29922;
-  --amber-subtle:   rgba(210,153,34,0.14);
-  --amber-border:   rgba(210,153,34,0.35);
-  --red:            #F85149;
-  --red-subtle:     rgba(248,81,73,0.14);
-  --red-border:     rgba(248,81,73,0.35);
-  --orange:         #F0883E;
-  --orange-subtle:  rgba(240,136,62,0.14);
-  --orange-border:  rgba(240,136,62,0.35);
-
-  /* ── Glass effect ── */
-  --glass-bg:       rgba(22,27,34,0.82);
-  --glass-border:   rgba(240,246,252,0.10);
-  --glass-blur:     blur(16px) saturate(1.4);
-
-  /* ── Spacing / Radius ── */
-  --r-sm:   6px;
-  --r-md:   10px;
-  --r-lg:   14px;
-  --r-xl:   20px;
-  --r-full: 9999px;
-
-  /* ── Shadows ── */
-  --shadow-sm:  0 1px 4px rgba(0,0,0,0.35);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.45);
-  --shadow-lg:  0 12px 40px rgba(0,0,0,0.55);
-  --shadow-glow:0 0 20px var(--accent-glow);
-
-  --ring: 0 0 0 3px var(--accent-subtle);
-
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --accent-glow:    rgba(124,58,237,0.22);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   GLOBAL RESET
-═══════════════════════════════════════════════════════════════════════════ */
+/* ── Global Reset ── */
 *, *::before, *::after {
   box-sizing: border-box !important;
-  font-family: var(--font) !important;
+  font-family: 'Inter', sans-serif !important;
 }
-html, body, .stApp,
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"], .main, .block-container {
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, .block-container {
   background-color: var(--bg-canvas) !important;
   color: var(--text-primary) !important;
 }
-p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] {
+p, span, div, li, label, h1, h2, h3, h4, h5, h6, .stMarkdown {
   color: var(--text-primary) !important;
 }
+#MainMenu, footer, header { display: none !important; }
 
-/* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header, .stDeployButton,
-[data-testid="stToolbar"],
-[data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"] { display: none !important; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR  —  glass panel
-═══════════════════════════════════════════════════════════════════════════ */
-[data-testid="stSidebar"] {
-  background: var(--glass-bg) !important;
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
-  border-right: 1px solid var(--border-default) !important;
-  box-shadow: 4px 0 32px rgba(0,0,0,0.40) !important;
-}
-[data-testid="stSidebar"] * { color: var(--text-primary) !important; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   INPUTS & TEXTAREAS
-═══════════════════════════════════════════════════════════════════════════ */
-.stTextInput > div > div > input,
-.stTextArea  > div > div > textarea {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-md) !important;
-  font-size:     0.875rem !important;
-  font-weight:   400 !important;
-  padding:       10px 14px !important;
-  caret-color:   var(--accent) !important;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
-}
-.stTextInput > div > div > input:focus,
-.stTextArea  > div > div > textarea:focus {
-  border-color: var(--accent) !important;
-  box-shadow:   var(--ring) !important;
-  outline:      none !important;
-}
-.stTextInput > div > div > input::placeholder,
-.stTextArea  > div > div > textarea::placeholder {
-  color: var(--text-muted) !important;
-}
-.stTextInput > div > div > input:disabled {
-  opacity: 0.40 !important;
-  cursor: not-allowed !important;
-}
-.stTextInput > label, .stTextArea > label,
-.stSelectbox > label, .stMultiSelect > label {
-  color:          var(--text-secondary) !important;
-  font-size:      0.68rem !important;
-  font-weight:    700 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SELECTBOX & DROPDOWN FIX (GitHub Dark Style)
-═══════════════════════════════════════════════════════════════════════════ */
-.stSelectbox > div > div {
+/* ── ULTIMATE DROPDOWN & SELECTBOX FIX ── */
+div[data-baseweb="select"] > div {
     background-color: var(--bg-subtle) !important;
-    color: var(--text-primary) !important;
     border: 1px solid var(--border-default) !important;
-    border-radius: var(--r-md) !important;
+    border-radius: 8px !important;
 }
-
-/* Fix for the dropdown menu items container */
+div[data-baseweb="select"] span {
+    color: var(--text-primary) !important;
+}
 div[data-baseweb="popover"] > div,
-div[data-baseweb="menu"] {
+ul[data-baseweb="menu"],
+ul[role="listbox"],
+div[data-testid="stVirtualDropdown"] {
     background-color: #161B22 !important;
     border: 1px solid #30363D !important;
-    border-radius: var(--r-md) !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6) !important;
 }
-
-/* Fix for the actual list items text color */
-div[data-baseweb="popover"] li,
-div[data-baseweb="menu"] li,
-div[data-baseweb="menu"] [role="option"] {
-    background-color: transparent !important;
+li[role="option"], 
+div[data-baseweb="popover"] li {
+    background-color: #161B22 !important;
     color: #C9D1D9 !important;
-    font-size: 0.85rem !important;
-    transition: all 0.1s ease !important;
+    padding: 10px 14px !important;
+    transition: background-color 0.1s ease !important;
 }
-
-/* Hover and selected state for dropdown items */
-div[data-baseweb="popover"] li:hover,
-div[data-baseweb="menu"] li:hover,
-div[data-baseweb="menu"] li[aria-selected="true"] {
+li[role="option"]:hover,
+li[role="option"][aria-selected="true"],
+li[role="option"]:focus,
+div[data-baseweb="popover"] li:hover {
     background-color: #1F6FEB !important;
     color: #FFFFFF !important;
 }
-
-/* Base select element wrapper to ensure no white bleed */
-div[data-baseweb="select"] > div {
-    background-color: var(--bg-subtle) !important;
+li[role="option"] span,
+div[data-baseweb="popover"] li span {
+    color: inherit !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   METRIC CARDS  —  glassmorphism lift
-═══════════════════════════════════════════════════════════════════════════ */
-[data-testid="stMetricContainer"] {
-  background:     var(--glass-bg) !important;
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
-  border:         1px solid var(--border-default) !important;
-  border-top:     2px solid var(--accent) !important;
-  border-radius:  var(--r-lg) !important;
-  padding:        22px 24px !important;
-  box-shadow:     var(--shadow-md) !important;
-  transition:     transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
-                  box-shadow 0.22s ease !important;
+/* ── Forms, Inputs & Cards ── */
+[data-testid="stMetricContainer"], div[data-testid="stForm"] {
+    background-color: rgba(22, 27, 34, 0.82) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: 12px !important;
 }
-[data-testid="stMetricContainer"]:hover {
-  transform:   translateY(-4px) !important;
-  box-shadow:  var(--shadow-lg), 0 0 24px var(--accent-glow) !important;
-  border-color: var(--accent-border) !important;
-}
-[data-testid="stMetricValue"] {
-  font-family:    var(--mono) !important;
-  font-size:      2.1rem !important;
-  font-weight:    700 !important;
-  color:          var(--blue) !important;
-  letter-spacing: -0.02em !important;
-  line-height:    1.1 !important;
-}
-[data-testid="stMetricLabel"] {
-  font-size:      0.65rem !important;
-  font-weight:    700 !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-  color:          var(--text-secondary) !important;
-}
-[data-testid="stMetricDelta"] {
-  font-size:   0.78rem !important;
-  font-weight: 600 !important;
-  font-family: var(--mono) !important;
+.stTextInput > div > div > input, .stTextArea > div > div > textarea {
+  background: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 8px !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BUTTONS
-═══════════════════════════════════════════════════════════════════════════ */
+/* ── Buttons ── */
 .stButton > button {
-  background:    linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%) !important;
-  color:         #FFFFFF !important;
-  border:        1px solid var(--accent-border) !important;
-  border-radius: var(--r-md) !important;
-  font-weight:   600 !important;
-  font-size:     0.84rem !important;
-  padding:       9px 18px !important;
-  letter-spacing: 0.01em !important;
-  box-shadow:    0 2px 10px var(--accent-glow) !important;
-  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
-}
-.stButton > button:hover {
-  background:  linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%) !important;
-  transform:   translateY(-2px) scale(1.01) !important;
-  box-shadow:  0 8px 28px var(--accent-glow) !important;
-}
-.stButton > button:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 2px 8px var(--accent-glow) !important;
-}
-.stButton > button:disabled {
-  background: var(--bg-overlay) !important;
-  color:      var(--text-muted) !important;
-  border-color: var(--border-muted) !important;
-  box-shadow: none !important;
-  transform:  none !important;
-  cursor:     not-allowed !important;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
 }
 
-/* Download button — teal accent */
-[data-testid="stDownloadButton"] > button {
-  background: linear-gradient(135deg, #1B6CA8 0%, #0D9488 100%) !important;
-  color:      #FFFFFF !important;
-  border:     1px solid rgba(13,148,136,0.50) !important;
-  box-shadow: 0 2px 10px rgba(13,148,136,0.30) !important;
-  border-radius: var(--r-md) !important;
-  font-weight: 600 !important;
-  font-size:  0.84rem !important;
-  padding:    9px 18px !important;
-  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
-}
-[data-testid="stDownloadButton"] > button:hover {
-  transform:  translateY(-2px) scale(1.01) !important;
-  box-shadow: 0 8px 24px rgba(13,148,136,0.40) !important;
+/* ── Tables ── */
+.gov-table-wrap { border: 1px solid var(--border-default); border-radius: 10px; overflow: hidden; margin-bottom: 16px;}
+.gov-table { width: 100%; border-collapse: collapse; background: var(--bg-default); }
+.gov-table th { background: var(--bg-muted) !important; padding: 12px !important; color: var(--text-secondary) !important; font-size: 0.65rem !important; text-transform: uppercase; }
+.gov-table td { border-bottom: 1px solid rgba(240,246,252,0.05) !important; padding: 10px !important; font-size: 0.85rem !important; color: var(--text-primary) !important;}
+.gov-table tr:nth-child(even) td { background-color: var(--bg-subtle) !important; }
+.gov-table td.row-idx, .gov-table th.row-idx { font-family: 'JetBrains Mono', monospace !important; color: var(--text-secondary) !important; text-align: center !important;}
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background-color: rgba(22, 27, 34, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    border-right: 1px solid var(--border-default) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   FORMS
-═══════════════════════════════════════════════════════════════════════════ */
-div[data-testid="stForm"] {
-  background:     var(--glass-bg) !important;
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
-  border:         1px solid var(--border-default) !important;
-  border-radius:  var(--r-lg) !important;
-  padding:        26px 30px !important;
-  box-shadow:     var(--shadow-md) !important;
-}
+/* ── Micro UI Elements ── */
+.s-chip { display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
+.s-done { background:rgba(63,185,80,0.14); color:#3FB950 !important; border:1px solid rgba(63,185,80,0.35); }
+.s-pending { background:rgba(210,153,34,0.14); color:#D29922 !important; border:1px solid rgba(210,153,34,0.35); }
+.s-eval-good { background:rgba(63,185,80,0.14); color:#3FB950 !important; border:1px solid rgba(63,185,80,0.35); }
+.s-eval-bad { background:rgba(248,81,73,0.14); color:#F85149 !important; border:1px solid rgba(248,81,73,0.35); }
+.s-eval-dup { background:rgba(210,153,34,0.14); color:#D29922 !important; border:1px solid rgba(210,153,34,0.35); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   TABS  —  pill-style, inline
-═══════════════════════════════════════════════════════════════════════════ */
-.stTabs [data-baseweb="tab-list"] {
-  gap:           2px !important;
-  background:    var(--bg-subtle) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-full) !important;
-  padding:       4px !important;
-  width:         fit-content !important;
-  box-shadow:    var(--shadow-sm) !important;
-}
-.stTabs [data-baseweb="tab"] {
-  background:    transparent !important;
-  color:         var(--text-secondary) !important;
-  border-radius: var(--r-full) !important;
-  border:        none !important;
-  padding:       8px 20px !important;
-  font-weight:   600 !important;
-  font-size:     0.82rem !important;
-  transition:    all 0.18s ease !important;
-}
-.stTabs [data-baseweb="tab"]:hover {
-  color:      var(--text-primary) !important;
-  background: var(--bg-muted) !important;
-}
-.stTabs [aria-selected="true"] {
-  background:  var(--accent-subtle) !important;
-  color:       var(--text-primary) !important;
-  border:      1px solid var(--accent-border) !important;
-  box-shadow:  inset 0 0 0 1px var(--accent-border) !important;
-}
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: 0.67rem; font-weight: 700; text-transform: uppercase; }
+.chip-pending { background:rgba(210,153,34,0.14); color:#D29922 !important; border:1px solid rgba(210,153,34,0.35); }
+.chip-done { background:rgba(63,185,80,0.14); color:#3FB950 !important; border:1px solid rgba(63,185,80,0.35); }
+.chip-admin { background:rgba(124,58,237,0.18); color:#388BFD !important; border:1px solid rgba(124,58,237,0.4); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   EXPANDER
-═══════════════════════════════════════════════════════════════════════════ */
-.streamlit-expanderHeader {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-md) !important;
-  font-weight:   600 !important;
-  font-size:     0.85rem !important;
-}
-.streamlit-expanderContent {
-  background:    var(--bg-default) !important;
-  border:        1px solid var(--border-default) !important;
-  border-top:    none !important;
-  border-radius: 0 0 var(--r-md) var(--r-md) !important;
-  padding:       16px !important;
-}
+.section-title { font-size: 0.70rem; font-weight: 800; color: var(--blue) !important; margin: 22px 0 12px; text-transform: uppercase; letter-spacing: 0.08em; display: inline-flex; align-items: center; padding: 5px 12px; border-left: 3px solid var(--accent); background: rgba(124,58,237,0.18); border-radius: 0 6px 6px 0;}
+.log-line { font-family: 'JetBrains Mono', monospace !important; font-size: 0.74rem; color: #8B949E !important; padding: 5px 0; border-bottom: 1px dashed rgba(240,246,252,0.06); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ALERTS
-═══════════════════════════════════════════════════════════════════════════ */
-[data-testid="stAlert"] {
-  background:    var(--bg-subtle) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-md) !important;
-  box-shadow:    var(--shadow-sm) !important;
-}
-[data-testid="stAlert"] * { color: var(--text-primary) !important; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOGIN PAGE  —  animated gradient + glass card
-═══════════════════════════════════════════════════════════════════════════ */
-.login-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PAGE HEADER
-═══════════════════════════════════════════════════════════════════════════ */
-.page-header {
-  display:         flex;
-  align-items:     center;
-  justify-content: space-between;
-  padding:         4px 0 22px;
-  border-bottom:   1px solid var(--border-default);
-  margin-bottom:   26px;
-}
-.page-title {
-  font-size:      1.45rem;
-  font-weight:    800;
-  color:          var(--text-primary) !important;
-  letter-spacing: -0.03em;
-  margin:         0;
-}
-.page-subtitle {
-  font-size:   0.76rem;
-  color:       var(--text-secondary) !important;
-  margin-top:  4px;
-  font-weight: 400;
-}
-.page-timestamp {
-  font-size:      0.72rem;
-  color:          var(--text-secondary) !important;
-  font-weight:    500;
-  background:     var(--bg-subtle);
-  padding:        6px 14px;
-  border-radius:  var(--r-full);
-  border:         1px solid var(--border-default);
-  box-shadow:     var(--shadow-sm);
-  font-family:    var(--mono) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SECTION TITLE  —  left-border pill
-═══════════════════════════════════════════════════════════════════════════ */
-.section-title {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            8px;
-  font-size:      0.67rem;
-  font-weight:    800;
-  color:          var(--blue) !important;
-  margin:         22px 0 12px;
-  padding:        5px 12px 5px 10px;
-  border-left:    3px solid var(--accent);
-  border-radius:  0 var(--r-sm) var(--r-sm) 0;
-  background:     var(--accent-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORKLIST / ARCHIVE HEADER CARD
-═══════════════════════════════════════════════════════════════════════════ */
-.worklist-header {
-  display:         flex;
-  align-items:     center;
-  justify-content: space-between;
-  background:      var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border:          1px solid var(--border-default);
-  border-top:      2px solid var(--accent);
-  border-radius:   var(--r-lg);
-  padding:         16px 22px;
-  margin-bottom:   16px;
-  box-shadow:      var(--shadow-md);
-}
-.worklist-title { font-size: 0.98rem; font-weight: 700; color: var(--text-primary) !important; }
-.worklist-sub   { font-size: 0.74rem; color: var(--text-secondary) !important; margin-top: 3px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOG SUMMARY CARD
-═══════════════════════════════════════════════════════════════════════════ */
-.log-summary-card {
-  background:      var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border:          1px solid var(--border-default);
-  border-top:      2px solid var(--accent);
-  border-radius:   var(--r-lg);
-  padding:         20px 24px;
-  box-shadow:      var(--shadow-md);
-  margin-bottom:   16px;
-}
-.log-stat-row       { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
-.log-stat           { display:flex;flex-direction:column;gap:3px; }
-.log-stat-value     { font-size:1.45rem;font-weight:800;color:var(--blue)!important;letter-spacing:-.02em;font-family:var(--mono)!important; }
-.log-stat-label     { font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary)!important; }
-.log-stat-divider   { width:1px;height:38px;background:var(--border-default); }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EXPORT STRIP
-═══════════════════════════════════════════════════════════════════════════ */
-.export-strip {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--green-border);
-  border-left:   3px solid var(--green);
-  border-radius: var(--r-md);
-  padding:       13px 18px;
-  display:       flex;
-  align-items:   center;
-  justify-content: space-between;
-  flex-wrap:     wrap;
-  gap:           12px;
-  margin-bottom: 18px;
-}
-.export-text { font-size:.80rem;font-weight:600;color:var(--text-primary)!important; }
-.export-sub  { font-size:.68rem;color:var(--text-secondary)!important;margin-top:2px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PROGRESS BAR
-═══════════════════════════════════════════════════════════════════════════ */
-.prog-wrap {
-  background:    var(--bg-muted);
-  border-radius: var(--r-full);
-  height:        6px;
-  overflow:      hidden;
-  margin:        5px 0 10px;
-}
-.prog-fill {
-  height:        100%;
-  border-radius: var(--r-full);
-  background:    linear-gradient(90deg, var(--accent), var(--blue));
-  transition:    width 0.8s cubic-bezier(0.4,0,0.2,1);
-  box-shadow:    0 0 10px var(--accent-glow);
-}
-.prog-labels {
-  display:         flex;
-  justify-content: space-between;
-  font-size:       0.70rem;
-  color:           var(--text-secondary) !important;
-  font-weight:     600;
-  margin-bottom:   3px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   STATUS / EVAL CHIPS
-═══════════════════════════════════════════════════════════════════════════ */
-.chip {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            5px;
-  padding:        4px 11px;
-  border-radius:  var(--r-full);
-  font-size:      0.67rem;
-  font-weight:    700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.chip-done    { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
-.chip-pending { background:var(--amber-subtle); color:var(--amber)   !important; border:1px solid var(--amber-border);  }
-.chip-admin   { background:var(--accent-subtle);color:var(--blue)    !important; border:1px solid var(--accent-border); }
-.chip-audit   { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
-.chip-manager { background:var(--orange-subtle);color:var(--orange)  !important; border:1px solid var(--orange-border); }
-
-.s-chip        { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
-.s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
-.s-eval-good   { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-eval-bad    { background:var(--red-subtle);  color:var(--red)    !important; border:1px solid var(--red-border);    }
-.s-eval-dup    { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DATA TABLE  —  dark glass rows
-═══════════════════════════════════════════════════════════════════════════ */
-.gov-table-wrap {
-  overflow-x:    auto;
-  border:        1px solid var(--border-default);
-  border-radius: var(--r-lg);
-  margin-bottom: 16px;
-  box-shadow:    var(--shadow-md);
-  background:    var(--bg-default);
-}
-.gov-table {
-  width:           100%;
-  border-collapse: collapse;
-  background:      var(--bg-default);
-  font-size:       0.84rem;
-}
-.gov-table thead tr {
-  background:    var(--bg-subtle);
-  border-bottom: 1px solid var(--border-strong);
-}
-.gov-table th {
-  color:          var(--text-secondary)  !important;
-  background:     var(--bg-subtle)       !important;
-  font-weight:    700 !important;
-  font-size:      0.62rem !important;
-  letter-spacing: 0.10em !important;
-  text-transform: uppercase !important;
-  padding:        12px 16px !important;
-  white-space:    nowrap;
-  text-align:     left !important;
-  border-right:   1px solid var(--border-muted);
-}
-.gov-table th:last-child  { border-right: none; }
-.gov-table td {
-  color:          var(--text-primary)  !important;
-  background:     var(--bg-default)    !important;
-  padding:        10px 16px !important;
-  font-size:      0.84rem !important;
-  font-weight:    400 !important;
-  border-bottom:  1px solid var(--border-muted) !important;
-  border-right:   1px solid var(--border-muted) !important;
-  vertical-align: middle !important;
-  max-width:      220px;
-  overflow:       hidden;
-  text-overflow:  ellipsis;
-  white-space:    nowrap;
-  transition:     background 0.12s ease !important;
-}
-.gov-table td:last-child                { border-right: none; }
-.gov-table tbody tr:nth-child(even) td  { background: var(--bg-subtle) !important; }
-.gov-table tbody tr:hover td            { background: var(--bg-muted)  !important; }
-.gov-table tbody tr:last-child td       { border-bottom: none !important; }
-.gov-table td.row-idx,
-.gov-table th.row-idx {
-  color:       var(--text-muted)  !important;
-  font-family: var(--mono) !important;
-  font-size:   0.68rem !important;
-  min-width:   48px;
-  text-align:  center !important;
-}
-/* Evaluation + feedback column highlights */
-.gov-table th.col-eval,
-.gov-table th.col-feedback {
-  background:    var(--accent-subtle) !important;
-  color:         var(--blue)          !important;
-  border-bottom: 2px solid var(--accent-border) !important;
-}
-.gov-table td.col-feedback {
-  max-width:   280px;
-  white-space: normal !important;
-  word-break:  break-word;
-  font-size:   0.74rem !important;
-  font-family: var(--mono) !important;
-  color:       var(--text-secondary) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCURACY TABLE
-═══════════════════════════════════════════════════════════════════════════ */
-.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
-.acc-table th { background:var(--accent-subtle)!important;color:var(--blue)!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:11px 16px!important;border-bottom:2px solid var(--accent-border)!important;text-align:left!important; }
-.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border-muted)!important;vertical-align:middle!important;font-weight:400!important;color:var(--text-primary)!important;background:var(--bg-default)!important; }
-.acc-table tbody tr:nth-child(even) td { background:var(--bg-subtle)!important; }
-.acc-table tbody tr:hover td { background:var(--bg-muted)!important; }
-.acc-table tbody tr:last-child td { border-bottom:none!important; }
-.acc-rate-high { color:var(--green) !important;font-weight:700!important;font-family:var(--mono)!important; }
-.acc-rate-mid  { color:var(--amber) !important;font-weight:700!important;font-family:var(--mono)!important; }
-.acc-rate-low  { color:var(--red)   !important;font-weight:700!important;font-family:var(--mono)!important; }
-.acc-bar-wrap  { background:var(--bg-muted);border-radius:var(--r-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
-.acc-bar-fill  { height:100%;border-radius:var(--r-full); }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LEADERBOARD ROWS
-═══════════════════════════════════════════════════════════════════════════ */
-.lb-row {
-  display:       flex;
-  align-items:   center;
-  gap:           12px;
-  padding:       11px 16px;
-  background:    var(--glass-bg);
-  border:        1px solid var(--border-default);
-  border-radius: var(--r-md);
-  margin-bottom: 7px;
-  box-shadow:    var(--shadow-sm);
-  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1);
-}
-.lb-row:hover {
-  transform:    translateX(5px);
-  border-color: var(--accent-border);
-  box-shadow:   0 4px 20px var(--accent-glow);
-}
-.lb-medal {
-  font-size:     0.78rem;
-  font-weight:   700;
-  min-width:     30px;
-  text-align:    center;
-  color:         var(--text-secondary);
-  font-family:   var(--mono) !important;
-  background:    var(--bg-muted);
-  border-radius: var(--r-sm);
-  padding:       2px 5px;
-}
-.lb-name  { flex:1; font-size:.84rem; font-weight:500; color:var(--text-primary) !important; }
-.lb-count {
-  font-size:     0.86rem;
-  font-weight:   700;
-  color:         var(--blue) !important;
-  font-family:   var(--mono) !important;
-  background:    var(--blue-subtle);
-  padding:       3px 10px;
-  border-radius: var(--r-full);
-  border:        1px solid var(--blue-border);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   AUDIT LOG LINES
-═══════════════════════════════════════════════════════════════════════════ */
-.log-line {
-  font-family:  var(--mono) !important;
-  font-size:    0.74rem;
-  color:        var(--text-secondary) !important;
-  padding:      5px 0;
-  border-bottom: 1px dashed var(--border-muted);
-  line-height:  1.5;
-}
-.log-line:last-child { border-bottom: none; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR COMPONENTS
-═══════════════════════════════════════════════════════════════════════════ */
-.sidebar-header {
-  border-top: 2px solid var(--accent);
-  padding:    18px 16px 14px;
-}
-.sidebar-logo-text {
-  font-size:      0.95rem;
-  font-weight:    800;
-  color:          var(--text-primary) !important;
-  letter-spacing: -0.02em;
-  margin-bottom:  3px;
-}
-.sidebar-ministry {
-  font-size:      0.58rem;
-  color:          var(--text-secondary) !important;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight:    600;
-}
-.sb-label {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color:          var(--text-secondary) !important;
-  margin-bottom:  4px;
-}
-.sb-email {
-  font-size:  0.84rem;
-  font-weight:700;
-  color:      var(--text-primary) !important;
-  word-break: break-all;
-}
-.sb-user-card {
-  background:     var(--bg-subtle);
-  border:         1px solid var(--accent-border);
-  border-radius:  var(--r-md);
-  padding:        13px 15px;
-  margin-bottom:  10px;
-  box-shadow:     inset 0 0 0 1px var(--accent-subtle);
-}
-.cache-badge {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            5px;
-  background:     var(--green-subtle);
-  color:          var(--green)   !important;
-  border:         1px solid var(--green-border);
-  border-radius:  var(--r-full);
-  font-size:      0.58rem;
-  font-weight:    800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  padding:        3px 9px;
-}
-.cache-info  {
-  font-size:   0.60rem;
-  color:       var(--text-secondary) !important;
-  margin-top:  5px;
-  font-family: var(--mono) !important;
-}
-.cache-strip {
-  padding:       9px 16px;
-  background:    var(--bg-subtle);
-  border-bottom: 1px solid var(--border-muted);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   FILTERS & FILTER BAR
-═══════════════════════════════════════════════════════════════════════════ */
-.adv-filter-header {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color:          var(--blue) !important;
-  margin-bottom:  10px;
-  padding-bottom: 8px;
-  border-bottom:  1px solid var(--border-default);
-}
-.col-hint { font-size:.58rem;font-weight:400;opacity:.55;color:var(--text-secondary)!important; }
-.filter-result-bar {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--border-default);
-  border-left:   3px solid var(--accent);
-  border-radius: var(--r-md);
-  padding:       11px 16px;
-  margin-bottom: 16px;
-  display:       flex;
-  align-items:   center;
-  gap:           8px;
-  flex-wrap:     wrap;
-  box-shadow:    var(--shadow-sm);
-}
-.filter-badge {
-  display:       inline-flex;
-  align-items:   center;
-  gap:           4px;
-  background:    var(--accent-subtle);
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--accent-border);
-  border-radius: var(--r-full);
-  font-size:     0.63rem;
-  font-weight:   600;
-  padding:       2px 9px;
-}
-.result-count {
-  font-size:   0.74rem;
-  color:       var(--text-secondary) !important;
-  margin-left: auto;
-  font-family: var(--mono) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DEEP SEARCH STRIP
-═══════════════════════════════════════════════════════════════════════════ */
-.deep-search-strip {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--border-default);
-  border-left:   3px solid var(--accent);
-  border-radius: var(--r-md);
-  padding:       12px 18px 16px;
-  margin-bottom: 18px;
-  box-shadow:    var(--shadow-sm);
-}
-.deep-search-title {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color:          var(--blue) !important;
-  margin-bottom:  10px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RBAC BANNER
-═══════════════════════════════════════════════════════════════════════════ */
-.rbac-banner {
-  background:    var(--blue-subtle);
-  border:        1px solid var(--blue-border);
-  border-left:   3px solid var(--blue);
-  border-radius: var(--r-md);
-  padding:       11px 16px;
-  margin-bottom: 16px;
-  font-size:     0.80rem;
-  color:         var(--text-primary) !important;
-  font-weight:   500;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ROLE BADGES
-═══════════════════════════════════════════════════════════════════════════ */
-.role-badge-admin {
-  background:     var(--accent-subtle);
-  color:          var(--blue) !important;
-  border:         1px solid var(--accent-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
-}
-.role-badge-manager {
-  background:     var(--orange-subtle);
-  color:          var(--orange) !important;
-  border:         1px solid var(--orange-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
-}
-.role-badge-auditor {
-  background:     var(--green-subtle);
-  color:          var(--green) !important;
-  border:         1px solid var(--green-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PAGINATION CONTROLS
-═══════════════════════════════════════════════════════════════════════════ */
-.page-nav-info {
-  text-align:  center;
-  padding:     8px 0;
-  font-size:   0.73rem;
-  font-weight: 600;
-  color:       var(--text-secondary) !important;
-  font-family: var(--mono) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DIVIDER
-═══════════════════════════════════════════════════════════════════════════ */
-.divider {
-  border:     none;
-  border-top: 1px solid var(--border-default);
-  margin:     12px 0;
-}
+.worklist-header { display: flex; align-items: center; justify-content: space-between; background: rgba(22,27,34,0.82); border: 1px solid rgba(240,246,252,0.1); border-top: 2px solid #7C3AED; border-radius: 14px; padding: 16px 22px; margin-bottom: 16px; }
+.worklist-title { font-size: 0.98rem; font-weight: 700; color: #E6EDF3 !important; }
+.worklist-sub { font-size: 0.74rem; color: #8B949E !important; margin-top: 3px; }
 </style>""", unsafe_allow_html=True)
 
 inject_css()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  6 · TRANSLATIONS 
+#  6 · TRANSLATIONS  (100% English)
 # ─────────────────────────────────────────────────────────────────────────────
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -1038,7 +267,6 @@ _LANG: dict[str, dict[str, str]] = {
         "email_field":"Official Email / User ID","password_field":"Password",
         "sign_in":"Sign in","sign_out":"Sign Out",
         "bad_creds":"Authentication failed. Verify your credentials and try again.",
-        "language":"Interface Language",
         "workspace":"Active Case Register","overview":"Case Overview",
         "total":"Total Cases","processed":"Processed","outstanding":"Outstanding",
         "worklist_title":"Audit Worklist","worklist_sub":"Active cases pending review",
@@ -1096,98 +324,21 @@ _LANG: dict[str, dict[str, str]] = {
         "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
         "arch_search_title":"Archive Quick Search",
-    },
-    "ku": {
-        "ministry":"وەزارەتی دارایی و گومرگ",
-        "portal_title":"پۆرتەلی فەرمی وردبینی باج و پابەندبوون",
-        "portal_sub":"تەنها دەستپێگەیشتنی مەرجدارکراو",
-        "classified":"نهێنی - تەنها بەکارهێنانی حکومی",
-        "login_prompt":"زانیارییە مەرجەکانت بنووسە بۆ چوونەژوورەوە",
-        "email_field":"ئیمەیڵی فەرمی / ناساندن","password_field":"پاسۆرد",
-        "sign_in":"چوونەژوورەوە","sign_out":"چوونەدەرەوە",
-        "bad_creds":"ناسناوەکان هەڵەن. تکایە دووبارە هەوڵبدە.",
-        "language":"زمانی ڕووکار",
-        "workspace":"تۆماری کیسە چالاکەکان","overview":"کورتەی کیسەکان",
-        "total":"کۆی کیسەکان","processed":"کارکراوە","outstanding":"ماوە",
-        "worklist_title":"لیستی کاری وردبینی","worklist_sub":"کیسە چالاکەکانی چاوەڕوان",
-        "tab_worklist":"لیستی کاری","tab_archive":"ئەرشیف",
-        "tab_analytics":"ئەنالیتیکس","tab_logs":"لۆگی ئۆدیتۆر","tab_users":"بەکارهێنەر",
-        "select_case":"کیسێک هەڵبژێرە بۆ پشکنین","audit_trail":"مێژووی گۆڕانکاری",
-        "approve_save":"پەسەندکردن و پاشەکەوتکردن","reopen":"کردنەوەی دووبارەی کیس (ئەدمین)",
-        "leaderboard":"تەختەی بەرهەمهێنانی ئۆدیتۆر","daily_trend":"ترەندی ڕۆژانە",
-        "period":"ماوەی کات","today":"ئەمڕۆ","this_week":"ئەم هەفتەیە",
-        "this_month":"ئەم مانگەیە","all_time":"هەموو کات",
-        "add_auditor":"تۆمارکردنی بەکارهێنەری نوێ","update_pw":"نوێکردنەوەی پاسۆرد",
-        "remove_user":"هەڵوەشاندنەوەی دەستپێگەیشتن","staff_dir":"کارمەندە مەرجداركراوەکان",
-        "no_records":"هیچ تۆماری نییە بۆ ئەم ماوەیە.",
-        "empty_sheet":"ئەم تۆمارخانە داتای تێدا نییە.",
-        "saved_ok":"کیسەکە پەسەندکرا. دیمەن نوێکرایەوە.",
-        "dup_email":"ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
-        "fill_fields":"هەموو خانەکان پەیوەندییانە.",
-        "signed_as":"چووییتە ژوورەوە بەناوی","role_admin":"بەڕێوەبەری سیستەم",
-        "role_auditor":"ئۆدیتۆری باج","role_manager":"بەڕێوەبەر",
-        "processing":"پشکنینی کیسی","no_history":"هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
-        "records_period":"تۆمارەکان (ماوە)","active_days":"ڕۆژی چالاک","avg_per_day":"تێکڕای ڕۆژانە",
-        "adv_filters":"فلتەرە پێشکەوتووەکان","f_email":"ئیمەیڵی ئۆدیتۆر",
-        "f_binder":"ژمارەی بایندەری کۆمپانیا","f_company":"ناوی کۆمپانیا","f_license":"ژمارەی مۆڵەتی",
-        "f_status":"دەربار","clear_filters":"سڕینەوەی فلتەرەکان",
-        "active_filters":"فلتەرە چالاکەکان","results_shown":"ئەنجامی پیشاندراو",
-        "no_match":"هیچ تۆماریک لەگەڵ فلتەرەکان دەگونجێ.",
-        "status_all":"هەموو","status_pending":"چاوەڕوان تەنها","status_done":"کارکراو تەنها",
-        "retry_warning":"کووتای گووگڵ شیت گەیشت - دووبارە هەوڵدەدرێت...",
-        "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
-        "rbac_notice":"ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری و ئەرشیف هەیە.",
-        "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان","logs_sub":"مێژووی تەواوی پرۆسەکردن",
-        "logs_filter_all":"هەموو ئۆدیتۆرەکان","logs_auditor_sel":"فلتەر بە ئۆدیتۆر",
-        "logs_total":"کۆی گشتی کارکراو","logs_auditors":"ژمارەی ئۆدیتۆرەکان",
-        "logs_date_range":"ماوەی بەروار","logs_no_data":"هیچ تۆماری کارکراوی نییە.",
-        "logs_export_hdr":"هەناردەکردنی ڕاپۆرتی تەواو",
-        "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە.",
-        "logs_export_btn":"داگرتنی ڕاپۆرتی CSV",
-        "logs_filename":"audit_log_report.csv","logs_cols_shown":"ستوونەکانی پیشاندراو",
-        "eval_label":"کوالێتی داتا (Data Entry Quality)",
-        "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
-        "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان...",
-        "acc_ranking_title":"رێزبەندی شیازی داخلکردنی داتا",
-        "acc_agent":"ئیمەیڵی ئەجنت","acc_total":"کۆی گشتی",
-        "acc_good":"باش","acc_bad":"خراپ","acc_dup":"دووبارە","acc_rate":"ڕێژەی شیازی %",
-        "acc_no_data":"هیچ داتای هەڵسەنگاندنی بەردەست نییە.",
-        "archive_quality_note":"تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes نیشاندراون.",
-        "role_label":"ڕۆڵ","change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
-        "change_role_sub":"بەرزکردنەوە یان دابەزاندنی ئاستی دەستپێگەیشتن",
-        "role_updated":"ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
-        "deep_search":"گەڕانی قووڵ","ds_binder":"ژمارەی بایندەر",
-        "ds_company":"ناوی کۆمپانیا","ds_agent":"ئیمەیڵی ئەجنت",
-        "ds_clear":"سڕینەوە","ds_showing":"پیشاندانی ئەنجام بۆ",
-        "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
-        "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
-        "arch_search_title":"گەڕانی خێرای ئەرشیف",
-    },
+    }
 }
 
 def t(key: str) -> str:
-    return _LANG[st.session_state.lang].get(key, key)
+    return _LANG["en"].get(key, key)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  7 · HELPERS 
 # ─────────────────────────────────────────────────────────────────────────────
 _COL_KEYWORDS: dict[str, list[str]] = {
-    "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
-                "ژمارەی بایندەری کۆمپانیا","ژمارەی بایندەری","بایندەری",
-                "binder","file no","file_no"],
-    "company": ["ناوی کۆمپانیا","اسم الشركة","اسم_الشركة","اسم الشركه",
-                "کۆمپانیای","کۆمپانیا","كومبانيا","شركة",
-                "company name","company_name","company"],
-    "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
-                "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
-                "license no","license_no","license","licence"],
-    "agent_email": [
-        "data entry email","agent email","data_entry_email","agent_email",
-        "ئیمەیڵی ئەجنت","ئیمەیل ئەجنت","ئیمەیل داخڵکەر",
-        "email agent","داخلكننده","وارد کننده",
-        "email","ئیمەیل","ایمیل",
-    ],
+    "binder":  ["binder","file no","file_no","رقم ملف الشركة","رقم_ملف_الشركة"],
+    "company": ["company name","company_name","company","اسم الشركة","اسم_الشركة"],
+    "license": ["license no","license_no","license","licence","رقم الترخيص","رقم_الترخيص"],
+    "agent_email": ["data entry email","agent email","data_entry_email","agent_email","email"],
 }
 
 def detect_column(headers, kind):
@@ -1579,13 +730,6 @@ html, body, .stApp,
 }
 </style>""", unsafe_allow_html=True)
 
-    # Top-right language toggles
-    _g, c1, c2 = st.columns([8, .9, .9])
-    with c1:
-        if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
-    with c2:
-        if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
-
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
         <div style="text-align:center;margin-bottom:6px;">
@@ -1640,16 +784,19 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
     role       = st.session_state.user_role
     role_label = {"admin":"System Administrator","manager":"Manager",
                   "auditor":"Tax Auditor"}.get(role, role.title())
-    badge_cls  = {"admin":"role-badge-admin","manager":"role-badge-manager",
-                  "auditor":"role-badge-auditor"}.get(role,"role-badge-auditor")
+    badge_cls  = {"admin":"chip-admin","manager":"chip-manager",
+                  "auditor":"chip-audit"}.get(role,"chip-audit")
 
     with st.sidebar:
         st.markdown(f"""
-        <div class="sidebar-header">
-          <div class="sidebar-logo-text">{_html.escape(t('portal_title'))}</div>
-          <div class="sidebar-ministry">{_html.escape(t('ministry'))}</div>
+        <div style="padding: 18px 16px 14px; border-top: 2px solid var(--accent);">
+          <div style="font-size:0.95rem;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;margin-bottom:3px;">
+            {_html.escape(t('portal_title'))}</div>
+          <div style="font-size:0.58rem;color:var(--text-secondary);letter-spacing:0.14em;text-transform:uppercase;font-weight:600;">
+            {_html.escape(t('ministry'))}</div>
         </div>
-        <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
+        <hr style="border:none;border-top:1px solid var(--border-default);margin:0;"/>
+        """, unsafe_allow_html=True)
 
         if st.session_state.get("user_role") in ("admin", "manager"):
             COOLDOWN = 600
@@ -1677,27 +824,28 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
                           help="Managers may force-refresh once every 10 minutes.")
 
         st.markdown(f"""
-        <div class="cache-strip">
-          <span class="cache-badge">⚡ {_html.escape(t('local_mode'))}</span>
-          <div class="cache-info">{_html.escape(t('cache_age'))}: {READ_TTL//60} min
-           &nbsp;·&nbsp; Last sync: {fetched_at[-8:] if fetched_at else '—'}</div>
-        </div>""", unsafe_allow_html=True)
+        <div style="padding:9px 16px;background:var(--bg-subtle);border-bottom:1px solid var(--border-muted);">
+          <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(63,185,80,0.14);color:#3FB950;border:1px solid rgba(63,185,80,0.35);border-radius:999px;font-size:0.58rem;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;padding:3px 9px;">
+            ⚡ {_html.escape(t('local_mode'))}
+          </span>
+          <div style="font-size:0.60rem;color:var(--text-secondary);margin-top:5px;font-family:var(--mono);">
+            {_html.escape(t('cache_age'))}: {READ_TTL//60} min &nbsp;·&nbsp; Last sync: {fetched_at[-8:] if fetched_at else '—'}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='sb-label'>{_html.escape(t('language'))}</div>",
-                    unsafe_allow_html=True)
-        lc1, lc2 = st.columns(2)
-        if lc1.button("EN", use_container_width=True, key="sb_en"):
-            st.session_state.lang = "en"; st.rerun()
-        if lc2.button("KU", use_container_width=True, key="sb_ku"):
-            st.session_state.lang = "ku"; st.rerun()
-        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none;border-top:1px solid var(--border-default);margin:12px 0;'/>", unsafe_allow_html=True)
 
-        st.markdown(f"<div class='adv-filter-header'>{_html.escape(t('adv_filters'))}</div>",
-                    unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="font-size:0.60rem;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:var(--blue);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-default);">
+          {_html.escape(t('adv_filters'))}
+        </div>
+        """, unsafe_allow_html=True)
+        
         status_opts = {"all":t("status_all"),"pending":t("status_pending"),"done":t("status_done")}
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
+        
         for key, label, hint, disabled in [
             ("f_email",   t("f_email"),   COL_AUDITOR,                     False),
             ("f_binder",  t("f_binder"),  col_binder  or "not detected",    col_binder  is None),
@@ -1705,21 +853,21 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
             ("f_license", t("f_license"), col_license or "not detected",    col_license is None),
         ]:
             st.markdown(
-                f"<div class='sb-label' style='margin-top:9px;'>{_html.escape(label)}"
-                f"<span class='col-hint'> ({_html.escape(hint)})</span></div>",
+                f"<div style='font-size:0.60rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;margin-top:9px;'>{_html.escape(label)}"
+                f"<span style='font-size:.58rem;font-weight:400;opacity:.55;color:var(--text-secondary);'> ({_html.escape(hint)})</span></div>",
                 unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
 
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
         st.button(f"✕  {t('clear_filters')}", use_container_width=True,
                   key="clr_f", on_click=clear_all_filters)
-        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none;border-top:1px solid var(--border-default);margin:12px 0;'/>", unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="sb-user-card">
-          <div class="sb-label">{_html.escape(t('signed_as'))}</div>
-          <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
-          <span class="{badge_cls}" style="margin-top:8px;">{_html.escape(role_label)}</span>
+        <div style="background:var(--bg-subtle);border:1px solid rgba(124,58,237,0.4);border-radius:10px;padding:13px 15px;margin-bottom:10px;box-shadow:inset 0 0 0 1px rgba(124,58,237,0.18);">
+          <div style="font-size:0.60rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;">{_html.escape(t('signed_as'))}</div>
+          <div style="font-size:0.84rem;font-weight:700;color:var(--text-primary);word-break:break-all;">{_html.escape(st.session_state.user_email)}</div>
+          <span class="chip {badge_cls}" style="margin-top:8px;">{_html.escape(role_label)}</span>
         </div>""", unsafe_allow_html=True)
 
         if st.button(f"→  {t('sign_out')}", use_container_width=True, key="sb_logout"):
@@ -1734,16 +882,17 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
     if n == 0: return
     badges = ""
-    if f_status!="all":  badges+=f"<span class='filter-badge'>{_html.escape(f_status)}</span> "
-    if f_email.strip():  badges+=f"<span class='filter-badge'>{_html.escape(f_email.strip()[:20])}</span> "
-    if f_binder.strip(): badges+=f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
-    if f_company.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
-    if f_license.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
-    st.markdown(f"""<div class="filter-result-bar">
+    if f_status!="all":  badges+=f"<span style='display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,0.18);color:var(--text-primary);border:1px solid rgba(124,58,237,0.4);border-radius:999px;font-size:0.63rem;font-weight:600;padding:2px 9px;'>{_html.escape(f_status)}</span> "
+    if f_email.strip():  badges+=f"<span style='display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,0.18);color:var(--text-primary);border:1px solid rgba(124,58,237,0.4);border-radius:999px;font-size:0.63rem;font-weight:600;padding:2px 9px;'>{_html.escape(f_email.strip()[:20])}</span> "
+    if f_binder.strip(): badges+=f"<span style='display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,0.18);color:var(--text-primary);border:1px solid rgba(124,58,237,0.4);border-radius:999px;font-size:0.63rem;font-weight:600;padding:2px 9px;'>{_html.escape(f_binder.strip()[:20])}</span> "
+    if f_company.strip():badges+=f"<span style='display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,0.18);color:var(--text-primary);border:1px solid rgba(124,58,237,0.4);border-radius:999px;font-size:0.63rem;font-weight:600;padding:2px 9px;'>{_html.escape(f_company.strip()[:20])}</span> "
+    if f_license.strip():badges+=f"<span style='display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,0.18);color:var(--text-primary);border:1px solid rgba(124,58,237,0.4);border-radius:999px;font-size:0.63rem;font-weight:600;padding:2px 9px;'>{_html.escape(f_license.strip()[:20])}</span> "
+    st.markdown(f"""
+    <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-left:3px solid var(--accent);border-radius:10px;padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,0.35);">
       <span style="font-size:.68rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;">
         {_html.escape(t('active_filters'))} ({n})</span>
       {badges}
-      <span class="result-count">
+      <span style="font-size:0.74rem;color:var(--text-secondary);margin-left:auto;font-family:var(--mono);">
         <strong style="color:var(--blue);">{filtered}</strong>/{total}&nbsp;{_html.escape(t('results_shown'))}
       </span>
     </div>""", unsafe_allow_html=True)
@@ -1758,8 +907,8 @@ def render_deep_search_strip(key_prefix, col_binder, col_company, col_agent_emai
         for pk in ("page_worklist","page_archive","page_logs"): st.session_state[pk] = 1
 
     st.markdown(
-        f"<div class='deep-search-strip'>"
-        f"<div class='deep-search-title'>{_html.escape(t('deep_search'))}</div></div>",
+        f"<div style='background:var(--bg-subtle);border:1px solid var(--border-default);border-left:3px solid var(--accent);border-radius:10px;padding:12px 18px 16px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.35);'>"
+        f"<div style='font-size:0.60rem;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:var(--blue);margin-bottom:10px;'>{_html.escape(t('deep_search'))}</div></div>",
         unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns([1,1,1,0.32])
@@ -1923,16 +1072,16 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     if s_auditor.strip() and COL_AUDITOR in fv.columns:
         fv = fv[fv[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False,na=False)]
 
-    st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:none;border-top:1px solid var(--border-default);margin:12px 0;'/>", unsafe_allow_html=True)
     if fv.empty:
         st.info("No processed records match the search.")
     else:
         if is_admin:
             st.markdown(
-                f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-                f"border-left:3px solid var(--accent);border-radius:var(--r-md);"
+                f"<div style='background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.4);"
+                f"border-left:3px solid #7C3AED;border-radius:10px;"
                 f"padding:9px 14px;margin-bottom:12px;font-size:.78rem;"
-                f"color:var(--text-primary)!important;font-weight:500;'>"
+                f"color:#E6EDF3!important;font-weight:500;'>"
                 f"{_html.escape(t('archive_quality_note'))}</div>", unsafe_allow_html=True)
         p_cols  = [COL_STATUS,COL_EVAL,COL_FEEDBACK,COL_AUDITOR,COL_DATE]
         o_cols  = [c for c in fv.columns if c not in p_cols and c != COL_LOG]
@@ -1940,7 +1089,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         render_paginated_table(fv[ordered], page_key="page_archive")
 
     if is_admin and not done_view.empty:
-        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none;border-top:1px solid var(--border-default);margin:12px 0;'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{_html.escape(t('reopen'))}</div>",
                     unsafe_allow_html=True)
         ropts = ["-"] + [f"Row {idx}" for idx in done_view.index]
@@ -1975,9 +1124,9 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
         st.markdown(
-            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-            f"border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;"
-            f"font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>"
+            f"<div style='background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.4);"
+            f"border-radius:10px;padding:9px 16px;margin-bottom:14px;"
+            f"font-size:.78rem;color:#E6EDF3!important;font-weight:500;'>"
             f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
             f" — <strong>{len(work_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
@@ -2013,10 +1162,10 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
             lb.columns = ["Auditor","Count"]
             for i, r in lb.head(10).iterrows():
                 st.markdown(
-                    f'<div class="lb-row">'
-                    f'<span class="lb-medal">{i+1}.</span>'
-                    f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
-                    f'<span class="lb-count">{r["Count"]}</span>'
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;background:rgba(22,27,34,0.82);border:1px solid rgba(240,246,252,0.1);border-radius:10px;margin-bottom:7px;box-shadow:0 1px 4px rgba(0,0,0,0.35);">'
+                    f'<span style="font-size:0.78rem;font-weight:700;min-width:30px;text-align:center;color:#8B949E;font-family:\'JetBrains Mono\', monospace !important;background:#21262D;border-radius:6px;padding:2px 5px;">{i+1}.</span>'
+                    f'<span style="flex:1; font-size:.84rem; font-weight:500; color:#E6EDF3 !important;">{_html.escape(str(r["Auditor"]))}</span>'
+                    f'<span style="font-size:0.86rem;font-weight:700;color:#388BFD !important;font-family:\'JetBrains Mono\', monospace !important;background:rgba(56,139,253,0.15);padding:3px 10px;border-radius:999px;border:1px solid rgba(56,139,253,0.4);">{r["Count"]}</span>'
                     f'</div>', unsafe_allow_html=True)
             fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h",
                          color="Count", color_continuous_scale=[blu, nvy], template=pt)
@@ -2092,24 +1241,24 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
         td_rows = ""
         for i, row in acc.iterrows():
             pct = row["Accuracy"]
-            if pct >= 80:   rc="acc-rate-high"; bc="#3FB950"
-            elif pct >= 50: rc="acc-rate-mid";  bc="#D29922"
-            else:           rc="acc-rate-low";  bc="#F85149"
-            bar = (f"<span class='acc-bar-wrap'>"
-                   f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
+            if pct >= 80:   rc="color:#3FB950 !important;font-weight:700!important;font-family:'JetBrains Mono', monospace !important;"; bc="#3FB950"
+            elif pct >= 50: rc="color:#D29922 !important;font-weight:700!important;font-family:'JetBrains Mono', monospace !important;";  bc="#D29922"
+            else:           rc="color:#F85149 !important;font-weight:700!important;font-family:'JetBrains Mono', monospace !important;";  bc="#F85149"
+            bar = (f"<span style='background:#21262D;border-radius:999px;height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px;'>"
+                   f"<span style='height:100%;border-radius:999px;width:{int(pct)}%;background:{bc};display:block;'></span>"
                    f"</span>")
             td_rows += (
                 f"<tr>"
-                f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.68rem;'>{i+1}</td>"
+                f"<td style='color:#484F58;font-family:\'JetBrains Mono\', monospace !important;font-size:.68rem;text-align:center;'>{i+1}</td>"
                 f"<td style='font-weight:500;'>{_html.escape(str(row[col_agent_email]))}</td>"
-                f"<td style='font-family:var(--mono);font-weight:600;'>{int(row['Total'])}</td>"
+                f"<td style='font-family:\'JetBrains Mono\', monospace !important;font-weight:600;'>{int(row['Total'])}</td>"
                 f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
                 f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
                 f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
-                f"<td class='{rc}'>{pct}% {bar}</td>"
+                f"<td style='{rc}'>{pct}% {bar}</td>"
                 f"</tr>")
         st.markdown(
-            f"<div class='gov-table-wrap'><table class='acc-table'>"
+            f"<div class='gov-table-wrap'><table class='gov-table'>"
             f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
             unsafe_allow_html=True)
 
@@ -2180,9 +1329,9 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
         st.markdown(
-            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-            f"border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;"
-            f"font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>"
+            f"<div style='background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.4);"
+            f"border-radius:10px;padding:9px 14px;margin-bottom:12px;"
+            f"font-size:.78rem;color:#E6EDF3!important;font-weight:500;'>"
             f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
             f" — <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
@@ -2213,21 +1362,21 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                if not pdates.empty else "-")
 
     st.markdown(f"""
-    <div class="log-summary-card">
-      <div class="log-stat-row">
-        <div class="log-stat">
-          <span class="log-stat-value">{total_p}</span>
-          <span class="log-stat-label">{_html.escape(t('logs_total'))}</span>
+    <div style="background:rgba(22,27,34,0.82);backdrop-filter:blur(16px);border:1px solid rgba(240,246,252,0.1);border-top:2px solid #7C3AED;border-radius:14px;padding:20px 24px;box-shadow:0 4px 16px rgba(0,0,0,0.45);margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span style="font-size:1.45rem;font-weight:800;color:#388BFD;letter-spacing:-.02em;font-family:'JetBrains Mono', monospace !important;">{total_p}</span>
+          <span style="font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8B949E;">{_html.escape(t('logs_total'))}</span>
         </div>
-        <div class="log-stat-divider"></div>
-        <div class="log-stat">
-          <span class="log-stat-value">{uniq_a}</span>
-          <span class="log-stat-label">{_html.escape(t('logs_auditors'))}</span>
+        <div style="width:1px;height:38px;background:rgba(240,246,252,0.1);"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span style="font-size:1.45rem;font-weight:800;color:#388BFD;letter-spacing:-.02em;font-family:'JetBrains Mono', monospace !important;">{uniq_a}</span>
+          <span style="font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8B949E;">{_html.escape(t('logs_auditors'))}</span>
         </div>
-        <div class="log-stat-divider"></div>
-        <div class="log-stat">
-          <span class="log-stat-value" style="font-size:1.0rem;">{_html.escape(dr_str)}</span>
-          <span class="log-stat-label">{_html.escape(t('logs_date_range'))}</span>
+        <div style="width:1px;height:38px;background:rgba(240,246,252,0.1);"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span style="font-size:1.0rem;font-weight:800;color:#388BFD;letter-spacing:-.02em;font-family:'JetBrains Mono', monospace !important;">{_html.escape(dr_str)}</span>
+          <span style="font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8B949E;">{_html.escape(t('logs_date_range'))}</span>
         </div>
       </div>
     </div>""", unsafe_allow_html=True)
@@ -2236,7 +1385,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(
         f"<div class='section-title'>{_html.escape(t('logs_cols_shown'))}: "
         f"<span style='font-weight:400;text-transform:none;letter-spacing:0;"
-        f"color:var(--text-secondary);'>{_html.escape(shown_label)}</span></div>",
+        f"color:#8B949E;'>{_html.escape(shown_label)}</span></div>",
         unsafe_allow_html=True)
 
     table_df = view_df[display_cols].copy()
@@ -2253,10 +1402,10 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     dtag  = datetime.now(TZ).strftime("%Y%m%d")
     atag  = (sel_aud.replace("@","_").replace(".","_") if sel_aud!=all_opt else "all_auditors")
     st.markdown(f"""
-    <div class="export-strip">
+    <div style="background:var(--bg-subtle);border:1px solid rgba(63,185,80,0.35);border-left:3px solid #3FB950;border-radius:10px;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
       <div>
-        <div class="export-text">{_html.escape(t('logs_export_hdr'))}</div>
-        <div class="export-sub">{_html.escape(t('logs_export_sub'))} · {total_p} rows · {len(display_cols)} columns</div>
+        <div style="font-size:.80rem;font-weight:600;color:#E6EDF3;">{_html.escape(t('logs_export_hdr'))}</div>
+        <div style="font-size:.68rem;color:#8B949E;margin-top:2px;">{_html.escape(t('logs_export_sub'))} · {total_p} rows · {len(display_cols)} columns</div>
       </div>
     </div>""", unsafe_allow_html=True)
     st.download_button(label=t("logs_export_btn"), data=csv_bytes,
@@ -2351,16 +1500,19 @@ def render_user_admin(spreadsheet_id):
         if not staff.empty and "email" in staff.columns:
             show_cols = [c for c in ["email","role","created_at"] if c in staff.columns]
             tbl = staff[show_cols].copy().reset_index()
-            th_html = ("<tr><th class='row-idx'>#</th>" +
+            th_html = ("<tr><th class='row-idx' style='text-align:center;'>#</th>" +
                        "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
             td_html = ""
             for _, row in tbl.iterrows():
-                tr = f"<td class='row-idx'>{row['index']}</td>"
+                tr = f"<td class='row-idx' style='text-align:center; color:#8B949E; font-family:\'JetBrains Mono\', monospace;'>{row['index']}</td>"
                 for c in show_cols:
                     val = str(row.get(c,"")) or "-"
                     if c == "role":
                         sr = val if val in VALID_ROLES else "auditor"
-                        tr += f"<td><span class='role-badge-{sr}'>{_html.escape(val.title())}</span></td>"
+                        badge_bg = "rgba(124,58,237,0.18)" if sr=="admin" else "rgba(240,136,62,0.14)" if sr=="manager" else "rgba(63,185,80,0.14)"
+                        badge_co = "#388BFD" if sr=="admin" else "#F0883E" if sr=="manager" else "#3FB950"
+                        badge_bo = "rgba(124,58,237,0.4)" if sr=="admin" else "rgba(240,136,62,0.35)" if sr=="manager" else "rgba(63,185,80,0.35)"
+                        tr += f"<td><span style='display:inline-block;background:{badge_bg};color:{badge_co};border:1px solid {badge_bo};border-radius:999px;padding:2px 10px;font-size:0.60rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;'>{_html.escape(val.title())}</span></td>"
                     else:
                         tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
@@ -2417,9 +1569,6 @@ def main():
         if not st.session_state.logged_in:
             render_login(sid); return
 
-        st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
-                    unsafe_allow_html=True)
-
         role          = st.session_state.user_role
         is_admin      = (role == "admin")
         is_manager    = (role == "manager")
@@ -2475,12 +1624,12 @@ def main():
             m3.metric(t("outstanding"), pending_n,
                       delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
             st.markdown(f"""
-            <div class="prog-labels">
+            <div style="display:flex;justify-content:space-between;font-size:0.70rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">
               <span>{_html.escape(t('processed'))}</span>
               <span>{int(pct*100)}%</span>
             </div>
-            <div class="prog-wrap">
-              <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
+            <div style="background:var(--bg-muted);border-radius:999px;height:6px;overflow:hidden;margin:5px 0 10px;">
+              <div style="height:100%;border-radius:999px;background:linear-gradient(90deg, #7C3AED, #388BFD);transition:width 0.8s cubic-bezier(0.4,0,0.2,1);box-shadow:0 0 10px rgba(124,58,237,0.28);width:{int(pct*100)}%;"></div>
             </div>""", unsafe_allow_html=True)
             filtered_df = apply_filters_locally(
                 df, f_email, f_binder, f_company, f_license, f_status,
