@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.0  (GitHub Dark / VS Code)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.1  (UI Dropdown Fix)
 #  Architecture: Optimistic UI / Local-First Mutation
 #  Theme: Deep Charcoal · Glassmorphism · Electric Indigo · High-Contrast Text
 #  All concurrency protection, quota safety, and refresh cooldown logic intact.
@@ -99,7 +99,7 @@ BACKOFF_MAX = 5
 _ROW_SEP    = " \u007c "
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  4 · EXPONENTIAL BACKOFF  (unchanged)
+#  4 · EXPONENTIAL BACKOFF
 # ─────────────────────────────────────────────────────────────────────────────
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -119,9 +119,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic
-#      Design tokens mirror the official GitHub Primer dark colour system.
-#      Glassmorphism applied to cards, sidebar, metric containers, and tables.
+#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic + Dropdown Fix
 # ─────────────────────────────────────────────────────────────────────────────
 def inject_css() -> None:
     st.markdown("""
@@ -132,15 +130,15 @@ def inject_css() -> None:
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS  —  GitHub Dark Primer
+   DESIGN TOKENS
 ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   /* ── Backgrounds ── */
-  --bg-canvas:      #0D1117;   /* page canvas — deepest layer             */
-  --bg-default:     #161B22;   /* primary surface (cards, sidebar)        */
-  --bg-subtle:      #1C2128;   /* raised surface (inputs, table rows)     */
-  --bg-muted:       #21262D;   /* hover / alt rows                        */
-  --bg-overlay:     #30363D;   /* tooltips / popovers                     */
+  --bg-canvas:      #0D1117;
+  --bg-default:     #161B22;
+  --bg-subtle:      #1C2128;
+  --bg-muted:       #21262D;
+  --bg-overlay:     #30363D;
 
   /* ── Borders ── */
   --border-default: rgba(240,246,252,0.10);
@@ -148,13 +146,13 @@ def inject_css() -> None:
   --border-strong:  rgba(240,246,252,0.18);
 
   /* ── Text ── */
-  --text-primary:   #E6EDF3;   /* headings, labels — maximum contrast     */
-  --text-secondary: #8B949E;   /* supporting copy                         */
-  --text-muted:     #484F58;   /* placeholders, disabled                  */
-  --text-link:      #58A6FF;   /* links                                   */
+  --text-primary:   #E6EDF3;
+  --text-secondary: #8B949E;
+  --text-muted:     #484F58;
+  --text-link:      #58A6FF;
 
   /* ── Accent: Electric Indigo ── */
-  --accent:         #7C3AED;   /* main CTA background                     */
+  --accent:         #7C3AED;
   --accent-hover:   #6D28D9;
   --accent-subtle:  rgba(124,58,237,0.18);
   --accent-border:  rgba(124,58,237,0.40);
@@ -278,33 +276,45 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SELECTBOX
+   SELECTBOX & DROPDOWN FIX (GitHub Dark Style)
 ═══════════════════════════════════════════════════════════════════════════ */
-.stSelectbox > div > div,
-[data-baseweb="select"] > div {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-md) !important;
-  font-weight:   400 !important;
+.stSelectbox > div > div {
+    background-color: var(--bg-subtle) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: var(--r-md) !important;
 }
-[data-baseweb="menu"],
-[data-baseweb="popover"] > div {
-  background:    var(--bg-default) !important;
-  border:        1px solid var(--border-strong) !important;
-  border-radius: var(--r-md) !important;
-  box-shadow:    var(--shadow-lg) !important;
+
+/* Fix for the dropdown menu items container */
+div[data-baseweb="popover"] > div,
+div[data-baseweb="menu"] {
+    background-color: #161B22 !important;
+    border: 1px solid #30363D !important;
+    border-radius: var(--r-md) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
 }
-[data-baseweb="menu"] li,
-[data-baseweb="menu"] [role="option"] {
-  background: transparent !important;
-  color:      var(--text-primary) !important;
-  font-size:  0.875rem !important;
+
+/* Fix for the actual list items text color */
+div[data-baseweb="popover"] li,
+div[data-baseweb="menu"] li,
+div[data-baseweb="menu"] [role="option"] {
+    background-color: transparent !important;
+    color: #C9D1D9 !important;
+    font-size: 0.85rem !important;
+    transition: all 0.1s ease !important;
 }
-[data-baseweb="menu"] li:hover,
-[data-baseweb="menu"] [aria-selected="true"] {
-  background: var(--accent-subtle) !important;
-  color:      var(--text-primary) !important;
+
+/* Hover and selected state for dropdown items */
+div[data-baseweb="popover"] li:hover,
+div[data-baseweb="menu"] li:hover,
+div[data-baseweb="menu"] li[aria-selected="true"] {
+    background-color: #1F6FEB !important;
+    color: #FFFFFF !important;
+}
+
+/* Base select element wrapper to ensure no white bleed */
+div[data-baseweb="select"] > div {
+    background-color: var(--bg-subtle) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -648,7 +658,7 @@ div[data-testid="stForm"] {
 .s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
 .s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
 .s-eval-good   { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-eval-bad    { background:var(--red-subtle);   color:var(--red)    !important; border:1px solid var(--red-border);    }
+.s-eval-bad    { background:var(--red-subtle);  color:var(--red)    !important; border:1px solid var(--red-border);    }
 .s-eval-dup    { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1016,7 +1026,7 @@ inject_css()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  6 · TRANSLATIONS  (unchanged from v14.6)
+#  6 · TRANSLATIONS 
 # ─────────────────────────────────────────────────────────────────────────────
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -1069,8 +1079,8 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_export_sub":"Download the complete audit log as a CSV file.",
         "logs_export_btn":"Download CSV Report",
         "logs_filename":"audit_log_report.csv","logs_cols_shown":"Columns displayed",
-        "eval_label":"Data Entry Quality (کوالێتی داتا)",
-        "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
+        "eval_label":"Data Entry Quality",
+        "feedback_label":"Auditor Feedback / Notes for Agent",
         "feedback_placeholder":"Optional notes, issues found, corrections made...",
         "acc_ranking_title":"Data Entry Accuracy Ranking",
         "acc_agent":"Agent Email","acc_total":"Total",
@@ -1160,7 +1170,7 @@ def t(key: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  7 · HELPERS  (unchanged from v14.6)
+#  7 · HELPERS 
 # ─────────────────────────────────────────────────────────────────────────────
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
@@ -1270,7 +1280,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  8 · GOOGLE SHEETS  (unchanged)
+#  8 · GOOGLE SHEETS 
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -1316,7 +1326,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  9 · OPTIMISTIC MUTATIONS  (unchanged)
+#  9 · OPTIMISTIC MUTATIONS 
 # ─────────────────────────────────────────────────────────────────────────────
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val="", feedback_val=""):
@@ -1341,7 +1351,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  10 · WRITE HELPERS  (unchanged — concurrency pre-write check intact)
+#  10 · WRITE HELPERS 
 # ─────────────────────────────────────────────────────────────────────────────
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -1355,11 +1365,6 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
                             auditor, ts_now, log_prefix,
                             eval_val="", feedback_val="") -> bool:
-    """
-    Returns False if the row was already approved by another user (concurrency guard).
-    Returns True on successful write.
-    All writes use batch_update (single API call).
-    """
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
 
@@ -1416,7 +1421,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  11 · HTML TABLE & PAGINATION  (unchanged logic, dark tokens applied via CSS)
+#  11 · HTML TABLE & PAGINATION 
 # ─────────────────────────────────────────────────────────────────────────────
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -1496,7 +1501,7 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  12 · LOGIN PAGE  —  animated dark gradient + glass card
+#  12 · LOGIN PAGE 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_login(spreadsheet_id: str) -> None:
     st.markdown("""
@@ -1622,7 +1627,7 @@ html, body, .stApp,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  13 · SIDEBAR  —  refresh cooldown logic intact (unchanged from v14.6)
+#  13 · SIDEBAR 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
     def clear_all_filters():
@@ -1646,7 +1651,6 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
 
-        # ── Admin / Manager refresh cooldown  (unchanged logic) ───────────────
         if st.session_state.get("user_role") in ("admin", "manager"):
             COOLDOWN = 600
             if "last_refresh_time" not in st.session_state:
@@ -1695,7 +1699,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
-            ("f_email",   t("f_email"),   COL_AUDITOR,                      False),
+            ("f_email",   t("f_email"),   COL_AUDITOR,                     False),
             ("f_binder",  t("f_binder"),  col_binder  or "not detected",    col_binder  is None),
             ("f_company", t("f_company"), col_company or "not detected",    col_company is None),
             ("f_license", t("f_license"), col_license or "not detected",    col_license is None),
@@ -1746,7 +1750,7 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  [C] DEEP SEARCH WIDGET  (unchanged)
+#  [C] DEEP SEARCH WIDGET 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_deep_search_strip(key_prefix, col_binder, col_company, col_agent_email):
     def _clear():
@@ -1793,7 +1797,7 @@ def _deep_search_active(b, c, a): return any(x.strip() for x in (b, c, a))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  14 · WORKLIST  (unchanged logic)
+#  14 · WORKLIST 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     f_email, f_binder, f_company, f_license, f_status):
@@ -1877,7 +1881,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  15 · ARCHIVE  (unchanged logic)
+#  15 · ARCHIVE 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    f_email, f_binder, f_company, f_license, f_status,
@@ -1952,10 +1956,9 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  16 · ANALYTICS  (Plotly dark theme applied)
+#  16 · ANALYTICS  
 # ─────────────────────────────────────────────────────────────────────────────
 def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None):
-    # ── Plotly dark tokens ────────────────────────────────────────────────────
     pt  = "plotly_dark"
     pb  = "#161B22"      # --bg-default
     pg  = "#21262D"      # --bg-muted (grid lines)
@@ -2157,7 +2160,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  17 · AUDITOR LOGS  (unchanged logic)
+#  17 · AUDITOR LOGS 
 # ─────────────────────────────────────────────────────────────────────────────
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""<div class="worklist-header">
@@ -2262,7 +2265,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  18 · USER ADMIN  (unchanged)
+#  18 · USER ADMIN 
 # ─────────────────────────────────────────────────────────────────────────────
 def _ensure_role_col(df_u):
     if "role" not in df_u.columns:
@@ -2383,7 +2386,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  19 · MAIN CONTROLLER  (unchanged — ws reset, RBAC, all routing intact)
+#  19 · MAIN CONTROLLER 
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     try:
