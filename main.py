@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.0  (GitHub Dark / VS Code)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.3  (GitHub Dark / VS Code)
 #  Architecture: Optimistic UI / Local-First Mutation
 #  Theme: Deep Charcoal · Glassmorphism · Electric Indigo · High-Contrast Text
 #  All concurrency protection, quota safety, and refresh cooldown logic intact.
@@ -119,9 +119,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic
-#      Design tokens mirror the official GitHub Primer dark colour system.
-#      Glassmorphism applied to cards, sidebar, metric containers, and tables.
+#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic + Ultimate BaseWeb Fix
 # ─────────────────────────────────────────────────────────────────────────────
 def inject_css() -> None:
     st.markdown("""
@@ -135,37 +133,31 @@ def inject_css() -> None:
    DESIGN TOKENS  —  GitHub Dark Primer
 ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Backgrounds ── */
-  --bg-canvas:      #0D1117;   /* page canvas — deepest layer             */
-  --bg-default:     #161B22;   /* primary surface (cards, sidebar)        */
-  --bg-subtle:      #1C2128;   /* raised surface (inputs, table rows)     */
-  --bg-muted:       #21262D;   /* hover / alt rows                        */
-  --bg-overlay:     #30363D;   /* tooltips / popovers                     */
+  --bg-canvas:      #0D1117;
+  --bg-default:     #161B22;
+  --bg-subtle:      #1C2128;
+  --bg-muted:       #21262D;
+  --bg-overlay:     #30363D;
 
-  /* ── Borders ── */
   --border-default: rgba(240,246,252,0.10);
   --border-muted:   rgba(240,246,252,0.06);
   --border-strong:  rgba(240,246,252,0.18);
 
-  /* ── Text ── */
-  --text-primary:   #E6EDF3;   /* headings, labels — maximum contrast     */
-  --text-secondary: #8B949E;   /* supporting copy                         */
-  --text-muted:     #484F58;   /* placeholders, disabled                  */
-  --text-link:      #58A6FF;   /* links                                   */
+  --text-primary:   #E6EDF3;
+  --text-secondary: #8B949E;
+  --text-muted:     #484F58;
+  --text-link:      #58A6FF;
 
-  /* ── Accent: Electric Indigo ── */
-  --accent:         #7C3AED;   /* main CTA background                     */
+  --accent:         #7C3AED;
   --accent-hover:   #6D28D9;
   --accent-subtle:  rgba(124,58,237,0.18);
   --accent-border:  rgba(124,58,237,0.40);
   --accent-glow:    rgba(124,58,237,0.28);
 
-  /* ── Electric Blue (secondary) ── */
   --blue:           #388BFD;
   --blue-subtle:    rgba(56,139,253,0.15);
   --blue-border:    rgba(56,139,253,0.40);
 
-  /* ── Semantic ── */
   --green:          #3FB950;
   --green-subtle:   rgba(63,185,80,0.14);
   --green-border:   rgba(63,185,80,0.35);
@@ -179,19 +171,16 @@ def inject_css() -> None:
   --orange-subtle:  rgba(240,136,62,0.14);
   --orange-border:  rgba(240,136,62,0.35);
 
-  /* ── Glass effect ── */
   --glass-bg:       rgba(22,27,34,0.82);
   --glass-border:   rgba(240,246,252,0.10);
   --glass-blur:     blur(16px) saturate(1.4);
 
-  /* ── Spacing / Radius ── */
   --r-sm:   6px;
   --r-md:   10px;
   --r-lg:   14px;
   --r-xl:   20px;
   --r-full: 9999px;
 
-  /* ── Shadows ── */
   --shadow-sm:  0 1px 4px rgba(0,0,0,0.35);
   --shadow-md:  0 4px 16px rgba(0,0,0,0.45);
   --shadow-lg:  0 12px 40px rgba(0,0,0,0.55);
@@ -221,14 +210,13 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   color: var(--text-primary) !important;
 }
 
-/* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR  —  glass panel
+   SIDEBAR
 ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
   background: var(--glass-bg) !important;
@@ -240,10 +228,11 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
 [data-testid="stSidebar"] * { color: var(--text-primary) !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   INPUTS & TEXTAREAS
+   INPUTS (Text, TextArea, Number)
 ═══════════════════════════════════════════════════════════════════════════ */
 .stTextInput > div > div > input,
-.stTextArea  > div > div > textarea {
+.stTextArea  > div > div > textarea,
+.stNumberInput > div > div > input {
   background:    var(--bg-subtle) !important;
   color:         var(--text-primary) !important;
   border:        1px solid var(--border-default) !important;
@@ -255,7 +244,8 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
 .stTextInput > div > div > input:focus,
-.stTextArea  > div > div > textarea:focus {
+.stTextArea  > div > div > textarea:focus,
+.stNumberInput > div > div > input:focus {
   border-color: var(--accent) !important;
   box-shadow:   var(--ring) !important;
   outline:      none !important;
@@ -269,7 +259,7 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   cursor: not-allowed !important;
 }
 .stTextInput > label, .stTextArea > label,
-.stSelectbox > label, .stMultiSelect > label {
+.stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stNumberInput > label {
   color:          var(--text-secondary) !important;
   font-size:      0.68rem !important;
   font-weight:    700 !important;
@@ -278,37 +268,73 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SELECTBOX
+   ULTIMATE BASEWEB FIX (Selectbox, Multiselect, Datepicker, Tooltips)
 ═══════════════════════════════════════════════════════════════════════════ */
+/* 1. The input box itself for selects */
 .stSelectbox > div > div,
-[data-baseweb="select"] > div {
+[data-baseweb="select"] > div,
+.stDateInput > div > div,
+.stMultiSelect > div > div {
   background:    var(--bg-subtle) !important;
   color:         var(--text-primary) !important;
   border:        1px solid var(--border-default) !important;
   border-radius: var(--r-md) !important;
   font-weight:   400 !important;
 }
+
+/* 2. Popovers (Dropdown lists, Calendars, Tooltips) */
+[data-baseweb="popover"] > div,
 [data-baseweb="menu"],
-[data-baseweb="popover"] > div {
+[data-baseweb="calendar"],
+[data-baseweb="tooltip"] {
   background:    var(--bg-default) !important;
+  background-color: var(--bg-default) !important;
   border:        1px solid var(--border-strong) !important;
   border-radius: var(--r-md) !important;
   box-shadow:    var(--shadow-lg) !important;
 }
+
+/* 3. List items inside popovers */
 [data-baseweb="menu"] li,
-[data-baseweb="menu"] [role="option"] {
+[data-baseweb="menu"] [role="option"],
+[data-baseweb="popover"] li {
   background: transparent !important;
+  background-color: transparent !important;
   color:      var(--text-primary) !important;
   font-size:  0.875rem !important;
+  padding: 8px 14px !important;
 }
+
+/* 4. Hover states for list items */
 [data-baseweb="menu"] li:hover,
-[data-baseweb="menu"] [aria-selected="true"] {
-  background: var(--accent-subtle) !important;
-  color:      var(--text-primary) !important;
+[data-baseweb="menu"] [aria-selected="true"],
+[data-baseweb="popover"] li:hover,
+[data-baseweb="popover"] li:focus {
+  background: var(--blue) !important;
+  background-color: var(--blue) !important;
+  color:      #FFFFFF !important;
+}
+
+/* Ensure no text turns white/invisible */
+[data-baseweb="menu"] li span,
+[data-baseweb="popover"] li span {
+    color: inherit !important;
+}
+
+/* Calendar specific fixes (Date Input) */
+[data-baseweb="calendar"] div {
+    color: var(--text-primary) !important;
+}
+[data-baseweb="calendar"] button {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+[data-baseweb="calendar"] button:hover {
+    background-color: var(--accent-subtle) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   METRIC CARDS  —  glassmorphism lift
+   METRIC CARDS
 ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stMetricContainer"] {
   background:     var(--glass-bg) !important;
@@ -381,7 +407,6 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   cursor:     not-allowed !important;
 }
 
-/* Download button — teal accent */
 [data-testid="stDownloadButton"] > button {
   background: linear-gradient(135deg, #1B6CA8 0%, #0D9488 100%) !important;
   color:      #FFFFFF !important;
@@ -412,7 +437,7 @@ div[data-testid="stForm"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TABS  —  pill-style, inline
+   TABS
 ═══════════════════════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
   gap:           2px !important;
@@ -445,7 +470,7 @@ div[data-testid="stForm"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   EXPANDER
+   EXPANDER & ALERTS
 ═══════════════════════════════════════════════════════════════════════════ */
 .streamlit-expanderHeader {
   background:    var(--bg-subtle) !important;
@@ -462,10 +487,6 @@ div[data-testid="stForm"] {
   border-radius: 0 0 var(--r-md) var(--r-md) !important;
   padding:       16px !important;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ALERTS
-═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stAlert"] {
   background:    var(--bg-subtle) !important;
   border:        1px solid var(--border-default) !important;
@@ -475,7 +496,7 @@ div[data-testid="stForm"] {
 [data-testid="stAlert"] * { color: var(--text-primary) !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LOGIN PAGE  —  animated gradient + glass card
+   LOGIN PAGE
 ═══════════════════════════════════════════════════════════════════════════ */
 .login-wrap {
   display: flex;
@@ -485,7 +506,7 @@ div[data-testid="stForm"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PAGE HEADER
+   CUSTOM UI COMPONENTS
 ═══════════════════════════════════════════════════════════════════════════ */
 .page-header {
   display:         flex;
@@ -519,10 +540,6 @@ div[data-testid="stForm"] {
   box-shadow:     var(--shadow-sm);
   font-family:    var(--mono) !important;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SECTION TITLE  —  left-border pill
-═══════════════════════════════════════════════════════════════════════════ */
 .section-title {
   display:        inline-flex;
   align-items:    center;
@@ -538,10 +555,6 @@ div[data-testid="stForm"] {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORKLIST / ARCHIVE HEADER CARD
-═══════════════════════════════════════════════════════════════════════════ */
 .worklist-header {
   display:         flex;
   align-items:     center;
@@ -558,10 +571,6 @@ div[data-testid="stForm"] {
 }
 .worklist-title { font-size: 0.98rem; font-weight: 700; color: var(--text-primary) !important; }
 .worklist-sub   { font-size: 0.74rem; color: var(--text-secondary) !important; margin-top: 3px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOG SUMMARY CARD
-═══════════════════════════════════════════════════════════════════════════ */
 .log-summary-card {
   background:      var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -578,10 +587,6 @@ div[data-testid="stForm"] {
 .log-stat-value     { font-size:1.45rem;font-weight:800;color:var(--blue)!important;letter-spacing:-.02em;font-family:var(--mono)!important; }
 .log-stat-label     { font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary)!important; }
 .log-stat-divider   { width:1px;height:38px;background:var(--border-default); }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EXPORT STRIP
-═══════════════════════════════════════════════════════════════════════════ */
 .export-strip {
   background:    var(--bg-subtle);
   border:        1px solid var(--green-border);
@@ -597,10 +602,6 @@ div[data-testid="stForm"] {
 }
 .export-text { font-size:.80rem;font-weight:600;color:var(--text-primary)!important; }
 .export-sub  { font-size:.68rem;color:var(--text-secondary)!important;margin-top:2px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PROGRESS BAR
-═══════════════════════════════════════════════════════════════════════════ */
 .prog-wrap {
   background:    var(--bg-muted);
   border-radius: var(--r-full);
@@ -623,10 +624,6 @@ div[data-testid="stForm"] {
   font-weight:     600;
   margin-bottom:   3px;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   STATUS / EVAL CHIPS
-═══════════════════════════════════════════════════════════════════════════ */
 .chip {
   display:        inline-flex;
   align-items:    center;
@@ -643,16 +640,15 @@ div[data-testid="stForm"] {
 .chip-admin   { background:var(--accent-subtle);color:var(--blue)    !important; border:1px solid var(--accent-border); }
 .chip-audit   { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
 .chip-manager { background:var(--orange-subtle);color:var(--orange)  !important; border:1px solid var(--orange-border); }
-
 .s-chip        { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
 .s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
 .s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
 .s-eval-good   { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-eval-bad    { background:var(--red-subtle);   color:var(--red)    !important; border:1px solid var(--red-border);    }
+.s-eval-bad    { background:var(--red-subtle);  color:var(--red)    !important; border:1px solid var(--red-border);    }
 .s-eval-dup    { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DATA TABLE  —  dark glass rows
+   DATA TABLE
 ═══════════════════════════════════════════════════════════════════════════ */
 .gov-table-wrap {
   overflow-x:    auto;
@@ -712,7 +708,6 @@ div[data-testid="stForm"] {
   min-width:   48px;
   text-align:  center !important;
 }
-/* Evaluation + feedback column highlights */
 .gov-table th.col-eval,
 .gov-table th.col-feedback {
   background:    var(--accent-subtle) !important;
@@ -867,10 +862,6 @@ div[data-testid="stForm"] {
   background:    var(--bg-subtle);
   border-bottom: 1px solid var(--border-muted);
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   FILTERS & FILTER BAR
-═══════════════════════════════════════════════════════════════════════════ */
 .adv-filter-header {
   font-size:      0.60rem;
   font-weight:    800;
@@ -913,10 +904,6 @@ div[data-testid="stForm"] {
   margin-left: auto;
   font-family: var(--mono) !important;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DEEP SEARCH STRIP
-═══════════════════════════════════════════════════════════════════════════ */
 .deep-search-strip {
   background:    var(--bg-subtle);
   border:        1px solid var(--border-default);
@@ -934,10 +921,6 @@ div[data-testid="stForm"] {
   color:          var(--blue) !important;
   margin-bottom:  10px;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RBAC BANNER
-═══════════════════════════════════════════════════════════════════════════ */
 .rbac-banner {
   background:    var(--blue-subtle);
   border:        1px solid var(--blue-border);
@@ -949,10 +932,6 @@ div[data-testid="stForm"] {
   color:         var(--text-primary) !important;
   font-weight:   500;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ROLE BADGES
-═══════════════════════════════════════════════════════════════════════════ */
 .role-badge-admin {
   background:     var(--accent-subtle);
   color:          var(--blue) !important;
@@ -989,10 +968,6 @@ div[data-testid="stForm"] {
   text-transform: uppercase;
   display:        inline-block;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PAGINATION CONTROLS
-═══════════════════════════════════════════════════════════════════════════ */
 .page-nav-info {
   text-align:  center;
   padding:     8px 0;
@@ -1001,10 +976,6 @@ div[data-testid="stForm"] {
   color:       var(--text-secondary) !important;
   font-family: var(--mono) !important;
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DIVIDER
-═══════════════════════════════════════════════════════════════════════════ */
 .divider {
   border:     none;
   border-top: 1px solid var(--border-default);
@@ -1695,7 +1666,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
-            ("f_email",   t("f_email"),   COL_AUDITOR,                      False),
+            ("f_email",   t("f_email"),   COL_AUDITOR,                     False),
             ("f_binder",  t("f_binder"),  col_binder  or "not detected",    col_binder  is None),
             ("f_company", t("f_company"), col_company or "not detected",    col_company is None),
             ("f_license", t("f_license"), col_license or "not detected",    col_license is None),
