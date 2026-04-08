@@ -1,7 +1,7 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.5 (Quota Fix Edition)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.6 (Concurrency & Quota Safe)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Features: Pagination, Admin Refresh, Crash Protections, Quota Optimization
+#  Features: Pagination, Admin Refresh, Crash Protections, Quota Optimization, Safe Pre-Write
 # =============================================================================
 
 import html as _html
@@ -660,7 +660,6 @@ def get_spreadsheet():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(raw, scope)
     return gspread.authorize(creds).open("site CIT QA - Tranche 4")
 
-# [QUOTA FIX] Cache the worksheet metadata so we don't query Google on every click
 @st.cache_data(ttl=READ_TTL, show_spinner=False)
 def _fetch_sheet_metadata():
     spr = get_spreadsheet()
@@ -729,11 +728,21 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
             headers.append(sc); col_map[sc] = np_
     return headers, col_map
 
+# === چارەسەری کێشەی Concurrency (٢٠ کارمەند) بەبێ شکاندنی Quota ===
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
                             auditor, ts_now, log_prefix,
-                            eval_val: str = "", feedback_val: str = ""):
+                            eval_val: str = "", feedback_val: str = "") -> bool:
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
+    
+    # --- پشکنینی هێمنانە پێش نووسین (تەنیا یەک خانە دەخوێنێتەوە) ---
+    if COL_STATUS in col_map:
+        status_a1 = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
+        live_status = _gsheets_call(ws.acell, status_a1).value
+        if live_status == VAL_DONE:
+            return False # ئەگەر کەسێکی تر پێشت کەوتبوو، کارەکە دەوەستێنێت
+    # ---------------------------------------------------------------
+
     old = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
     batch = []
@@ -750,7 +759,11 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
     ]:
         if cn in col_map:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[cn]), "values": [[v]]})
-    if batch: _gsheets_call(ws.batch_update, batch)
+    
+    if batch: 
+        _gsheets_call(ws.batch_update, batch)
+        
+    return True # بە سەرکەوتوویی سەیڤ کرا
 
 def write_reopen_to_sheet(ws_title, sheet_row, col_map):
     ws = get_spreadsheet().worksheet(ws_title)
@@ -1007,7 +1020,7 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         st.selectbox(t("f_status"), options=list(status_opts.keys()),
                      format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
-            ("f_email",   t("f_email"),   COL_AUDITOR,           False),
+            ("f_email",   t("f_email"),   COL_AUDITOR,            False),
             ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
             ("f_company", t("f_company"), col_company or "not detected", col_company is None),
             ("f_license", t("f_license"), col_license or "not detected", col_license is None),
@@ -1170,16 +1183,30 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
+        
         with st.spinner("Committing record to Google Sheets..."):
             try:
-                write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
-                    new_vals, record, auditor, ts_now, log_prefix,
-                    eval_val=eval_val, feedback_val=feedback_combined)
+                # --- بەشی سەرەکی بۆ ڕێگریکردن لە پێکدادان بە شێوەیەکی نەرم ---
+                is_success = write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
+                                                     new_vals, record, auditor, ts_now, log_prefix,
+                                                     eval_val=eval_val, feedback_val=feedback_combined)
+                
+                if not is_success:
+                    st.toast("⚠️ ببورە، کارمەندێکی تر کەمێک پێش ئێستا ئەم کەیسەی تەواو کرد!")
+                    st.session_state.local_df.at[df_iloc, COL_STATUS] = VAL_DONE
+                    time.sleep(2)
+                    st.rerun()
+                    return
+
             except gspread.exceptions.APIError as e:
-                st.error(f"Write failed: {e}"); return
+                st.error(f"Write failed: {e}")
+                return
+
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
-        st.success(t("saved_ok")); time.sleep(0.6); st.rerun()
+        st.toast(t("saved_ok"), icon="✅") 
+        time.sleep(0.6) 
+        st.rerun()
 
 
 # -----------------------------------------------------------------------------
