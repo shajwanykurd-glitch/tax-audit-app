@@ -1,7 +1,7 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.4 (Ultimate Edition)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.5 (Quota Fix Edition)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Features: Pagination, Admin Refresh, Crash Protections, ASCII-safe
+#  Features: Pagination, Admin Refresh, Crash Protections, Quota Optimization
 # =============================================================================
 
 import html as _html
@@ -660,6 +660,12 @@ def get_spreadsheet():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(raw, scope)
     return gspread.authorize(creds).open("site CIT QA - Tranche 4")
 
+# [QUOTA FIX] Cache the worksheet metadata so we don't query Google on every click
+@st.cache_data(ttl=READ_TTL, show_spinner=False)
+def _fetch_sheet_metadata():
+    spr = get_spreadsheet()
+    return spr.id, [ws.title for ws in spr.worksheets()]
+
 @st.cache_data(ttl=READ_TTL, show_spinner=False)
 def _fetch_raw_sheet_cached(spreadsheet_id, ws_title):
     ws = get_spreadsheet().worksheet(ws_title)
@@ -772,7 +778,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE
+#  11 . HTML TABLE & PAGINATION
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -971,10 +977,11 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
         
-        # ── Refresh Button ──
         if st.session_state.get("user_role") in ("admin", "manager"):
             def _do_refresh():
                 _fetch_raw_sheet_cached.clear()
+                _fetch_users_cached.clear()
+                _fetch_sheet_metadata.clear()
                 st.session_state.local_cache_key = None
             st.button(
                 "🔄 Refresh Data",
@@ -1544,8 +1551,10 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 # -----------------------------------------------------------------------------
 #  18 . USER ADMIN
 # -----------------------------------------------------------------------------
-def _ensure_role_col(uws, df_u: pd.DataFrame, spreadsheet_id: str) -> pd.DataFrame:
+def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
+        spr = get_spreadsheet()
+        uws = spr.worksheet(USERS_SHEET)
         col_idx = len(df_u.columns) + 1
         try:
             _gsheets_call(uws.update_cell, 1, col_idx, "role")
@@ -1557,12 +1566,10 @@ def _ensure_role_col(uws, df_u: pd.DataFrame, spreadsheet_id: str) -> pd.DataFra
     return df_u
 
 def render_user_admin(spreadsheet_id):
-    spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
-
     staff_raw = _fetch_users_cached(spreadsheet_id)
     staff     = pd.DataFrame(staff_raw) if staff_raw else pd.DataFrame()
     if not staff.empty:
-        staff = _ensure_role_col(uws, staff, spreadsheet_id)
+        staff = _ensure_role_col(staff)
 
     cl, cr = st.columns([1, 1], gap="large")
 
@@ -1578,8 +1585,11 @@ def render_user_admin(spreadsheet_id):
                                nu_e.lower().strip() in staff.get("email", pd.Series()).values)
                     if already: st.error(t("dup_email"))
                     else:
+                        spr = get_spreadsheet()
+                        uws = spr.worksheet(USERS_SHEET)
                         _gsheets_call(uws.append_row,
                                       [nu_e.lower().strip(), hash_pw(nu_p.strip()), nu_r, now_str()])
+                        _fetch_users_cached.clear()
                         st.success(f"{nu_e} registered as {nu_r}.")
                         time.sleep(0.7); st.rerun()
                 else: st.warning(t("fill_fields"))
@@ -1591,6 +1601,8 @@ def render_user_admin(spreadsheet_id):
                 np_ = st.text_input("New Password", type="password")
                 if st.form_submit_button("Update Password", use_container_width=True):
                     if np_.strip():
+                        spr = get_spreadsheet()
+                        uws = spr.worksheet(USERS_SHEET)
                         cell = _gsheets_call(uws.find, se)
                         if cell:
                             _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip()))
@@ -1606,6 +1618,8 @@ def render_user_admin(spreadsheet_id):
                                         format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
+                        spr = get_spreadsheet()
+                        uws = spr.worksheet(USERS_SHEET)
                         header_row   = _gsheets_call(uws.row_values, 1)
                         role_col_idx = (header_row.index("role") + 1) if "role" in header_row \
                                        else len(header_row) + 1
@@ -1647,6 +1661,8 @@ def render_user_admin(spreadsheet_id):
             de = st.selectbox("Select to revoke", ["-"] + staff["email"].tolist(), key="del_sel")
             if de != "-":
                 if st.button(f"Revoke access - {_html.escape(de)}", key="del_btn"):
+                    spr = get_spreadsheet()
+                    uws = spr.worksheet(USERS_SHEET)
                     cell = _gsheets_call(uws.find, de)
                     if cell:
                         _gsheets_call(uws.delete_rows, cell.row)
@@ -1683,11 +1699,14 @@ def main():
             st.session_state["local_col_map"]    = None
             st.session_state["active_ws_key"]    = None
             
-        spr = get_spreadsheet(); sid = spr.id
-        all_titles = [ws.title for ws in spr.worksheets()]
+        sid, all_titles = _fetch_sheet_metadata()
+        
         if USERS_SHEET not in all_titles:
+            spr = get_spreadsheet()
             uw = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
             _gsheets_call(uw.append_row, ["email", "password", "role", "created_at"])
+            _fetch_sheet_metadata.clear()
+            all_titles.append(USERS_SHEET)
 
         if not st.session_state.logged_in:
             render_login(sid); return
