@@ -640,6 +640,7 @@ div[data-testid="stForm"] {
 .chip-admin   { background:var(--accent-subtle);color:var(--blue)    !important; border:1px solid var(--accent-border); }
 .chip-audit   { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
 .chip-manager { background:var(--orange-subtle);color:var(--orange)  !important; border:1px solid var(--orange-border); }
+
 .s-chip        { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
 .s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
 .s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
@@ -862,6 +863,10 @@ div[data-testid="stForm"] {
   background:    var(--bg-subtle);
   border-bottom: 1px solid var(--border-muted);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTERS & FILTER BAR
+═══════════════════════════════════════════════════════════════════════════ */
 .adv-filter-header {
   font-size:      0.60rem;
   font-weight:    800;
@@ -904,6 +909,10 @@ div[data-testid="stForm"] {
   margin-left: auto;
   font-family: var(--mono) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEEP SEARCH STRIP
+═══════════════════════════════════════════════════════════════════════════ */
 .deep-search-strip {
   background:    var(--bg-subtle);
   border:        1px solid var(--border-default);
@@ -921,6 +930,10 @@ div[data-testid="stForm"] {
   color:          var(--blue) !important;
   margin-bottom:  10px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RBAC BANNER
+═══════════════════════════════════════════════════════════════════════════ */
 .rbac-banner {
   background:    var(--blue-subtle);
   border:        1px solid var(--blue-border);
@@ -932,6 +945,10 @@ div[data-testid="stForm"] {
   color:         var(--text-primary) !important;
   font-weight:   500;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROLE BADGES
+═══════════════════════════════════════════════════════════════════════════ */
 .role-badge-admin {
   background:     var(--accent-subtle);
   color:          var(--blue) !important;
@@ -968,6 +985,10 @@ div[data-testid="stForm"] {
   text-transform: uppercase;
   display:        inline-block;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGINATION CONTROLS
+═══════════════════════════════════════════════════════════════════════════ */
 .page-nav-info {
   text-align:  center;
   padding:     8px 0;
@@ -976,6 +997,10 @@ div[data-testid="stForm"] {
   color:       var(--text-secondary) !important;
   font-family: var(--mono) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIVIDER
+═══════════════════════════════════════════════════════════════════════════ */
 .divider {
   border:     none;
   border-top: 1px solid var(--border-default);
@@ -1040,8 +1065,8 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_export_sub":"Download the complete audit log as a CSV file.",
         "logs_export_btn":"Download CSV Report",
         "logs_filename":"audit_log_report.csv","logs_cols_shown":"Columns displayed",
-        "eval_label":"Data Entry Quality (کوالێتی داتا)",
-        "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
+        "eval_label":"Data Entry Quality",
+        "feedback_label":"Auditor Feedback / Notes for Agent",
         "feedback_placeholder":"Optional notes, issues found, corrections made...",
         "acc_ranking_title":"Data Entry Accuracy Ranking",
         "acc_agent":"Agent Email","acc_total":"Total",
@@ -1106,7 +1131,7 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە.",
         "logs_export_btn":"داگرتنی ڕاپۆرتی CSV",
         "logs_filename":"audit_log_report.csv","logs_cols_shown":"ستوونەکانی پیشاندراو",
-        "eval_label":"کوالێتی داتا (Data Entry Quality)",
+        "eval_label":"کوالێتی داتا",
         "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
         "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان...",
         "acc_ranking_title":"رێزبەندی شیازی داخلکردنی داتا",
@@ -1896,10 +1921,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     else:
         if is_admin:
             st.markdown(
-                f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-                f"border-left:3px solid var(--accent);border-radius:var(--r-md);"
-                f"padding:9px 14px;margin-bottom:12px;font-size:.78rem;"
-                f"color:var(--text-primary)!important;font-weight:500;'>"
+                f"<div class='rbac-banner'>"
                 f"{_html.escape(t('archive_quality_note'))}</div>", unsafe_allow_html=True)
         p_cols  = [COL_STATUS,COL_EVAL,COL_FEEDBACK,COL_AUDITOR,COL_DATE]
         o_cols  = [c for c in fv.columns if c not in p_cols and c != COL_LOG]
@@ -1943,9 +1965,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
         st.markdown(
-            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-            f"border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;"
-            f"font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>"
+            f"<div class='rbac-banner'>"
             f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
             f" — <strong>{len(work_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
@@ -2148,9 +2168,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
         st.markdown(
-            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
-            f"border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;"
-            f"font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>"
+            f"<div class='rbac-banner'>"
             f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
             f" — <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
@@ -2281,236 +2299,4 @@ def render_user_admin(spreadsheet_id):
             with st.form("upd_pw_form"):
                 se  = st.selectbox("Select staff", staff["email"].tolist(), key="upd_pw_sel")
                 np_ = st.text_input("New Password", type="password")
-                if st.form_submit_button("Update Password", use_container_width=True):
-                    if np_.strip():
-                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
-                        cell = _gsheets_call(uws.find, se)
-                        if cell:
-                            _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip()))
-                            st.success(f"Updated for {se}."); time.sleep(0.7); st.rerun()
-
-        st.markdown(f"<div class='section-title'>{_html.escape(t('change_role'))}</div>",
-                    unsafe_allow_html=True)
-        st.caption(t("change_role_sub"))
-        if not staff.empty and "email" in staff.columns:
-            with st.form("change_role_form"):
-                cr_email = st.selectbox("Select user", staff["email"].tolist(), key="cr_email_sel")
-                cr_role  = st.selectbox("New Role", VALID_ROLES,
-                                        format_func=lambda r: r.title(), key="cr_role_sel")
-                if st.form_submit_button("Update Role", use_container_width=True):
-                    try:
-                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
-                        hdr  = _gsheets_call(uws.row_values, 1)
-                        rcol = (hdr.index("role") + 1) if "role" in hdr else len(hdr) + 1
-                        if "role" not in hdr: _gsheets_call(uws.update_cell, 1, rcol, "role")
-                        uc = _gsheets_call(uws.find, cr_email)
-                        if uc:
-                            _gsheets_call(uws.update_cell, uc.row, rcol, cr_role)
-                            _fetch_users_cached.clear()
-                            st.success(f"{t('role_updated')} ({cr_email} → {cr_role})")
-                            time.sleep(0.7); st.rerun()
-                        else: st.error("User not found.")
-                    except Exception as e:
-                        st.error(f"Role update failed: {e}")
-
-    with cr:
-        st.markdown(f"<div class='section-title'>{_html.escape(t('staff_dir'))}</div>",
-                    unsafe_allow_html=True)
-        if not staff.empty and "email" in staff.columns:
-            show_cols = [c for c in ["email","role","created_at"] if c in staff.columns]
-            tbl = staff[show_cols].copy().reset_index()
-            th_html = ("<tr><th class='row-idx'>#</th>" +
-                       "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
-            td_html = ""
-            for _, row in tbl.iterrows():
-                tr = f"<td class='row-idx'>{row['index']}</td>"
-                for c in show_cols:
-                    val = str(row.get(c,"")) or "-"
-                    if c == "role":
-                        sr = val if val in VALID_ROLES else "auditor"
-                        tr += f"<td><span class='role-badge-{sr}'>{_html.escape(val.title())}</span></td>"
-                    else:
-                        tr += f"<td>{_html.escape(val[:40])}</td>"
-                td_html += f"<tr>{tr}</tr>"
-            st.markdown(
-                f"<div class='gov-table-wrap'><table class='gov-table'>"
-                f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
-                f"</table></div>", unsafe_allow_html=True)
-
-            st.markdown(f"<div class='section-title'>{_html.escape(t('remove_user'))}</div>",
-                        unsafe_allow_html=True)
-            de = st.selectbox("Select to revoke", ["-"]+staff["email"].tolist(), key="del_sel")
-            if de != "-":
-                if st.button(f"Revoke access — {_html.escape(de)}", key="del_btn"):
-                    spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
-                    cell = _gsheets_call(uws.find, de)
-                    if cell:
-                        _gsheets_call(uws.delete_rows, cell.row)
-                        _fetch_users_cached.clear()
-                        st.success(f"{de} revoked.")
-                        time.sleep(0.7); st.rerun()
-        else:
-            st.info("No auditor accounts registered yet.")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  19 · MAIN CONTROLLER  (unchanged — ws reset, RBAC, all routing intact)
-# ─────────────────────────────────────────────────────────────────────────────
-def main():
-    try:
-        def _on_ws_change():
-            for k in ("f_email","f_binder","f_company","f_license"):
-                st.session_state[k] = ""
-            st.session_state["f_status"] = "all"
-            for k in ("arch_binder","arch_license","arch_company","arch_auditor"):
-                st.session_state[k] = ""
-            for pref in ("anal","logs"):
-                for sfx in ("_binder","_company","_agent"):
-                    st.session_state[f"{pref}{sfx}"] = ""
-            for pk in ("page_worklist","page_archive","page_logs"):
-                st.session_state[pk] = 1
-            for k in ("local_cache_key","local_df","local_headers",
-                      "local_col_map","active_ws_key"):
-                st.session_state[k] = None
-
-        sid, all_titles = _fetch_sheet_metadata()
-
-        if USERS_SHEET not in all_titles:
-            spr = get_spreadsheet()
-            uw  = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
-            _gsheets_call(uw.append_row, ["email","password","role","created_at"])
-            _fetch_sheet_metadata.clear()
-            all_titles.append(USERS_SHEET)
-
-        if not st.session_state.logged_in:
-            render_login(sid); return
-
-        st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
-                    unsafe_allow_html=True)
-
-        role          = st.session_state.user_role
-        is_admin      = (role == "admin")
-        is_manager    = (role == "manager")
-        can_analytics = is_admin or is_manager
-
-        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  ·  %H:%M")
-        st.markdown(f"""
-        <div class="page-header">
-          <div>
-            <div class="page-title">{_html.escape(t('portal_title'))}</div>
-            <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
-          </div>
-          <div class="page-timestamp">{ts_str}</div>
-        </div>""", unsafe_allow_html=True)
-
-        atm       = {title.strip().lower(): title for title in all_titles}
-        available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS
-                     if s.strip().lower() in atm]
-
-        df = pd.DataFrame(); headers=[]; col_map={}; ws_title=None; fetched_at="-"
-
-        if not available:
-            st.warning("None of the configured worksheets found. Expected: " +
-                       ", ".join(VISIBLE_SHEETS))
-        else:
-            ws_title = st.selectbox(t("workspace"), available,
-                                    key="ws_sel", on_change=_on_ws_change)
-            try:
-                df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
-            except gspread.exceptions.WorksheetNotFound:
-                st.error(f"Worksheet '{ws_title}' not found.")
-            except gspread.exceptions.APIError as e:
-                st.error(f"{t('retry_warning')}\n\n{e}")
-
-        col_binder      = detect_column(headers, "binder")
-        col_company     = detect_column(headers, "company")
-        col_license     = detect_column(headers, "license")
-        col_agent_email = detect_column(headers, "agent_email")
-
-        f_email, f_binder, f_company, f_license, f_status = render_sidebar(
-            headers, col_binder, col_company, col_license, is_admin, fetched_at)
-
-        if not df.empty:
-            st.markdown(f"<div class='section-title'>{_html.escape(t('overview'))}</div>",
-                        unsafe_allow_html=True)
-            total_n   = len(df)
-            done_n    = int((df[COL_STATUS]==VAL_DONE).sum())
-            pending_n = total_n - done_n
-            pct       = done_n / total_n if total_n else 0
-            m1,m2,m3  = st.columns(3)
-            m1.metric(t("total"),       total_n)
-            m2.metric(t("processed"),   done_n,    delta=f"{int(pct*100)}%")
-            m3.metric(t("outstanding"), pending_n,
-                      delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
-            st.markdown(f"""
-            <div class="prog-labels">
-              <span>{_html.escape(t('processed'))}</span>
-              <span>{int(pct*100)}%</span>
-            </div>
-            <div class="prog-wrap">
-              <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
-            </div>""", unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(
-                df, f_email, f_binder, f_company, f_license, f_status,
-                col_binder, col_company, col_license)
-            render_filter_bar(total_n, len(filtered_df),
-                              f_email, f_binder, f_company, f_license, f_status)
-        else:
-            filtered_df = pd.DataFrame()
-
-        # ── Tab construction (RBAC) ───────────────────────────────────────────
-        if is_admin:
-            tabs = st.tabs([t("tab_worklist"),t("tab_archive"),
-                            t("tab_analytics"),t("tab_logs"),t("tab_users")])
-            t_work,t_arch,t_anal,t_logs,t_uadm = tabs
-        elif is_manager:
-            tabs = st.tabs([t("tab_worklist"),t("tab_archive"),
-                            t("tab_analytics"),t("tab_logs")])
-            t_work,t_arch,t_anal,t_logs = tabs
-            t_uadm = None
-        else:
-            st.markdown(f"<div class='rbac-banner'>{_html.escape(t('rbac_notice'))}</div>",
-                        unsafe_allow_html=True)
-            tabs = st.tabs([t("tab_worklist"),t("tab_archive")])
-            t_work,t_arch = tabs
-            t_anal=t_logs=t_uadm=None
-
-        with t_work:
-            if not df.empty and ws_title:
-                pv  = filtered_df[filtered_df[COL_STATUS]!=VAL_DONE].copy()
-                pd_ = pv.copy(); pd_.index = pd_.index + 2
-                render_worklist(pd_, df, headers, col_map, ws_title,
-                                f_email, f_binder, f_company, f_license, f_status)
-
-        with t_arch:
-            if not df.empty and ws_title:
-                dv = filtered_df[filtered_df[COL_STATUS]==VAL_DONE].copy()
-                dv.index = dv.index + 2
-                render_archive(dv, df, col_map, ws_title, is_admin,
-                               f_email, f_binder, f_company, f_license, f_status,
-                               col_binder=col_binder, col_company=col_company,
-                               col_license=col_license)
-
-        if can_analytics and t_anal is not None:
-            with t_anal:
-                if not df.empty:
-                    render_analytics(df, col_agent_email=col_agent_email,
-                                     col_binder=col_binder, col_company=col_company)
-
-        if can_analytics and t_logs is not None:
-            with t_logs:
-                if df.empty: st.warning(t("empty_sheet"))
-                else:        render_auditor_logs(df, col_company, col_binder, col_agent_email)
-
-        if is_admin and t_uadm is not None:
-            with t_uadm:
-                render_user_admin(sid)
-
-    except Exception as exc:
-        st.error(f"System Error: {exc}")
-        with st.expander("Technical Details", expanded=False):
-            st.exception(exc)
-
-
-if __name__ == "__main__":
-    main()
+                if st.form_submit_button("Update Password
