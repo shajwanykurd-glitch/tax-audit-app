@@ -990,18 +990,48 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
         
-        if st.session_state.get("user_role") in ("admin", "manager"):
+if st.session_state.get("user_role") in ("admin", "manager"):
+            # دیاریکردنی ماوەی چاوەڕوانی (١٠ خولەک = ٦٠٠ چرکە)
+            COOLDOWN = 600 
+            
+            # دروستکردنی گۆڕراوێک بۆ هەڵگرتنی کاتی دوایین ڕێفرێش ئەگەر نەبوو
+            if "last_refresh_time" not in st.session_state:
+                st.session_state.last_refresh_time = 0
+
+            current_time = time.time()
+            time_passed = current_time - st.session_state.last_refresh_time
+            time_left = int((COOLDOWN - time_passed) / 60)
+
+            # ئەگەر ئەدمین بێت بێ سنوورە، ئەگەر مەنەجەر بێت دەبێت ١٠ خولەک چاوەڕێ بکات
+            can_refresh = True
+            if st.session_state.user_role == "manager" and time_passed < COOLDOWN:
+                can_refresh = False
+
             def _do_refresh():
                 _fetch_raw_sheet_cached.clear()
                 _fetch_users_cached.clear()
                 _fetch_sheet_metadata.clear()
                 st.session_state.local_cache_key = None
-            st.button(
-                "🔄 Refresh Data",
-                key="sb_refresh",
-                use_container_width=True,
-                on_click=_do_refresh,
-            )
+                # تۆمارکردنی کاتی ڕێفرێشکردنەکە
+                st.session_state.last_refresh_time = time.time()
+                st.toast("داتاکان بۆ هەمووان نوێکرانەوە", icon="🔄")
+
+            if can_refresh:
+                st.button(
+                    "🔄 Refresh Data",
+                    key="sb_refresh",
+                    use_container_width=True,
+                    on_click=_do_refresh,
+                )
+            else:
+                # ئەگەر مەنەجەرەکە کاتی مابوو، دوگمەکە دادەخرێت و کاتەکەی بۆ دەنووسرێت
+                st.button(
+                    f"⏳ Wait {max(1, time_left)} min",
+                    key="sb_refresh_disabled",
+                    disabled=True,
+                    use_container_width=True,
+                    help="مەنەجەر تەنها هەر ١٠ خولەک جارێک دەتوانێت داتاکان بەزۆر نوێ بکاتەوە."
+                )
 
         st.markdown(f"""
         <div class="cache-strip">
