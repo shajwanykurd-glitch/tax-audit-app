@@ -963,7 +963,8 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:   # [B] added coo
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR  — [C] accepts cookie_manager; deletes cookie on sign-out
+#  13 . SIDEBAR  — [C] accepts cookie_manager; deletes cookie on sign-out;
+#                    + allows active user to change their own password
 # -----------------------------------------------------------------------------
 def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                    cookie_manager):   # [C] added cookie_manager parameter
@@ -1050,6 +1051,36 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
           <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
+
+        # ====================================================================
+        # === بەشی نوێ: گۆڕینی پاسۆرد لەلایەن خودی کارمەندەکەوە ===
+        # ====================================================================
+        with st.expander("⚙️ Change My Password", expanded=False):
+            with st.form("change_my_pw_form_sidebar"):
+                new_pw = st.text_input("New Password", type="password", placeholder="پاسۆردی نوێ بنووسە")
+                if st.form_submit_button("Update Password", use_container_width=True):
+                    if new_pw.strip():
+                        try:
+                            spr = get_spreadsheet()
+                            uws = spr.worksheet(USERS_SHEET)
+                            # دەگەڕێت بەدوای ئەو ئیمەیڵەی کە ئێستا لە ژوورەوەیە
+                            cell = _gsheets_call(uws.find, st.session_state.user_email)
+                            if cell:
+                                # ئەگەر دۆزییەوە، پاسۆردەکەی بۆ هاش دەکات و دەیگۆڕێت
+                                _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
+                                _fetch_users_cached.clear()
+                                st.success("پاسۆردەکەت بە سەرکەوتوویی گۆڕدرا! 🔒")
+                                time.sleep(1.5)
+                                st.rerun()
+                            else:
+                                st.error("ئەکاونتەکەت نەدۆزرایەوە لەناو داتابەیسەکەدا.")
+                        except Exception as e:
+                            st.error(f"هەڵەیەک ڕوویدا لە کاتی گۆڕینی پاسۆرد: {e}")
+                    else:
+                        st.warning("تکایە پاسۆردی نوێ بنووسە.")
+        # ====================================================================
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         # [C] Sign-out: delete the persistent cookie, then clear session
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
