@@ -5,4 +5,4 @@ pandas
 plotly
 pytz
 tenacity
-pip install extra-streamlit-components
+extra-streamlit-components
