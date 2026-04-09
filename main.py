@@ -1,8 +1,18 @@
-# =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.6 (Concurrency & Quota Safe)
-#  Architecture: Optimistic UI / Local-First Mutation
-#  Features: Pagination, Admin Refresh, Crash Protections, Quota Optimization, Safe Pre-Write
-# =============================================================================
+Claude, here is my complete Streamlit application code. I want to apply a robust custom 'GitHub Dark Primer & Glassmorphism' theme.
+
+However, I have experienced issues with Streamlit's floating, BaseWeb, and notification elements remaining glaringly white, misaligned, or having invisible text in dark mode.
+
+Please return the FULL, unbroken code with the following strict requirements:
+
+1. **Zero Logic Changes**: Do NOT alter any backend logic, Google Sheets API calls, data fetching, optimistic UI mutations, or concurrency protection. Just update the UI/CSS.
+2. **Ultimate Global CSS Fix**: Create an `inject_custom_theme(is_dark: bool)` function that completely overrides these specific elements with deep dark backgrounds (`#161B22`), appropriate borders (`#30363D`), and high-contrast text (`#E6EDF3`) when `is_dark` is True:
+   - **Dropdowns/Selects**: `div[data-baseweb="select"]`, `div[data-baseweb="popover"]`, `li[role="option"]`.
+   - **Form Buttons**: `[data-testid="stFormSubmitButton"]`.
+   - **Toasts & Alerts**: `[data-testid="stToast"]`, `[data-testid="stAlert"]`, and `[data-testid="stNotification"]`. Make sure the toast notifications that slide in/out match the dark theme perfectly without white text on white backgrounds.
+3. **Easily Removable/Toggleable**: Add a UI toggle in the sidebar (e.g., `dark_mode = st.sidebar.toggle("Dark Mode", value=True)`) so I can easily turn this custom CSS injection on or off. If toggled off, the app should revert to the default Light theme by not injecting the dark CSS.
+4. **Completeness**: Do not truncate the code. Provide the entire working script.
+
+Here is the code:
 
 import html as _html
 import streamlit as st
@@ -30,15 +40,15 @@ from tenacity import (
 import logging
 import gspread.exceptions
 
-# -----------------------------------------------------------------------------
-#  0 . LOGGING
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  0 · LOGGING
+# ─────────────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.WARNING)
 _log = logging.getLogger("audit_portal")
 
-# -----------------------------------------------------------------------------
-#  1 . PAGE CONFIG
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  1 · PAGE CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Tax Audit & Compliance Portal",
     layout="wide",
@@ -47,9 +57,9 @@ st.set_page_config(
 
 TZ = pytz.timezone("Asia/Baghdad")
 
-# -----------------------------------------------------------------------------
-#  2 . SESSION STATE DEFAULTS
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  2 · SESSION STATE DEFAULTS
+# ─────────────────────────────────────────────────────────────────────────────
 _DEFAULTS: dict = dict(
     logged_in        = False,
     user_email       = "",
@@ -66,9 +76,9 @@ for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-# -----------------------------------------------------------------------------
-#  3 . CONSTANTS
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  3 · CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
 SYSTEM_SHEETS  = {"UsersDB"}
 USERS_SHEET    = "UsersDB"
 VISIBLE_SHEETS = ["Registration", "Salary Tax", "Annual Filing"]
@@ -95,11 +105,11 @@ VALID_ROLES = ["auditor", "manager", "admin"]
 
 READ_TTL    = 600
 BACKOFF_MAX = 5
-_ROW_SEP    = " \u007c "   # " | "
+_ROW_SEP    = " \u007c "
 
-# -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  4 · EXPONENTIAL BACKOFF  (unchanged)
+# ─────────────────────────────────────────────────────────────────────────────
 _retry_policy = retry(
     retry        = retry_if_exception_type(
         (gspread.exceptions.APIError, gspread.exceptions.GSpreadException)
@@ -117,282 +127,905 @@ def _gsheets_call(func, *args, **kwargs):
     return _inner()
 
 
-# -----------------------------------------------------------------------------
-#  5 . CSS
-# -----------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic
+#      Design tokens mirror the official GitHub Primer dark colour system.
+#      Glassmorphism applied to cards, sidebar, metric containers, and tables.
+# ─────────────────────────────────────────────────────────────────────────────
 def inject_css() -> None:
     st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+/* ═══════════════════════════════════════════════════════════════════════════
+   FONTS
+═══════════════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS  —  GitHub Dark Primer
+═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --bg:            #F7F8FC;
-  --surface:       #FFFFFF;
-  --surface-2:     #F0F2F9;
-  --border:        #E4E7F0;
-  --border-2:      #D0D5E8;
-  --text-primary:    #0D1117;
-  --text-secondary:  #4B5563;
-  --text-muted:      #9CA3AF;
-  --indigo-50:  #EEF2FF;
-  --indigo-100: #E0E7FF;
-  --indigo-400: #818CF8;
-  --indigo-500: #6366F1;
-  --indigo-600: #4F46E5;
-  --indigo-700: #4338CA;
-  --blue-400:   #60A5FA;
-  --blue-500:   #3B82F6;
-  --green-50:   #F0FDF4;
-  --green-200:  #A7F3D0;
-  --green-600:  #16A34A;
-  --green-700:  #15803D;
-  --amber-50:   #FFFBEB;
-  --amber-200:  #FDE68A;
-  --amber-700:  #B45309;
-  --red-50:     #FFF1F2;
-  --red-200:    #FECDD3;
-  --red-600:    #DC2626;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
-  --radius-xl:   24px;
-  --radius-full: 9999px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
-  --ring: 0 0 0 3px rgba(99,102,241,0.18);
-  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  /* ── Backgrounds ── */
+  --bg-canvas:      #0D1117;   /* page canvas — deepest layer              */
+  --bg-default:     #161B22;   /* primary surface (cards, sidebar)         */
+  --bg-subtle:      #1C2128;   /* raised surface (inputs, table rows)      */
+  --bg-muted:       #21262D;   /* hover / alt rows                         */
+  --bg-overlay:     #30363D;   /* tooltips / popovers                      */
+
+  /* ── Borders ── */
+  --border-default: rgba(240,246,252,0.10);
+  --border-muted:   rgba(240,246,252,0.06);
+  --border-strong:  rgba(240,246,252,0.18);
+
+  /* ── Text ── */
+  --text-primary:   #E6EDF3;   /* headings, labels — maximum contrast      */
+  --text-secondary: #8B949E;   /* supporting copy                          */
+  --text-muted:     #484F58;   /* placeholders, disabled                   */
+  --text-link:      #58A6FF;   /* links                                    */
+
+  /* ── Accent: Electric Indigo ── */
+  --accent:         #7C3AED;   /* main CTA background                      */
+  --accent-hover:   #6D28D9;
+  --accent-subtle:  rgba(124,58,237,0.18);
+  --accent-border:  rgba(124,58,237,0.40);
+  --accent-glow:    rgba(124,58,237,0.28);
+
+  /* ── Electric Blue (secondary) ── */
+  --blue:           #388BFD;
+  --blue-subtle:    rgba(56,139,253,0.15);
+  --blue-border:    rgba(56,139,253,0.40);
+
+  /* ── Semantic ── */
+  --green:          #3FB950;
+  --green-subtle:   rgba(63,185,80,0.14);
+  --green-border:   rgba(63,185,80,0.35);
+  --amber:          #D29922;
+  --amber-subtle:   rgba(210,153,34,0.14);
+  --amber-border:   rgba(210,153,34,0.35);
+  --red:            #F85149;
+  --red-subtle:     rgba(248,81,73,0.14);
+  --red-border:     rgba(248,81,73,0.35);
+  --orange:         #F0883E;
+  --orange-subtle:  rgba(240,136,62,0.14);
+  --orange-border:  rgba(240,136,62,0.35);
+
+  /* ── Glass effect ── */
+  --glass-bg:       rgba(22,27,34,0.82);
+  --glass-border:   rgba(240,246,252,0.10);
+  --glass-blur:     blur(16px) saturate(1.4);
+
+  /* ── Spacing / Radius ── */
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.35);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.45);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.55);
+  --shadow-glow:0 0 20px var(--accent-glow);
+
+  --ring: 0 0 0 3px var(--accent-subtle);
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
-*, *::before, *::after { box-sizing: border-box !important; font-family: var(--font) !important; }
-html, body, .stApp, [data-testid="stAppViewContainer"],
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL RESET
+═══════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box !important;
+  font-family: var(--font) !important;
+}
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {
-  background-color: var(--bg) !important; color: var(--text-primary) !important;
+  background-color: var(--bg-canvas) !important;
+  color: var(--text-primary) !important;
 }
 p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] { color: var(--text-primary) !important; }
+.stMarkdown, [data-testid="stMarkdownContainer"] {
+  color: var(--text-primary) !important;
+}
+
+/* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header, .stDeployButton,
-[data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
+[data-testid="stToolbar"],
+[data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR  —  glass panel
+═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
-  background-color: var(--surface) !important;
-  border-right: 1px solid var(--border) !important;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.04) !important;
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-right: 1px solid var(--border-default) !important;
+  box-shadow: 4px 0 32px rgba(0,0,0,0.40) !important;
 }
 [data-testid="stSidebar"] * { color: var(--text-primary) !important; }
-.stTextInput > div > div > input, .stTextArea > div > div > textarea {
-  background: var(--surface) !important; color: var(--text-primary) !important;
-  border: 1.5px solid var(--border-2) !important; border-radius: var(--radius-md) !important;
-  font-size: 0.875rem !important; font-weight: 500 !important; padding: 11px 14px !important;
-  box-shadow: var(--shadow-sm) !important;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUTS & TEXTAREAS
+═══════════════════════════════════════════════════════════════════════════ */
+.stTextInput > div > div > input,
+.stTextArea  > div > div > textarea {
+  background:    var(--bg-subtle) !important;
+  color:         var(--text-primary) !important;
+  border:        1px solid var(--border-default) !important;
+  border-radius: var(--r-md) !important;
+  font-size:     0.875rem !important;
+  font-weight:   400 !important;
+  padding:       10px 14px !important;
+  caret-color:   var(--accent) !important;
   transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
-.stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
-  border-color: var(--indigo-500) !important; box-shadow: var(--ring) !important; outline: none !important;
+.stTextInput > div > div > input:focus,
+.stTextArea  > div > div > textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow:   var(--ring) !important;
+  outline:      none !important;
 }
-.stTextInput > div > div > input::placeholder, .stTextArea > div > div > textarea::placeholder {
-  color: var(--text-muted) !important; font-weight: 400 !important;
+.stTextInput > div > div > input::placeholder,
+.stTextArea  > div > div > textarea::placeholder {
+  color: var(--text-muted) !important;
 }
-.stTextInput > label, .stTextArea > label, .stSelectbox > label, .stMultiSelect > label {
-  color: var(--text-secondary) !important; font-size: 0.72rem !important;
-  font-weight: 700 !important; letter-spacing: 0.07em !important; text-transform: uppercase !important;
+.stTextInput > div > div > input:disabled {
+  opacity: 0.40 !important;
+  cursor: not-allowed !important;
 }
-.stSelectbox > div > div, [data-baseweb="select"] > div {
-  background: var(--surface) !important; color: var(--text-primary) !important;
-  border-color: var(--border-2) !important; border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-sm) !important; font-weight: 500 !important;
+.stTextInput > label, .stTextArea > label,
+.stSelectbox > label, .stMultiSelect > label {
+  color:          var(--text-secondary) !important;
+  font-size:      0.68rem !important;
+  font-weight:    700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
 }
-[data-baseweb="menu"] li, [data-baseweb="menu"] [role="option"] {
-  background: var(--surface) !important; color: var(--text-primary) !important; font-size: 0.875rem !important;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECTBOX
+═══════════════════════════════════════════════════════════════════════════ */
+.stSelectbox > div > div,
+[data-baseweb="select"] > div {
+  background:    var(--bg-subtle) !important;
+  color:         var(--text-primary) !important;
+  border:        1px solid var(--border-default) !important;
+  border-radius: var(--r-md) !important;
+  font-weight:   400 !important;
 }
-[data-baseweb="menu"] li:hover, [data-baseweb="menu"] [aria-selected="true"] {
-  background: var(--indigo-50) !important; color: var(--indigo-600) !important;
+[data-baseweb="menu"],
+[data-baseweb="popover"] > div {
+  background:    var(--bg-default) !important;
+  border:        1px solid var(--border-strong) !important;
+  border-radius: var(--r-md) !important;
+  box-shadow:    var(--shadow-lg) !important;
 }
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"] {
+  background: transparent !important;
+  color:      var(--text-primary) !important;
+  font-size:  0.875rem !important;
+}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [aria-selected="true"] {
+  background: var(--accent-subtle) !important;
+  color:      var(--text-primary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   METRIC CARDS  —  glassmorphism lift
+═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stMetricContainer"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-top: 3px solid var(--indigo-500) !important; border-radius: var(--radius-lg) !important;
-  padding: 22px 26px !important; box-shadow: var(--shadow-md) !important;
-  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease !important;
+  background:     var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border:         1px solid var(--border-default) !important;
+  border-top:     2px solid var(--accent) !important;
+  border-radius:  var(--r-lg) !important;
+  padding:        22px 24px !important;
+  box-shadow:     var(--shadow-md) !important;
+  transition:     transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.22s ease !important;
 }
 [data-testid="stMetricContainer"]:hover {
-  transform: translateY(-4px) !important;
-  box-shadow: 0 16px 40px rgba(99,102,241,0.14), 0 4px 12px rgba(0,0,0,0.06) !important;
+  transform:   translateY(-4px) !important;
+  box-shadow:  var(--shadow-lg), 0 0 24px var(--accent-glow) !important;
+  border-color: var(--accent-border) !important;
 }
 [data-testid="stMetricValue"] {
-  font-size: 2.1rem !important; font-weight: 800 !important;
-  color: var(--indigo-600) !important; letter-spacing: -0.03em !important; line-height: 1.1 !important;
+  font-family:    var(--mono) !important;
+  font-size:      2.1rem !important;
+  font-weight:    700 !important;
+  color:          var(--blue) !important;
+  letter-spacing: -0.02em !important;
+  line-height:    1.1 !important;
 }
 [data-testid="stMetricLabel"] {
-  font-size: 0.68rem !important; font-weight: 700 !important;
-  letter-spacing: 0.10em !important; text-transform: uppercase !important; color: var(--text-muted) !important;
+  font-size:      0.65rem !important;
+  font-weight:    700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color:          var(--text-secondary) !important;
 }
-[data-testid="stMetricDelta"] { font-size: 0.78rem !important; font-weight: 600 !important; }
+[data-testid="stMetricDelta"] {
+  font-size:   0.78rem !important;
+  font-weight: 600 !important;
+  font-family: var(--mono) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════════════════════ */
 .stButton > button {
-  background: linear-gradient(135deg, var(--indigo-600) 0%, var(--blue-500) 100%) !important;
-  color: #FFFFFF !important; border: none !important; border-radius: var(--radius-md) !important;
-  font-weight: 700 !important; font-size: 0.84rem !important; padding: 10px 20px !important;
-  letter-spacing: 0.01em !important; box-shadow: 0 2px 8px rgba(99,102,241,0.35) !important;
-  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
+  background:    linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%) !important;
+  color:         #FFFFFF !important;
+  border:        1px solid var(--accent-border) !important;
+  border-radius: var(--r-md) !important;
+  font-weight:   600 !important;
+  font-size:     0.84rem !important;
+  padding:       9px 18px !important;
+  letter-spacing: 0.01em !important;
+  box-shadow:    0 2px 10px var(--accent-glow) !important;
+  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
 }
 .stButton > button:hover {
-  background: linear-gradient(135deg, var(--indigo-700) 0%, var(--indigo-600) 100%) !important;
-  transform: translateY(-2px) scale(1.01) !important;
-  box-shadow: 0 8px 24px rgba(99,102,241,0.45) !important;
+  background:  linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%) !important;
+  transform:   translateY(-2px) scale(1.01) !important;
+  box-shadow:  0 8px 28px var(--accent-glow) !important;
 }
-.stButton > button:active { transform: translateY(0) scale(0.99) !important; box-shadow: 0 2px 8px rgba(99,102,241,0.25) !important; }
+.stButton > button:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 8px var(--accent-glow) !important;
+}
+.stButton > button:disabled {
+  background: var(--bg-overlay) !important;
+  color:      var(--text-muted) !important;
+  border-color: var(--border-muted) !important;
+  box-shadow: none !important;
+  transform:  none !important;
+  cursor:     not-allowed !important;
+}
+
+/* Download button — teal accent */
 [data-testid="stDownloadButton"] > button {
-  background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%) !important;
-  color: #FFFFFF !important; border: none !important; border-radius: var(--radius-md) !important;
-  font-weight: 700 !important; font-size: 0.84rem !important; padding: 10px 20px !important;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.35) !important;
+  background: linear-gradient(135deg, #1B6CA8 0%, #0D9488 100%) !important;
+  color:      #FFFFFF !important;
+  border:     1px solid rgba(13,148,136,0.50) !important;
+  box-shadow: 0 2px 10px rgba(13,148,136,0.30) !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 600 !important;
+  font-size:  0.84rem !important;
+  padding:    9px 18px !important;
   transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
 }
 [data-testid="stDownloadButton"] > button:hover {
-  background: linear-gradient(135deg, #0F766E 0%, #0E7490 100%) !important;
-  transform: translateY(-2px) scale(1.01) !important;
-  box-shadow: 0 8px 24px rgba(13,148,136,0.45) !important;
+  transform:  translateY(-2px) scale(1.01) !important;
+  box-shadow: 0 8px 24px rgba(13,148,136,0.40) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORMS
+═══════════════════════════════════════════════════════════════════════════ */
 div[data-testid="stForm"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important; padding: 28px 32px !important;
-  box-shadow: var(--shadow-md) !important;
+  background:     var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border:         1px solid var(--border-default) !important;
+  border-radius:  var(--r-lg) !important;
+  padding:        26px 30px !important;
+  box-shadow:     var(--shadow-md) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS  —  pill-style, inline
+═══════════════════════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
-  gap: 2px !important; background: var(--surface-2) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius-full) !important;
-  padding: 4px !important; width: fit-content !important; box-shadow: var(--shadow-sm) !important;
+  gap:           2px !important;
+  background:    var(--bg-subtle) !important;
+  border:        1px solid var(--border-default) !important;
+  border-radius: var(--r-full) !important;
+  padding:       4px !important;
+  width:         fit-content !important;
+  box-shadow:    var(--shadow-sm) !important;
 }
 .stTabs [data-baseweb="tab"] {
-  background: transparent !important; color: var(--text-muted) !important;
-  border-radius: var(--radius-full) !important; border: none !important;
-  padding: 8px 22px !important; font-weight: 600 !important; font-size: 0.82rem !important;
-  transition: all 0.18s ease !important;
+  background:    transparent !important;
+  color:         var(--text-secondary) !important;
+  border-radius: var(--r-full) !important;
+  border:        none !important;
+  padding:       8px 20px !important;
+  font-weight:   600 !important;
+  font-size:     0.82rem !important;
+  transition:    all 0.18s ease !important;
 }
-.stTabs [data-baseweb="tab"]:hover { color: var(--text-primary) !important; background: rgba(0,0,0,0.04) !important; }
+.stTabs [data-baseweb="tab"]:hover {
+  color:      var(--text-primary) !important;
+  background: var(--bg-muted) !important;
+}
 .stTabs [aria-selected="true"] {
-  background: var(--surface) !important; color: var(--indigo-600) !important;
-  border: none !important; box-shadow: var(--shadow-sm) !important;
+  background:  var(--accent-subtle) !important;
+  color:       var(--text-primary) !important;
+  border:      1px solid var(--accent-border) !important;
+  box-shadow:  inset 0 0 0 1px var(--accent-border) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPANDER
+═══════════════════════════════════════════════════════════════════════════ */
 .streamlit-expanderHeader {
-  background: var(--surface-2) !important; color: var(--text-primary) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius-md) !important;
-  font-weight: 600 !important; font-size: 0.85rem !important;
+  background:    var(--bg-subtle) !important;
+  color:         var(--text-primary) !important;
+  border:        1px solid var(--border-default) !important;
+  border-radius: var(--r-md) !important;
+  font-weight:   600 !important;
+  font-size:     0.85rem !important;
 }
 .streamlit-expanderContent {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-top: none !important; border-radius: 0 0 var(--radius-md) var(--radius-md) !important; padding: 18px !important;
+  background:    var(--bg-default) !important;
+  border:        1px solid var(--border-default) !important;
+  border-top:    none !important;
+  border-radius: 0 0 var(--r-md) var(--r-md) !important;
+  padding:       16px !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALERTS
+═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stAlert"] {
-  border-radius: var(--radius-md) !important; border: 1px solid var(--border) !important;
-  background: var(--surface) !important; box-shadow: var(--shadow-sm) !important;
+  background:    var(--bg-subtle) !important;
+  border:        1px solid var(--border-default) !important;
+  border-radius: var(--r-md) !important;
+  box-shadow:    var(--shadow-sm) !important;
 }
 [data-testid="stAlert"] * { color: var(--text-primary) !important; }
 
-/* ── ROLE CHIPS ─────────────────────────────────────────────────────────── */
-.chip-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA; }
-.role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
-.role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
-.role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOGIN PAGE  —  animated gradient + glass card
+═══════════════════════════════════════════════════════════════════════════ */
+.login-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
 
-/* ── DEEP SEARCH STRIP ──────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════════════════════════════════════════ */
+.page-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         4px 0 22px;
+  border-bottom:   1px solid var(--border-default);
+  margin-bottom:   26px;
+}
+.page-title {
+  font-size:      1.45rem;
+  font-weight:    800;
+  color:          var(--text-primary) !important;
+  letter-spacing: -0.03em;
+  margin:         0;
+}
+.page-subtitle {
+  font-size:   0.76rem;
+  color:       var(--text-secondary) !important;
+  margin-top:  4px;
+  font-weight: 400;
+}
+.page-timestamp {
+  font-size:      0.72rem;
+  color:          var(--text-secondary) !important;
+  font-weight:    500;
+  background:     var(--bg-subtle);
+  padding:        6px 14px;
+  border-radius:  var(--r-full);
+  border:         1px solid var(--border-default);
+  box-shadow:     var(--shadow-sm);
+  font-family:    var(--mono) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTION TITLE  —  left-border pill
+═══════════════════════════════════════════════════════════════════════════ */
+.section-title {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            8px;
+  font-size:      0.67rem;
+  font-weight:    800;
+  color:          var(--blue) !important;
+  margin:         22px 0 12px;
+  padding:        5px 12px 5px 10px;
+  border-left:    3px solid var(--accent);
+  border-radius:  0 var(--r-sm) var(--r-sm) 0;
+  background:     var(--accent-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKLIST / ARCHIVE HEADER CARD
+═══════════════════════════════════════════════════════════════════════════ */
+.worklist-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  background:      var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border:          1px solid var(--border-default);
+  border-top:      2px solid var(--accent);
+  border-radius:   var(--r-lg);
+  padding:         16px 22px;
+  margin-bottom:   16px;
+  box-shadow:      var(--shadow-md);
+}
+.worklist-title { font-size: 0.98rem; font-weight: 700; color: var(--text-primary) !important; }
+.worklist-sub   { font-size: 0.74rem; color: var(--text-secondary) !important; margin-top: 3px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOG SUMMARY CARD
+═══════════════════════════════════════════════════════════════════════════ */
+.log-summary-card {
+  background:      var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border:          1px solid var(--border-default);
+  border-top:      2px solid var(--accent);
+  border-radius:   var(--r-lg);
+  padding:         20px 24px;
+  box-shadow:      var(--shadow-md);
+  margin-bottom:   16px;
+}
+.log-stat-row       { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
+.log-stat           { display:flex;flex-direction:column;gap:3px; }
+.log-stat-value     { font-size:1.45rem;font-weight:800;color:var(--blue)!important;letter-spacing:-.02em;font-family:var(--mono)!important; }
+.log-stat-label     { font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary)!important; }
+.log-stat-divider   { width:1px;height:38px;background:var(--border-default); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT STRIP
+═══════════════════════════════════════════════════════════════════════════ */
+.export-strip {
+  background:    var(--bg-subtle);
+  border:        1px solid var(--green-border);
+  border-left:   3px solid var(--green);
+  border-radius: var(--r-md);
+  padding:       13px 18px;
+  display:       flex;
+  align-items:   center;
+  justify-content: space-between;
+  flex-wrap:     wrap;
+  gap:           12px;
+  margin-bottom: 18px;
+}
+.export-text { font-size:.80rem;font-weight:600;color:var(--text-primary)!important; }
+.export-sub  { font-size:.68rem;color:var(--text-secondary)!important;margin-top:2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════════════════════════════════════ */
+.prog-wrap {
+  background:    var(--bg-muted);
+  border-radius: var(--r-full);
+  height:        6px;
+  overflow:      hidden;
+  margin:        5px 0 10px;
+}
+.prog-fill {
+  height:        100%;
+  border-radius: var(--r-full);
+  background:    linear-gradient(90deg, var(--accent), var(--blue));
+  transition:    width 0.8s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:    0 0 10px var(--accent-glow);
+}
+.prog-labels {
+  display:         flex;
+  justify-content: space-between;
+  font-size:       0.70rem;
+  color:           var(--text-secondary) !important;
+  font-weight:     600;
+  margin-bottom:   3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATUS / EVAL CHIPS
+═══════════════════════════════════════════════════════════════════════════ */
+.chip {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            5px;
+  padding:        4px 11px;
+  border-radius:  var(--r-full);
+  font-size:      0.67rem;
+  font-weight:    700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.chip-done    { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
+.chip-pending { background:var(--amber-subtle); color:var(--amber)   !important; border:1px solid var(--amber-border);  }
+.chip-admin   { background:var(--accent-subtle);color:var(--blue)    !important; border:1px solid var(--accent-border); }
+.chip-audit   { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
+.chip-manager { background:var(--orange-subtle);color:var(--orange)  !important; border:1px solid var(--orange-border); }
+
+.s-chip        { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
+.s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
+.s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
+.s-eval-good   { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
+.s-eval-bad    { background:var(--red-subtle);  color:var(--red)    !important; border:1px solid var(--red-border);    }
+.s-eval-dup    { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA TABLE  —  dark glass rows
+═══════════════════════════════════════════════════════════════════════════ */
+.gov-table-wrap {
+  overflow-x:    auto;
+  border:        1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  margin-bottom: 16px;
+  box-shadow:    var(--shadow-md);
+  background:    var(--bg-default);
+}
+.gov-table {
+  width:           100%;
+  border-collapse: collapse;
+  background:      var(--bg-default);
+  font-size:       0.84rem;
+}
+.gov-table thead tr {
+  background:    var(--bg-subtle);
+  border-bottom: 1px solid var(--border-strong);
+}
+.gov-table th {
+  color:          var(--text-secondary)  !important;
+  background:     var(--bg-subtle)       !important;
+  font-weight:    700 !important;
+  font-size:      0.62rem !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  padding:        12px 16px !important;
+  white-space:    nowrap;
+  text-align:     left !important;
+  border-right:   1px solid var(--border-muted);
+}
+.gov-table th:last-child  { border-right: none; }
+.gov-table td {
+  color:          var(--text-primary)  !important;
+  background:     var(--bg-default)    !important;
+  padding:        10px 16px !important;
+  font-size:      0.84rem !important;
+  font-weight:    400 !important;
+  border-bottom:  1px solid var(--border-muted) !important;
+  border-right:   1px solid var(--border-muted) !important;
+  vertical-align: middle !important;
+  max-width:      220px;
+  overflow:       hidden;
+  text-overflow:  ellipsis;
+  white-space:    nowrap;
+  transition:     background 0.12s ease !important;
+}
+.gov-table td:last-child                { border-right: none; }
+.gov-table tbody tr:nth-child(even) td  { background: var(--bg-subtle) !important; }
+.gov-table tbody tr:hover td            { background: var(--bg-muted)  !important; }
+.gov-table tbody tr:last-child td       { border-bottom: none !important; }
+.gov-table td.row-idx,
+.gov-table th.row-idx {
+  color:       var(--text-muted)  !important;
+  font-family: var(--mono) !important;
+  font-size:   0.68rem !important;
+  min-width:   48px;
+  text-align:  center !important;
+}
+/* Evaluation + feedback column highlights */
+.gov-table th.col-eval,
+.gov-table th.col-feedback {
+  background:    var(--accent-subtle) !important;
+  color:         var(--blue)          !important;
+  border-bottom: 2px solid var(--accent-border) !important;
+}
+.gov-table td.col-feedback {
+  max-width:   280px;
+  white-space: normal !important;
+  word-break:  break-word;
+  font-size:   0.74rem !important;
+  font-family: var(--mono) !important;
+  color:       var(--text-secondary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCURACY TABLE
+═══════════════════════════════════════════════════════════════════════════ */
+.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
+.acc-table th { background:var(--accent-subtle)!important;color:var(--blue)!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:11px 16px!important;border-bottom:2px solid var(--accent-border)!important;text-align:left!important; }
+.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border-muted)!important;vertical-align:middle!important;font-weight:400!important;color:var(--text-primary)!important;background:var(--bg-default)!important; }
+.acc-table tbody tr:nth-child(even) td { background:var(--bg-subtle)!important; }
+.acc-table tbody tr:hover td { background:var(--bg-muted)!important; }
+.acc-table tbody tr:last-child td { border-bottom:none!important; }
+.acc-rate-high { color:var(--green) !important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-rate-mid  { color:var(--amber) !important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-rate-low  { color:var(--red)   !important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-bar-wrap  { background:var(--bg-muted);border-radius:var(--r-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
+.acc-bar-fill  { height:100%;border-radius:var(--r-full); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEADERBOARD ROWS
+═══════════════════════════════════════════════════════════════════════════ */
+.lb-row {
+  display:       flex;
+  align-items:   center;
+  gap:           12px;
+  padding:       11px 16px;
+  background:    var(--glass-bg);
+  border:        1px solid var(--border-default);
+  border-radius: var(--r-md);
+  margin-bottom: 7px;
+  box-shadow:    var(--shadow-sm);
+  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.lb-row:hover {
+  transform:    translateX(5px);
+  border-color: var(--accent-border);
+  box-shadow:   0 4px 20px var(--accent-glow);
+}
+.lb-medal {
+  font-size:     0.78rem;
+  font-weight:   700;
+  min-width:     30px;
+  text-align:    center;
+  color:         var(--text-secondary);
+  font-family:   var(--mono) !important;
+  background:    var(--bg-muted);
+  border-radius: var(--r-sm);
+  padding:       2px 5px;
+}
+.lb-name  { flex:1; font-size:.84rem; font-weight:500; color:var(--text-primary) !important; }
+.lb-count {
+  font-size:     0.86rem;
+  font-weight:   700;
+  color:         var(--blue) !important;
+  font-family:   var(--mono) !important;
+  background:    var(--blue-subtle);
+  padding:       3px 10px;
+  border-radius: var(--r-full);
+  border:        1px solid var(--blue-border);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUDIT LOG LINES
+═══════════════════════════════════════════════════════════════════════════ */
+.log-line {
+  font-family:  var(--mono) !important;
+  font-size:    0.74rem;
+  color:        var(--text-secondary) !important;
+  padding:      5px 0;
+  border-bottom: 1px dashed var(--border-muted);
+  line-height:  1.5;
+}
+.log-line:last-child { border-bottom: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR COMPONENTS
+═══════════════════════════════════════════════════════════════════════════ */
+.sidebar-header {
+  border-top: 2px solid var(--accent);
+  padding:    18px 16px 14px;
+}
+.sidebar-logo-text {
+  font-size:      0.95rem;
+  font-weight:    800;
+  color:          var(--text-primary) !important;
+  letter-spacing: -0.02em;
+  margin-bottom:  3px;
+}
+.sidebar-ministry {
+  font-size:      0.58rem;
+  color:          var(--text-secondary) !important;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight:    600;
+}
+.sb-label {
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color:          var(--text-secondary) !important;
+  margin-bottom:  4px;
+}
+.sb-email {
+  font-size:  0.84rem;
+  font-weight:700;
+  color:      var(--text-primary) !important;
+  word-break: break-all;
+}
+.sb-user-card {
+  background:     var(--bg-subtle);
+  border:         1px solid var(--accent-border);
+  border-radius:  var(--r-md);
+  padding:        13px 15px;
+  margin-bottom:  10px;
+  box-shadow:     inset 0 0 0 1px var(--accent-subtle);
+}
+.cache-badge {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            5px;
+  background:     var(--green-subtle);
+  color:          var(--green)   !important;
+  border:         1px solid var(--green-border);
+  border-radius:  var(--r-full);
+  font-size:      0.58rem;
+  font-weight:    800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding:        3px 9px;
+}
+.cache-info  {
+  font-size:   0.60rem;
+  color:       var(--text-secondary) !important;
+  margin-top:  5px;
+  font-family: var(--mono) !important;
+}
+.cache-strip {
+  padding:       9px 16px;
+  background:    var(--bg-subtle);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTERS & FILTER BAR
+═══════════════════════════════════════════════════════════════════════════ */
+.adv-filter-header {
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color:          var(--blue) !important;
+  margin-bottom:  10px;
+  padding-bottom: 8px;
+  border-bottom:  1px solid var(--border-default);
+}
+.col-hint { font-size:.58rem;font-weight:400;opacity:.55;color:var(--text-secondary)!important; }
+.filter-result-bar {
+  background:    var(--bg-subtle);
+  border:        1px solid var(--border-default);
+  border-left:   3px solid var(--accent);
+  border-radius: var(--r-md);
+  padding:       11px 16px;
+  margin-bottom: 16px;
+  display:       flex;
+  align-items:   center;
+  gap:           8px;
+  flex-wrap:     wrap;
+  box-shadow:    var(--shadow-sm);
+}
+.filter-badge {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           4px;
+  background:    var(--accent-subtle);
+  color:         var(--text-primary) !important;
+  border:        1px solid var(--accent-border);
+  border-radius: var(--r-full);
+  font-size:     0.63rem;
+  font-weight:   600;
+  padding:       2px 9px;
+}
+.result-count {
+  font-size:   0.74rem;
+  color:       var(--text-secondary) !important;
+  margin-left: auto;
+  font-family: var(--mono) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEEP SEARCH STRIP
+═══════════════════════════════════════════════════════════════════════════ */
 .deep-search-strip {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--indigo-500);
-  border-radius: var(--radius-md);
-  padding: 12px 20px 16px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
+  background:    var(--bg-subtle);
+  border:        1px solid var(--border-default);
+  border-left:   3px solid var(--accent);
+  border-radius: var(--r-md);
+  padding:       12px 18px 16px;
+  margin-bottom: 18px;
+  box-shadow:    var(--shadow-sm);
 }
 .deep-search-title {
-  font-size: .62rem; font-weight: 800; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--indigo-600) !important;
-  margin-bottom: 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color:          var(--blue) !important;
+  margin-bottom:  10px;
 }
 
-/* ── PAGE / SECTION ─────────────────────────────────────────────────────── */
-.page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
-.page-title  { font-size:1.55rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.03em;margin:0; }
-.page-subtitle { font-size:.78rem;color:var(--text-muted)!important;margin-top:4px;font-weight:500; }
-.page-timestamp { font-size:.74rem;color:var(--text-muted)!important;font-weight:600;background:var(--surface);padding:7px 16px;border-radius:var(--radius-full);border:1px solid var(--border);box-shadow:var(--shadow-sm);font-family:var(--mono)!important; }
-.section-title { display:inline-flex;align-items:center;gap:8px;font-size:.70rem;font-weight:800;color:var(--indigo-600)!important;margin:24px 0 14px;padding:6px 14px 6px 10px;border-left:3px solid var(--indigo-500);border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--indigo-50);text-transform:uppercase;letter-spacing:.07em; }
-.worklist-header { display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:18px 24px;margin-bottom:18px;box-shadow:var(--shadow-md); }
-.worklist-title { font-size:1.02rem;font-weight:800;color:var(--text-primary)!important; }
-.worklist-sub   { font-size:.76rem;color:var(--text-muted)!important;margin-top:3px; }
-.log-summary-card { background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:20px 26px;box-shadow:var(--shadow-md);margin-bottom:18px; }
-.log-stat-row { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
-.log-stat { display:flex;flex-direction:column;gap:2px; }
-.log-stat-value { font-size:1.55rem;font-weight:800;color:var(--indigo-600)!important;letter-spacing:-.03em;font-family:var(--mono)!important; }
-.log-stat-label { font-size:.62rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted)!important; }
-.log-stat-divider { width:1px;height:40px;background:var(--border); }
-.export-strip { background:linear-gradient(135deg,#F0FDF4 0%,#EFF6FF 100%);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px; }
-.export-text { font-size:.80rem;font-weight:600;color:var(--text-secondary)!important; }
-.export-sub  { font-size:.68rem;color:var(--text-muted)!important;margin-top:2px; }
-.prog-wrap  { background:var(--border);border-radius:var(--radius-full);height:7px;overflow:hidden;margin:6px 0 12px; }
-.prog-fill  { height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--indigo-600),var(--blue-400));transition:width .8s cubic-bezier(.4,0,.2,1);box-shadow:0 0 12px rgba(99,102,241,0.40); }
-.prog-labels{ display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted)!important;font-weight:600;margin-bottom:4px; }
-.chip { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:var(--radius-full);font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
-.chip-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.chip-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.chip-admin   { background:var(--indigo-50);color:var(--indigo-600)!important;border:1px solid var(--indigo-100); }
-.chip-audit   { background:var(--green-50); color:var(--green-600) !important; border:1px solid var(--green-200); }
-.s-chip { display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
-.s-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.s-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.s-eval-good { background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200); }
-.s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
-.s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
-.gov-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:18px;box-shadow:var(--shadow-md); }
-.gov-table { width:100%;border-collapse:collapse;background:var(--surface);font-size:.84rem; }
-.gov-table thead tr { background:var(--surface-2);border-bottom:1px solid var(--border); }
-.gov-table th { color:var(--text-muted)!important;background:var(--surface-2)!important;font-weight:700!important;font-size:.63rem!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:13px 18px!important;white-space:nowrap;text-align:left!important; }
-.gov-table td { color:var(--text-primary)!important;background:var(--surface)!important;padding:11px 18px!important;font-size:.84rem!important;font-weight:500!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .14s ease!important; }
-.gov-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.gov-table tbody tr:hover td { background:var(--indigo-50)!important;color:var(--text-primary)!important; }
-.gov-table tbody tr:last-child td { border-bottom:none!important; }
-.gov-table td.row-idx,.gov-table th.row-idx { color:var(--text-muted)!important;font-family:var(--mono)!important;font-size:.70rem!important;min-width:50px;text-align:center!important; }
-.gov-table th.col-eval, .gov-table th.col-feedback { background:var(--indigo-50)!important;color:var(--indigo-600)!important;border-bottom:2px solid var(--indigo-400)!important; }
-.gov-table td.col-feedback { max-width:280px;white-space:normal!important;word-break:break-word;font-size:.75rem!important;font-family:var(--mono)!important;color:var(--text-secondary)!important; }
-.lb-row { display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;box-shadow:var(--shadow-sm);transition:all .18s cubic-bezier(.34,1.56,.64,1); }
-.lb-row:hover { transform:translateX(5px);border-color:var(--indigo-400);box-shadow:0 6px 20px rgba(99,102,241,0.12); }
-.lb-medal { font-size:.80rem;font-weight:800;min-width:32px;text-align:center;color:var(--text-muted);font-family:var(--mono)!important;background:var(--surface-2);border-radius:var(--radius-sm);padding:2px 4px; }
-.lb-name  { flex:1;font-size:.85rem;font-weight:600;color:var(--text-primary)!important; }
-.lb-count { font-size:.88rem;font-weight:800;color:var(--indigo-600)!important;font-family:var(--mono)!important;background:var(--indigo-50);padding:3px 10px;border-radius:var(--radius-full);border:1px solid var(--indigo-100); }
-.log-line { font-family:var(--mono)!important;font-size:.74rem;color:var(--text-secondary)!important;padding:6px 0;border-bottom:1px dashed var(--border);line-height:1.5; }
-.log-line:last-child { border-bottom:none; }
-.sidebar-header { border-top:3px solid var(--indigo-500);padding:20px 18px 16px; }
-.sidebar-logo-text { font-size:.98rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.02em;margin-bottom:3px; }
-.sidebar-ministry { font-size:.60rem;color:var(--text-muted)!important;letter-spacing:.12em;text-transform:uppercase;font-weight:600; }
-.sb-label { font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)!important;margin-bottom:5px; }
-.sb-email { font-size:.85rem;font-weight:700;color:var(--text-primary)!important;word-break:break-all; }
-.sb-user-card { background:linear-gradient(135deg,var(--indigo-50) 0%,#F5F0FF 100%);border:1px solid var(--indigo-100);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow-sm); }
-.cache-badge { display:inline-flex;align-items:center;gap:5px;background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200);border-radius:var(--radius-full);font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px; }
-.cache-info  { font-size:.62rem;color:var(--text-muted)!important;margin-top:6px;font-family:var(--mono)!important; }
-.cache-strip { padding:10px 18px;background:var(--surface-2);border-bottom:1px solid var(--border); }
-.adv-filter-header { font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--indigo-600)!important;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border); }
-.col-hint { font-size:.58rem;font-weight:400;opacity:.55;color:var(--text-muted)!important; }
-.filter-result-bar { background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:var(--shadow-sm); }
-.filter-badge { display:inline-flex;align-items:center;gap:4px;background:var(--indigo-50);color:var(--indigo-600)!important;border:1px solid var(--indigo-100);border-radius:var(--radius-full);font-size:.64rem;font-weight:700;padding:3px 10px; }
-.result-count { font-size:.76rem;color:var(--text-muted)!important;margin-left:auto;font-family:var(--mono)!important; }
-.rbac-banner { background:var(--indigo-50);border:1px solid var(--indigo-100);border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);padding:12px 18px;margin-bottom:18px;font-size:.80rem;color:var(--indigo-600)!important;font-weight:600; }
-.divider { border:none;border-top:1px solid var(--border);margin:14px 0; }
-.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
-.acc-table th { background:var(--indigo-50)!important;color:var(--indigo-600)!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:11px 16px!important;border-bottom:2px solid var(--indigo-100)!important;text-align:left!important; }
-.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important;font-weight:500!important;color:var(--text-primary)!important;background:var(--surface)!important; }
-.acc-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.acc-table tbody tr:hover td { background:var(--indigo-50)!important; }
-.acc-table tbody tr:last-child td { border-bottom:none!important; }
-.acc-rate-high { color:var(--green-700)!important;font-weight:800!important;font-family:var(--mono)!important; }
-.acc-rate-mid  { color:var(--amber-700)!important;font-weight:800!important;font-family:var(--mono)!important; }
-.acc-rate-low  { color:var(--red-600)!important;font-weight:800!important;font-family:var(--mono)!important; }
-.acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
-.acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
-</style>""", unsafe_allow_html=True)
+/* ═══════════════════════════════════════════════════════════════════════════
+   RBAC BANNER
+═══════════════════════════════════════════════════════════════════════════ */
+.rbac-banner {
+  background:    var(--blue-subtle);
+  border:        1px solid var(--blue-border);
+  border-left:   3px solid var(--blue);
+  border-radius: var(--r-md);
+  padding:       11px 16px;
+  margin-bottom: 16px;
+  font-size:     0.80rem;
+  color:         var(--text-primary) !important;
+  font-weight:   500;
+}
 
-inject_css()
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROLE BADGES
+═══════════════════════════════════════════════════════════════════════════ */
+.role-badge-admin {
+  background:     var(--accent-subtle);
+  color:          var(--blue) !important;
+  border:         1px solid var(--accent-border);
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
+.role-badge-manager {
+  background:     var(--orange-subtle);
+  color:          var(--orange) !important;
+  border:         1px solid var(--orange-border);
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
+.role-badge-auditor {
+  background:     var(--green-subtle);
+  color:          var(--green) !important;
+  border:         1px solid var(--green-border);
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
 
-# -----------------------------------------------------------------------------
-#  6 . TRANSLATIONS
-# -----------------------------------------------------------------------------
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGINATION CONTROLS
+═══════════════════════════════════════════════════════════════════════════ */
+.page-nav-info {
+  text-align:  center;
+  padding:     8px 0;
+  font-size:   0.73rem;
+  font-weight: 600;
+  color:       var(--text-secondary) !important;
+  font-family: var(--mono) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIVIDER
+═══════════════════════════════════════════════════════════════════════════ */
+.divider {
+  border:     none;
+  border-top: 1px solid var(--border-default);
+  margin:     12px 0;
+}
+</style>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  6 · TRANSLATIONS
+# ─────────────────────────────────────────────────────────────────────────────
 _LANG: dict[str, dict[str, str]] = {
     "en": {
         "ministry":"Ministry of Finance & Customs",
@@ -541,7 +1174,8 @@ _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
                 "ژمارەی بایندەری کۆمپانیا","ژمارەی بایندەری","بایندەری",
                 "binder","file no","file_no"],
-    "company": ["ناوی کۆمپانیا", "اسم الشركة","اسم_الشركة","اسم الشركه","کۆمپانیای", "کۆمپانیا", "كومبانيا","شركة",
+    "company": ["ناوی کۆمپانیا","اسم الشركة","اسم_الشركة","اسم الشركه",
+                "کۆمپانیای","کۆمپانیا","كومبانيا","شركة",
                 "company name","company_name","company"],
     "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
                 "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
@@ -602,34 +1236,32 @@ def _raw_to_dataframe(raw):
 def apply_period_filter(df, col, period):
     if period == "all" or col not in df.columns: return df
     now = datetime.now(TZ)
-    if   period == "today":      cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "this_week":  cutoff = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if   period == "today":      cutoff = now.replace(hour=0,minute=0,second=0,microsecond=0)
+    elif period == "this_week":  cutoff = (now-timedelta(days=now.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
+    elif period == "this_month": cutoff = now.replace(day=1,hour=0,minute=0,second=0,microsecond=0)
     else: return df
     return df[df[col].apply(parse_dt) >= cutoff]
 
 def _n_active(fe, fb, fc_, fl, fs):
-    return sum([bool(fe.strip()), bool(fb.strip()), bool(fc_.strip()), bool(fl.strip()), fs != "all"])
+    return sum([bool(fe.strip()),bool(fb.strip()),bool(fc_.strip()),bool(fl.strip()),fs!="all"])
 
 def apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status,
                           col_binder, col_company, col_license):
     r = df.copy()
     if f_status == "pending": r = r[r[COL_STATUS] != VAL_DONE]
     elif f_status == "done":  r = r[r[COL_STATUS] == VAL_DONE]
-    
     if f_email.strip():
         ecols = [c for c in r.columns if "auditor_email" in c.lower() or c == COL_AUDITOR]
         if ecols:
             mask = pd.Series(False, index=r.index)
-            for ec in ecols: mask |= r[ec].astype(str).str.contains(f_email.strip(), case=False, na=False)
+            for ec in ecols: mask |= r[ec].astype(str).str.contains(f_email.strip(),case=False,na=False)
             r = r[mask]
-            
-    if f_binder.strip()  and col_binder  and col_binder  in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(f_binder.strip(),  case=False, na=False)]
-    if f_company.strip() and col_company and col_company in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(f_company.strip(), case=False, na=False)]
-    if f_license.strip() and col_license and col_license in r.columns: 
-        r = r[r[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)]
+    if f_binder.strip()  and col_binder  and col_binder  in r.columns:
+        r = r[r[col_binder].astype(str).str.contains(f_binder.strip(),case=False,na=False)]
+    if f_company.strip() and col_company and col_company in r.columns:
+        r = r[r[col_company].astype(str).str.contains(f_company.strip(),case=False,na=False)]
+    if f_license.strip() and col_license and col_license in r.columns:
+        r = r[r[col_license].astype(str).str.contains(f_license.strip(),case=False,na=False)]
     return r
 
 def build_auto_diff(record: dict, new_vals: dict) -> str:
@@ -650,14 +1282,14 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    raw = json.loads(st.secrets["json_key"], strict=False)
+    scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
+    raw = json.loads(st.secrets["json_key"],strict=False)
     pk  = raw["private_key"]
     pk  = pk.replace("-----BEGIN PRIVATE KEY-----","").replace("-----END PRIVATE KEY-----","")
     pk  = pk.replace("\\n","").replace("\n","")
-    pk  = "".join(pk.split()); pk = "\n".join(textwrap.wrap(pk, 64))
+    pk  = "".join(pk.split()); pk = "\n".join(textwrap.wrap(pk,64))
     raw["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{pk}\n-----END PRIVATE KEY-----\n"
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(raw, scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(raw,scope)
     return gspread.authorize(creds).open("site CIT QA - Tranche 4")
 
 @st.cache_data(ttl=READ_TTL, show_spinner=False)
@@ -682,10 +1314,10 @@ def get_local_data(spreadsheet_id, ws_title):
     fp = _data_fingerprint(raw); ck = f"{ws_title}::{fp}"
     if st.session_state.get("local_cache_key") != ck:
         df, h, cm = _raw_to_dataframe(raw)
-        st.session_state.local_df        = df.copy()
-        st.session_state.local_headers   = h
-        st.session_state.local_col_map   = cm
-        st.session_state.local_cache_key = ck
+        st.session_state.local_df         = df.copy()
+        st.session_state.local_headers    = h
+        st.session_state.local_col_map    = cm
+        st.session_state.local_cache_key  = ck
         st.session_state.local_fetched_at = fetched_at
     return (st.session_state.local_df, st.session_state.local_headers,
             st.session_state.local_col_map, st.session_state.local_fetched_at or fetched_at)
@@ -695,7 +1327,7 @@ def get_local_data(spreadsheet_id, ws_title):
 #  9 . OPTIMISTIC MUTATIONS
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
-                              eval_val: str = "", feedback_val: str = ""):
+                              eval_val="", feedback_val=""):
     ldf = st.session_state.local_df
     if df_iloc < 0 or df_iloc >= len(ldf): return
     for f, v in new_vals.items():
@@ -723,29 +1355,32 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
         if sc not in col_map:
             np_ = len(headers) + 1
-            if np_ > ws.col_count: _gsheets_call(ws.add_cols, max(4, np_ - ws.col_count + 1))
-            _gsheets_call(ws.update_cell, 1, np_, sc)
+            if np_ > ws.col_count: _gsheets_call(ws.add_cols,max(4,np_-ws.col_count+1))
+            _gsheets_call(ws.update_cell,1,np_,sc)
             headers.append(sc); col_map[sc] = np_
     return headers, col_map
 
-# === چارەسەری کێشەی Concurrency (٢٠ کارمەند) بەبێ شکاندنی Quota ===
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
                             auditor, ts_now, log_prefix,
-                            eval_val: str = "", feedback_val: str = "") -> bool:
+                            eval_val="", feedback_val="") -> bool:
+    """
+    Returns False if the row was already approved by another user (concurrency guard).
+    Returns True on successful write.
+    All writes use batch_update (single API call).
+    """
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
-    
-    # --- پشکنینی هێمنانە پێش نووسین (تەنیا یەک خانە دەخوێنێتەوە) ---
+
+    # ── Optimistic concurrency check: one read of a single cell ──────────────
     if COL_STATUS in col_map:
-        status_a1 = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
+        status_a1   = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
         live_status = _gsheets_call(ws.acell, status_a1).value
         if live_status == VAL_DONE:
-            return False # ئەگەر کەسێکی تر پێشت کەوتبوو، کارەکە دەوەستێنێت
-    # ---------------------------------------------------------------
+            return False   # another auditor already committed this row
 
-    old = str(record.get(COL_LOG, "")).strip()
+    old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
-    batch = []
+    batch   = []
     for f, v in new_vals.items():
         if f in col_map and clean_cell(record.get(f, "")) != v:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[f]), "values": [[v]]})
@@ -759,11 +1394,9 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
     ]:
         if cn in col_map:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[cn]), "values": [[v]]})
-    
-    if batch: 
+    if batch:
         _gsheets_call(ws.batch_update, batch)
-        
-    return True # بە سەرکەوتوویی سەیڤ کرا
+    return True
 
 def write_reopen_to_sheet(ws_title, sheet_row, col_map):
     ws = get_spreadsheet().worksheet(ws_title)
@@ -776,7 +1409,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
         return "admin"
     try:
         records = _fetch_users_cached(spreadsheet_id)
-        df_u = pd.DataFrame(records)
+        df_u    = pd.DataFrame(records)
         if df_u.empty or "email" not in df_u.columns: return None
         row = df_u[df_u["email"] == email]
         if row.empty: return None
@@ -796,12 +1429,10 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
     n = _normalise_eval(raw)
-    if "Good" in n:
-        return f"<span class='s-chip s-eval-good'>{_html.escape(raw)}</span>"
-    if "Bad" in n or "Incorrect" in n:
-        return f"<span class='s-chip s-eval-bad'>{_html.escape(raw)}</span>"
-    if "Duplicate" in n:
-        return f"<span class='s-chip s-eval-dup'>{_html.escape(raw)}</span>"
+    if "Good"      in n: return f"<span class='s-chip s-eval-good'>{_html.escape(raw)}</span>"
+    if "Bad"       in n or "Incorrect" in n:
+                         return f"<span class='s-chip s-eval-bad'>{_html.escape(raw)}</span>"
+    if "Duplicate" in n: return f"<span class='s-chip s-eval-dup'>{_html.escape(raw)}</span>"
     return f"<span class='s-chip s-pending'>{_html.escape(raw)}</span>"
 
 def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
@@ -810,29 +1441,27 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
     th = "<th class='row-idx'>#</th>"
     for col in display_df.columns:
         if col == COL_LOG: continue
-        extra_cls = ""
-        if col == COL_EVAL:       extra_cls = " class='col-eval'"
-        elif col == COL_FEEDBACK: extra_cls = " class='col-feedback'"
-        th += f"<th{extra_cls}>{_html.escape(col)}</th>"
+        extra = ""
+        if col == COL_EVAL:       extra = " class='col-eval'"
+        elif col == COL_FEEDBACK: extra = " class='col-feedback'"
+        th += f"<th{extra}>{_html.escape(col)}</th>"
     rows = ""
     for idx, row in display_df.iterrows():
         r = f"<td class='row-idx'>{idx}</td>"
         for col in display_df.columns:
             if col == COL_LOG: continue
-            raw = str(row[col]) if row[col] != "" else ""
+            raw  = str(row[col]) if row[col] != "" else ""
             safe = _html.escape(raw)
-            d = safe or "-"
+            d    = safe or "-"
             if col == COL_STATUS:
                 d = ("<span class='s-chip s-done'>Processed</span>" if raw == VAL_DONE
                      else "<span class='s-chip s-pending'>Pending</span>")
             elif col == COL_EVAL:
-                d = _eval_chip(raw)
-                r += f"<td class='col-eval'>{d}</td>"
-                continue
+                d  = _eval_chip(raw)
+                r += f"<td class='col-eval'>{d}</td>"; continue
             elif col == COL_FEEDBACK:
                 trunc = (safe[:160] + "...") if len(safe) > 160 else (safe or "-")
-                r += f"<td class='col-feedback'>{trunc}</td>"
-                continue
+                r += f"<td class='col-feedback'>{trunc}</td>"; continue
             elif len(raw) > 55:
                 d = f"<span title='{safe}'>{safe[:52]}...</span>"
             r += f"<td>{d}</td>"
@@ -842,110 +1471,100 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True)
 
-# ── PAGINATED WRAPPER ────────────────────────────────────────────────────────
 _PAGE_SIZE = 15
 
 def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000) -> None:
-    if df.empty:
-        render_html_table(df)
-        return
-
-    if page_key not in st.session_state:
-        st.session_state[page_key] = 1
-
+    if df.empty: render_html_table(df); return
+    if page_key not in st.session_state: st.session_state[page_key] = 1
     total_rows  = min(len(df), max_rows)
     total_pages = max(1, -(-total_rows // _PAGE_SIZE))
-
     st.session_state[page_key] = max(1, min(st.session_state[page_key], total_pages))
-    
-    current = st.session_state[page_key]
-    start   = (current - 1) * _PAGE_SIZE
-    end     = min(start + _PAGE_SIZE, total_rows)
-    
-    page_df = df.iloc[start:end]
-    render_html_table(page_df, max_rows=_PAGE_SIZE)
-
+    cur   = st.session_state[page_key]
+    start = (cur - 1) * _PAGE_SIZE
+    end   = min(start + _PAGE_SIZE, total_rows)
+    render_html_table(df.iloc[start:end], max_rows=_PAGE_SIZE)
     if total_pages > 1:
-        col_prev, col_info, col_next = st.columns([1, 3, 1])
-        with col_prev:
-            if st.button("⬅️ Previous", key=f"{page_key}_prev", disabled=(current <= 1), use_container_width=True):
-                st.session_state[page_key] -= 1
-                st.rerun()
-        with col_info:
+        c_prev, c_info, c_next = st.columns([1, 3, 1])
+        with c_prev:
+            if st.button("← Prev", key=f"{page_key}_prev",
+                         disabled=(cur <= 1), use_container_width=True):
+                st.session_state[page_key] -= 1; st.rerun()
+        with c_info:
             st.markdown(
-                f"<div style='text-align:center;padding:8px 0;font-size:.75rem;font-weight:700;color:var(--text-muted);font-family:var(--mono);'>"
-                f"Page {current} of {total_pages} "
-                f"<span style='font-weight:400;margin-left:8px;'>({start+1}-{end} of {total_rows} rows)</span>"
-                f"</div>", unsafe_allow_html=True)
-        with col_next:
-            if st.button("Next ➡️", key=f"{page_key}_next", disabled=(current >= total_pages), use_container_width=True):
-                st.session_state[page_key] += 1
-                st.rerun()
+                f"<div style='text-align:center;padding:8px 0;font-size:.72rem;"
+                f"font-weight:600;color:var(--text-secondary);font-family:var(--mono);'>"
+                f"Page {cur} / {total_pages}"
+                f"<span style='font-weight:400;margin-left:10px;color:var(--text-muted);'>"
+                f"({start+1}–{end} of {total_rows})</span></div>",
+                unsafe_allow_html=True)
+        with c_next:
+            if st.button("Next →", key=f"{page_key}_next",
+                         disabled=(cur >= total_pages), use_container_width=True):
+                st.session_state[page_key] += 1; st.rerun()
+
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN
+#  12 . LOGIN PAGE
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str) -> None:
     st.markdown("""
-    <style>
-    [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
-    .stApp {
-        background: linear-gradient(-45deg, #0F172A, #1E3A8A, #3B82F6, #1E40AF);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
-    }
-    @keyframes gradientBG {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
-    .block-container {
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        min-height: 100vh; padding: 1rem !important;
-    }
-    [data-testid="stForm"] {
-        background: rgba(255,255,255,0.95) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255,255,255,0.3) !important;
-        border-radius: 24px !important; padding: 40px 30px !important;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5) !important;
-        max-width: 420px !important; width: 100% !important; margin: 0 auto !important;
-    }
-    [data-testid="stFormSubmitButton"] button {
-        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%) !important;
-        color: white !important; border: none !important; border-radius: 12px !important;
-        font-weight: bold !important; font-size: 1rem !important;
-        padding: 0.6rem !important; width: 100% !important; margin-top: 10px !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    }
-    [data-testid="stFormSubmitButton"] button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 10px 20px rgba(59,130,246,0.4) !important;
-        color: white !important;
-    }
-    </style>""", unsafe_allow_html=True)
+<style>
+[data-testid="stSidebar"],
+[data-testid="collapsedControl"],
+header { display: none !important; }
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
+    background: #0D1117 !important;
+}
+.block-container {
+    display: flex !important; flex-direction: column !important;
+    justify-content: center !important; align-items: center !important;
+    min-height: 100vh !important; padding: 1rem !important;
+}
+.stApp::before {
+    content: ''; position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 80% 60% at 20% 20%, rgba(124,58,237,0.14) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 50% at 80% 75%, rgba(56,139,253,0.11) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 55% 45%, rgba(63,185,80,0.06) 0%, transparent 55%);
+    pointer-events: none;
+}
+[data-testid="stForm"] {
+    position: relative; z-index: 1;
+    background: rgba(22,27,34,0.88) !important;
+    backdrop-filter: blur(24px) saturate(1.5) !important;
+    border: 1px solid rgba(240,246,252,0.10) !important;
+    border-top: 2px solid rgba(124,58,237,0.70) !important;
+    border-radius: 18px !important; padding: 40px 36px 32px !important;
+    box-shadow: 0 0 0 1px rgba(124,58,237,0.12), 0 24px 60px rgba(0,0,0,0.70), 0 0 40px rgba(124,58,237,0.12) !important;
+    max-width: 440px !important; width: 100% !important; margin: 0 auto !important;
+}
+[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg, #7C3AED 0%, #388BFD 100%) !important;
+    color: #FFFFFF !important; border: 1px solid rgba(124,58,237,0.60) !important;
+    border-radius: 10px !important; font-weight: 700 !important; font-size: 0.94rem !important;
+    padding: 12px !important; width: 100% !important; margin-top: 8px !important;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.40) !important; transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+[data-testid="stFormSubmitButton"] button:hover {
+    transform: translateY(-2px) scale(1.01) !important; box-shadow: 0 10px 32px rgba(124,58,237,0.55) !important;
+}
+</style>""", unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns([8, 1, 1])
-    with c2:
+    _g, c1, c2 = st.columns([8, .9, .9])
+    with c1:
         if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
-    with c3:
+    with c2:
         if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
 
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
-        <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
-        <div style="text-align:center;font-size:1.5rem;font-weight:800;color:#0F172A;margin-bottom:4px;">
-            {_html.escape(t('portal_title'))}</div>
-        <div style="text-align:center;font-size:.60rem;font-weight:700;color:#DC2626;
-            background:#FEE2E2;padding:4px 10px;border-radius:99px;
-            width:max-content;margin:0 auto 16px;letter-spacing:1px;">
-            {_html.escape(t('classified'))}</div>
-        <div style="text-align:center;font-size:.85rem;color:#475569;margin-bottom:20px;">
-            {_html.escape(t('login_prompt'))}</div>
-        """, unsafe_allow_html=True)
-        st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="width:60px;height:60px;margin:0 auto 16px;border-radius:14px;background:linear-gradient(135deg,#7C3AED,#388BFD);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 28px rgba(124,58,237,0.45);">&#127963;</div>
+          <div style="font-size:1.4rem;font-weight:800;color:#E6EDF3;letter-spacing:-.025em;margin-bottom:5px;">{_html.escape(t('portal_title'))}</div>
+          <div style="display:inline-block;font-size:.58rem;font-weight:800;color:#F85149;background:rgba(248,81,73,0.15);border:1px solid rgba(248,81,73,0.35);padding:4px 12px;border-radius:9999px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px;">{_html.escape(t('classified'))}</div>
+          <div style="font-size:.84rem;color:#8B949E;margin-bottom:22px;font-weight:400;">{_html.escape(t('login_prompt'))}</div>
+        </div>""", unsafe_allow_html=True)
+
+        st.text_input(t("email_field"),    placeholder="user@mof.gov.iq",  key="_login_email")
         st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
         submitted = st.form_submit_button(t("sign_in"))
 
@@ -970,351 +1589,217 @@ def render_login(spreadsheet_id: str) -> None:
 # -----------------------------------------------------------------------------
 def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
     def clear_all_filters():
-        for k in ("f_email", "f_binder", "f_company", "f_license"):
-            st.session_state[k] = ""
+        for k in ("f_email","f_binder","f_company","f_license"): st.session_state[k] = ""
         st.session_state["f_status"] = "all"
-        for pk in ("page_worklist", "page_archive", "page_logs"):
-            st.session_state[pk] = 1
+        for pk in ("page_worklist","page_archive","page_logs"): st.session_state[pk] = 1
 
     role       = st.session_state.user_role
-    role_label = {"admin": t("role_admin"), "manager": t("role_manager"),
-                  "auditor": t("role_auditor")}.get(role, role.title())
-    badge_cls  = {"admin": "role-badge-admin", "manager": "role-badge-manager",
-                  "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
+    role_label = {"admin":"System Administrator","manager":"Manager","auditor":"Tax Auditor"}.get(role, role.title())
+    badge_cls  = {"admin":"role-badge-admin","manager":"role-badge-manager","auditor":"role-badge-auditor"}.get(role,"role-badge-auditor")
 
     with st.sidebar:
-        st.markdown(f"""
-        <div class="sidebar-header">
-          <div class="sidebar-logo-text">{t('portal_title')}</div>
-          <div class="sidebar-ministry">{t('ministry')}</div>
-        </div>
-        <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
-        
+        st.markdown(f"""<div class="sidebar-header"><div class="sidebar-logo-text">{_html.escape(t('portal_title'))}</div><div class="sidebar-ministry">{_html.escape(t('ministry'))}</div></div><hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
+
         if st.session_state.get("user_role") in ("admin", "manager"):
-            # دیاریکردنی ماوەی چاوەڕوانی (١٠ خولەک = ٦٠٠ چرکە)
-            COOLDOWN = 600 
-            
-            # دروستکردنی گۆڕراوێک بۆ هەڵگرتنی کاتی دوایین ڕێفرێش ئەگەر نەبوو
-            if "last_refresh_time" not in st.session_state:
-                st.session_state.last_refresh_time = 0
-
-            current_time = time.time()
-            time_passed = current_time - st.session_state.last_refresh_time
-            time_left = int((COOLDOWN - time_passed) / 60)
-
-            # ئەگەر ئەدمین بێت بێ سنوورە، ئەگەر مەنەجەر بێت دەبێت ١٠ خولەک چاوەڕێ بکات
-            can_refresh = True
-            if st.session_state.user_role == "manager" and time_passed < COOLDOWN:
-                can_refresh = False
+            COOLDOWN = 600
+            if "last_refresh_time" not in st.session_state: st.session_state.last_refresh_time = 0
+            current_time  = time.time()
+            time_passed   = current_time - st.session_state.last_refresh_time
+            time_left_min = int((COOLDOWN - time_passed) / 60)
+            can_refresh   = (st.session_state.user_role == "admin") or (time_passed >= COOLDOWN)
 
             def _do_refresh():
                 _fetch_raw_sheet_cached.clear()
                 _fetch_users_cached.clear()
                 _fetch_sheet_metadata.clear()
                 st.session_state.local_cache_key = None
-                # تۆمارکردنی کاتی ڕێفرێشکردنەکە
                 st.session_state.last_refresh_time = time.time()
-                st.toast("داتاکان بۆ هەمووان نوێکرانەوە", icon="🔄")
+                st.toast("Data refreshed for all users", icon="🔄")
 
             if can_refresh:
-                st.button(
-                    "🔄 Refresh Data",
-                    key="sb_refresh",
-                    use_container_width=True,
-                    on_click=_do_refresh,
-                )
+                st.button("↺  Refresh Data", key="sb_refresh", use_container_width=True, on_click=_do_refresh)
             else:
-                # ئەگەر مەنەجەرەکە کاتی مابوو، دوگمەکە دادەخرێت و کاتەکەی بۆ دەنووسرێت
-                st.button(
-                    f"⏳ Wait {max(1, time_left)} min",
-                    key="sb_refresh_disabled",
-                    disabled=True,
-                    use_container_width=True,
-                    help="مەنەجەر تەنها هەر ١٠ خولەک جارێک دەتوانێت داتاکان بەزۆر نوێ بکاتەوە."
-                )
+                st.button(f"⏳  Wait {max(1,time_left_min)} min", key="sb_refresh_disabled", disabled=True, use_container_width=True, help="Managers may force-refresh once every 10 minutes.")
 
-        st.markdown(f"""
-        <div class="cache-strip">
-          <span class="cache-badge">{t('local_mode')}</span>
-          <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min - Last sync: {fetched_at[-8:] if fetched_at else '-'}</div>
-        </div>""", unsafe_allow_html=True)
-        
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='sb-label'>{t('language')}</div>", unsafe_allow_html=True)
+        st.markdown(f"""<div class="cache-strip"><span class="cache-badge">⚡ {_html.escape(t('local_mode'))}</span><div class="cache-info">{_html.escape(t('cache_age'))}: {READ_TTL//60} min &nbsp;·&nbsp; Last sync: {fetched_at[-8:] if fetched_at else '—'}</div></div>""", unsafe_allow_html=True)
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='sb-label'>{_html.escape(t('language'))}</div>", unsafe_allow_html=True)
         lc1, lc2 = st.columns(2)
         if lc1.button("EN", use_container_width=True, key="sb_en"): st.session_state.lang = "en"; st.rerun()
         if lc2.button("KU", use_container_width=True, key="sb_ku"): st.session_state.lang = "ku"; st.rerun()
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>", unsafe_allow_html=True)
-        status_opts = {"all": t("status_all"), "pending": t("status_pending"), "done": t("status_done")}
-        st.selectbox(t("f_status"), options=list(status_opts.keys()),
-                     format_func=lambda k: status_opts[k], key="f_status")
+
+        st.markdown(f"<div class='adv-filter-header'>{_html.escape(t('adv_filters'))}</div>", unsafe_allow_html=True)
+        status_opts = {"all":t("status_all"),"pending":t("status_pending"),"done":t("status_done")}
+        st.selectbox(t("f_status"), options=list(status_opts.keys()), format_func=lambda k: status_opts[k], key="f_status")
         for key, label, hint, disabled in [
-            ("f_email",   t("f_email"),   COL_AUDITOR,            False),
-            ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
-            ("f_company", t("f_company"), col_company or "not detected", col_company is None),
-            ("f_license", t("f_license"), col_license or "not detected", col_license is None),
+            ("f_email",   t("f_email"),   COL_AUDITOR,                     False),
+            ("f_binder",  t("f_binder"),  col_binder  or "not detected",    col_binder  is None),
+            ("f_company", t("f_company"), col_company or "not detected",    col_company is None),
+            ("f_license", t("f_license"), col_license or "not detected",    col_license is None),
         ]:
-            st.markdown(f"<div class='sb-label' style='margin-top:10px;'>{label}"
-                        f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='sb-label' style='margin-top:9px;'>{_html.escape(label)}<span class='col-hint'> ({_html.escape(hint)})</span></div>", unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
+
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        st.button(f"X  {t('clear_filters')}", use_container_width=True,
-                  key="clr_f", on_click=clear_all_filters)
+        st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clr_f", on_click=clear_all_filters)
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="sb-user-card">
-          <div class="sb-label">{t('signed_as')}</div>
-          <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
-          <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
-        </div>""", unsafe_allow_html=True)
-        if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
+
+        st.markdown(f"""<div class="sb-user-card"><div class="sb-label">{_html.escape(t('signed_as'))}</div><div class="sb-email">{_html.escape(st.session_state.user_email)}</div><span class="{badge_cls}" style="margin-top:8px;">{_html.escape(role_label)}</span></div>""", unsafe_allow_html=True)
+        if st.button(f"→  {t('sign_out')}", use_container_width=True, key="sb_logout"):
             for k, v in _DEFAULTS.items(): st.session_state[k] = v
             st.rerun()
-    return (st.session_state.get("f_email", ""), st.session_state.get("f_binder", ""),
-            st.session_state.get("f_company", ""), st.session_state.get("f_license", ""),
-            st.session_state.get("f_status", "all"))
+
+    return (st.session_state.get("f_email",""), st.session_state.get("f_binder",""), st.session_state.get("f_company",""), st.session_state.get("f_license",""), st.session_state.get("f_status","all"))
 
 def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, f_status):
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
     if n == 0: return
     badges = ""
-    if f_status != "all":   badges += f"<span class='filter-badge'>{_html.escape(f_status)}</span> "
-    if f_email.strip():     badges += f"<span class='filter-badge'>{_html.escape(f_email.strip()[:20])}</span> "
-    if f_binder.strip():    badges += f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
-    if f_company.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
-    if f_license.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
-    st.markdown(f"""<div class="filter-result-bar">
-      <span style="font-size:.70rem;font-weight:800;color:var(--indigo-600);text-transform:uppercase;letter-spacing:.08em;">
-        {t('active_filters')} ({n})</span> {badges}
-      <span class="result-count"><strong style="color:var(--indigo-600);">{filtered}</strong>/{total}&nbsp;{t('results_shown')}</span>
-    </div>""", unsafe_allow_html=True)
+    if f_status!="all":  badges+=f"<span class='filter-badge'>{_html.escape(f_status)}</span> "
+    if f_email.strip():  badges+=f"<span class='filter-badge'>{_html.escape(f_email.strip()[:20])}</span> "
+    if f_binder.strip(): badges+=f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
+    if f_company.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
+    if f_license.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
+    st.markdown(f"""<div class="filter-result-bar"><span style="font-size:.68rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;">{_html.escape(t('active_filters'))} ({n})</span>{badges}<span class="result-count"><strong style="color:var(--blue);">{filtered}</strong>/{total}&nbsp;{_html.escape(t('results_shown'))}</span></div>""", unsafe_allow_html=True)
 
 
 # -----------------------------------------------------------------------------
 #  [C] DEEP SEARCH WIDGET
 # -----------------------------------------------------------------------------
-def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent_email):
+def render_deep_search_strip(key_prefix, col_binder, col_company, col_agent_email):
     def _clear():
-        st.session_state[f"{key_prefix}_binder"]  = ""
-        st.session_state[f"{key_prefix}_company"] = ""
-        st.session_state[f"{key_prefix}_agent"]   = ""
-        for pk in ("page_worklist", "page_archive", "page_logs"):
-            st.session_state[pk] = 1
+        for sfx in ("_binder","_company","_agent"): st.session_state[f"{key_prefix}{sfx}"] = ""
+        for pk in ("page_worklist","page_archive","page_logs"): st.session_state[pk] = 1
 
-    ph_binder  = col_binder      or "column not detected in sheet"
-    ph_company = col_company     or "column not detected in sheet"
-    ph_agent   = col_agent_email or "column not detected in sheet"
-
-    st.markdown(
-        f"<div class='deep-search-strip'>"
-        f"<div class='deep-search-title'>{t('deep_search')}</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.32])
-    with c1:
-        st.text_input(t("ds_binder"),  key=f"{key_prefix}_binder",
-                      placeholder=ph_binder,  disabled=(col_binder is None))
-    with c2:
-        st.text_input(t("ds_company"), key=f"{key_prefix}_company",
-                      placeholder=ph_company, disabled=(col_company is None))
-    with c3:
-        st.text_input(t("ds_agent"),   key=f"{key_prefix}_agent",
-                      placeholder=ph_agent,   disabled=(col_agent_email is None))
+    st.markdown(f"<div class='deep-search-strip'><div class='deep-search-title'>{_html.escape(t('deep_search'))}</div></div>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns([1,1,1,0.32])
+    with c1: st.text_input(t("ds_binder"),  key=f"{key_prefix}_binder",  placeholder=col_binder      or "not detected", disabled=(col_binder is None))
+    with c2: st.text_input(t("ds_company"), key=f"{key_prefix}_company", placeholder=col_company     or "not detected", disabled=(col_company is None))
+    with c3: st.text_input(t("ds_agent"),   key=f"{key_prefix}_agent",   placeholder=col_agent_email or "not detected", disabled=(col_agent_email is None))
     with c4:
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
-        st.button(t("ds_clear"), key=f"{key_prefix}_clr",
-                  use_container_width=True, on_click=_clear)
+        st.button(t("ds_clear"), key=f"{key_prefix}_clr", use_container_width=True, on_click=_clear)
         st.markdown("</div>", unsafe_allow_html=True)
+    return (st.session_state.get(f"{key_prefix}_binder",""), st.session_state.get(f"{key_prefix}_company",""), st.session_state.get(f"{key_prefix}_agent",""))
 
-    return (
-        st.session_state.get(f"{key_prefix}_binder",  ""),
-        st.session_state.get(f"{key_prefix}_company", ""),
-        st.session_state.get(f"{key_prefix}_agent",   ""),
-    )
-
-def apply_deep_search(df, srch_binder, srch_company, srch_agent,
-                      col_binder, col_company, col_agent_email):
+def apply_deep_search(df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email):
     r = df.copy()
-    if srch_binder.strip()  and col_binder      and col_binder      in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(srch_binder.strip(),  case=False, na=False)]
-    if srch_company.strip() and col_company     and col_company     in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(srch_company.strip(), case=False, na=False)]
-    if srch_agent.strip()   and col_agent_email and col_agent_email in r.columns: 
-        r = r[r[col_agent_email].astype(str).str.contains(srch_agent.strip(), case=False, na=False)]
+    if srch_binder.strip()  and col_binder      and col_binder      in r.columns: r = r[r[col_binder].astype(str).str.contains(srch_binder.strip(),case=False,na=False)]
+    if srch_company.strip() and col_company     and col_company     in r.columns: r = r[r[col_company].astype(str).str.contains(srch_company.strip(),case=False,na=False)]
+    if srch_agent.strip()   and col_agent_email and col_agent_email in r.columns: r = r[r[col_agent_email].astype(str).str.contains(srch_agent.strip(),case=False,na=False)]
     return r
 
-def _deep_search_active(b, c, a):
-    return any(x.strip() for x in (b, c, a))
+def _deep_search_active(b, c, a): return any(x.strip() for x in (b, c, a))
 
 
 # -----------------------------------------------------------------------------
 #  14 . WORKLIST
 # -----------------------------------------------------------------------------
-def render_worklist(pending_display, df, headers, col_map, ws_title,
-                    f_email, f_binder, f_company, f_license, f_status):
+def render_worklist(pending_display, df, headers, col_map, ws_title, f_email, f_binder, f_company, f_license, f_status):
     p_count = len(pending_display)
-    st.markdown(f"""<div class="worklist-header">
-      <div><div class="worklist-title">{t('worklist_title')}</div>
-      <div class="worklist-sub">{t('worklist_sub')}</div></div>
-      <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
-    </div>""", unsafe_allow_html=True)
-    if pending_display.empty:
-        st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-                else "All cases processed.")
-        return
-    
-    render_paginated_table(pending_display, page_key="page_worklist")
-    
-    st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
-    label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
+    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">{_html.escape(t('worklist_title'))}</div><div class="worklist-sub">{_html.escape(t('worklist_sub'))}</div></div><span class="chip chip-pending">{p_count} {_html.escape(t('outstanding'))}</span></div>""", unsafe_allow_html=True)
 
-    opts = ["-"] + [
-        f"Row {idx}{_ROW_SEP}{str(row.get(label_col, ''))[:55]}"
-        for idx, row in pending_display.iterrows()
-    ]
+    if pending_display.empty:
+        st.info(t("no_match") if _n_active(f_email,f_binder,f_company,f_license,f_status) else "All cases processed.")
+        return
+
+    render_paginated_table(pending_display, page_key="page_worklist")
+    st.markdown(f"<div class='section-title'>{_html.escape(t('select_case'))}</div>", unsafe_allow_html=True)
+
+    label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
+    opts = ["-"] + [f"Row {idx}{_ROW_SEP}{str(row.get(label_col,''))[:55]}" for idx, row in pending_display.iterrows()]
     row_sel = st.selectbox("", opts, key="row_sel", label_visibility="collapsed")
     if row_sel == "-": return
 
-    sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row ", "").strip())
-    df_iloc   = sheet_row - 2 
+    sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row","").strip())
+    df_iloc   = sheet_row - 2
     if df_iloc < 0 or df_iloc >= len(df): st.error("Row index out of range."); return
     record = df.iloc[df_iloc].to_dict()
 
     with st.expander(t("audit_trail"), expanded=False):
-        history = str(record.get(COL_LOG, "")).strip()
+        history = str(record.get(COL_LOG,"")).strip()
         if history:
             for line in history.split("\n"):
-                if line.strip(): st.markdown(f'<div class="log-line">{_html.escape(line)}</div>',
-                                             unsafe_allow_html=True)
+                if line.strip(): st.markdown(f'<div class="log-line">{_html.escape(line)}</div>', unsafe_allow_html=True)
         else: st.caption(t("no_history"))
 
-    st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>",
-                unsafe_allow_html=True)
-    SKIP = set(SYSTEM_COLS)
+    st.markdown(f"<div class='section-title'>{_html.escape(t('processing'))} #{sheet_row}</div>", unsafe_allow_html=True)
+    SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
     with st.form("audit_form"):
         new_vals = {}
         for fname, fval in fields.items():
             new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
-        st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
-                    unsafe_allow_html=True)
+        st.markdown("<hr style='border-top:1px solid var(--border-muted);margin:16px 0 12px;'/>", unsafe_allow_html=True)
         eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
-        manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
-                                    key="form_feedback", height=100)
+        manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"), key="form_feedback", height=100)
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
         ts_now    = now_str()
         auditor   = st.session_state.user_email
-        log_prefix = f"[x] {auditor} | {ts_now}"
+        log_prefix = f"[✓] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
-        feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
-                             if manual_notes.strip() else auto_diff)
-        
+        feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip() if manual_notes.strip() else auto_diff)
         with st.spinner("Committing record to Google Sheets..."):
             try:
-                # --- بەشی سەرەکی بۆ ڕێگریکردن لە پێکدادان بە شێوەیەکی نەرم ---
-                is_success = write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
-                                                     new_vals, record, auditor, ts_now, log_prefix,
-                                                     eval_val=eval_val, feedback_val=feedback_combined)
-                
-                if not is_success:
-                    st.toast("⚠️ ببورە، کارمەندێکی تر کەمێک پێش ئێستا ئەم کەیسەی تەواو کرد!")
+                ok = write_approval_to_sheet(
+                    ws_title, sheet_row, col_map, headers, new_vals, record,
+                    auditor, ts_now, log_prefix,
+                    eval_val=eval_val, feedback_val=feedback_combined)
+                if not ok:
+                    st.toast("⚠️ Another auditor already committed this record.")
                     st.session_state.local_df.at[df_iloc, COL_STATUS] = VAL_DONE
-                    time.sleep(2)
-                    st.rerun()
-                    return
-
+                    time.sleep(2); st.rerun(); return
             except gspread.exceptions.APIError as e:
-                st.error(f"Write failed: {e}")
-                return
-
-        _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
-                                  eval_val=eval_val, feedback_val=feedback_combined)
-        st.toast(t("saved_ok"), icon="✅") 
-        time.sleep(0.6) 
-        st.rerun()
+                st.error(f"Write failed: {e}"); return
+        _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix, eval_val=eval_val, feedback_val=feedback_combined)
+        st.toast(t("saved_ok"), icon="✅")
+        time.sleep(0.6); st.rerun()
 
 
 # -----------------------------------------------------------------------------
 #  15 . ARCHIVE
 # -----------------------------------------------------------------------------
-def render_archive(done_view, df, col_map, ws_title, is_admin,
-                   f_email, f_binder, f_company, f_license, f_status,
-                   col_binder=None, col_company=None, col_license=None):
-
-    def clear_arch_search():
-        for k in ("arch_binder", "arch_license", "arch_company", "arch_auditor"):
-            st.session_state[k] = ""
+def render_archive(done_view, df, col_map, ws_title, is_admin, f_email, f_binder, f_company, f_license, f_status, col_binder=None, col_company=None, col_license=None):
+    def clear_arch():
+        for k in ("arch_binder","arch_license","arch_company","arch_auditor"): st.session_state[k] = ""
         st.session_state["page_archive"] = 1
 
     d_count = len(done_view)
-    st.markdown(f"""<div class="worklist-header">
-      <div><div class="worklist-title">Processed Archive</div>
-      <div class="worklist-sub">Completed and committed audit records</div></div>
-      <span class="chip chip-done">{d_count} {t('processed')}</span>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">Processed Archive</div><div class="worklist-sub">Completed and committed audit records</div></div><span class="chip chip-done">{d_count} {_html.escape(t('processed'))}</span></div>""", unsafe_allow_html=True)
 
-    st.markdown(
-        f"<div style='margin-bottom:8px;font-size:.62rem;font-weight:800;"
-        f"letter-spacing:.10em;text-transform:uppercase;color:var(--indigo-600);'>"
-        f"{t('arch_search_title')}</div>",
-        unsafe_allow_html=True,
-    )
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 0.28])
-    with c1:
-        s_binder  = st.text_input("Binder No.", key="arch_binder",
-                                  placeholder=col_binder or "column not in sheet",
-                                  disabled=(col_binder is None))
-    with c2:
-        s_license = st.text_input("License No.", key="arch_license",
-                                  placeholder=col_license or "column not in sheet",
-                                  disabled=(col_license is None))
-    with c3:
-        s_company = st.text_input("Company", key="arch_company",
-                                  placeholder=col_company or "column not in sheet",
-                                  disabled=(col_company is None))
-    with c4:
-        s_auditor = st.text_input("Auditor Email", key="arch_auditor",
-                                  placeholder="e.g. auditor@mof.gov")
+    st.markdown(f"<div class='section-title'>{_html.escape(t('arch_search_title'))}</div>", unsafe_allow_html=True)
+    c1,c2,c3,c4,c5 = st.columns([1,1,1,1,0.28])
+    with c1: s_binder  = st.text_input("Binder No.",    key="arch_binder",  placeholder=col_binder  or "—", disabled=(col_binder  is None))
+    with c2: s_license = st.text_input("License No.",   key="arch_license", placeholder=col_license or "—", disabled=(col_license is None))
+    with c3: s_company = st.text_input("Company",       key="arch_company", placeholder=col_company or "—", disabled=(col_company is None))
+    with c4: s_auditor = st.text_input("Auditor Email", key="arch_auditor", placeholder="e.g. auditor@mof.gov")
     with c5:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
+        st.button("✕", key="arch_clr", on_click=clear_arch, use_container_width=True)
 
-    filtered_view = done_view.copy()
-    if s_binder.strip()  and col_binder  and col_binder  in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(s_binder.strip(),  case=False, na=False)]
-    if s_license.strip() and col_license and col_license in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(s_license.strip(), case=False, na=False)]
-    if s_company.strip() and col_company and col_company in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_company].astype(str).str.contains(s_company.strip(), case=False, na=False)]
-    if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False, na=False)]
+    fv = done_view.copy()
+    if s_binder.strip()  and col_binder  and col_binder  in fv.columns: fv = fv[fv[col_binder].astype(str).str.contains(s_binder.strip(),  case=False,na=False)]
+    if s_license.strip() and col_license and col_license in fv.columns: fv = fv[fv[col_license].astype(str).str.contains(s_license.strip(), case=False,na=False)]
+    if s_company.strip() and col_company and col_company in fv.columns: fv = fv[fv[col_company].astype(str).str.contains(s_company.strip(), case=False,na=False)]
+    if s_auditor.strip() and COL_AUDITOR in fv.columns: fv = fv[fv[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False,na=False)]
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-
-    if filtered_view.empty:
+    if fv.empty:
         st.info("No processed records match the search.")
     else:
-        if is_admin:
-            st.markdown(
-                f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-                f"border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);"
-                f"padding:10px 16px;margin-bottom:14px;font-size:.78rem;"
-                f"color:var(--indigo-600)!important;font-weight:600;'>"
-                f"{t('archive_quality_note')}</div>", unsafe_allow_html=True)
-        priority_cols = [COL_STATUS, COL_EVAL, COL_FEEDBACK, COL_AUDITOR, COL_DATE]
-        other_cols    = [c for c in filtered_view.columns if c not in priority_cols and c != COL_LOG]
-        ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
-        
-        render_paginated_table(filtered_view[ordered_cols], page_key="page_archive")
+        if is_admin: st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-left:3px solid var(--accent);border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('archive_quality_note'))}</div>", unsafe_allow_html=True)
+        p_cols  = [COL_STATUS,COL_EVAL,COL_FEEDBACK,COL_AUDITOR,COL_DATE]
+        o_cols  = [c for c in fv.columns if c not in p_cols and c != COL_LOG]
+        ordered = [c for c in p_cols if c in fv.columns] + o_cols
+        render_paginated_table(fv[ordered], page_key="page_archive")
 
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('reopen'))}</div>", unsafe_allow_html=True)
         ropts = ["-"] + [f"Row {idx}" for idx in done_view.index]
         rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
         if rsel != "-":
@@ -1328,406 +1813,266 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS 
+#  16 . ANALYTICS
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None):
-    pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
-    nvy = "#4F46E5"; blu = "#60A5FA"
+    pt  = "plotly_dark"
+    pb  = "#161B22"
+    pg  = "#21262D"
+    fc  = "#E6EDF3"
+    tc  = "#8B949E"
+    nvy = "#7C3AED"
+    blu = "#388BFD"
 
-    srch_binder, srch_company, srch_agent = render_deep_search_strip(
-        "anal", col_binder, col_company, col_agent_email)
-    work_df = apply_deep_search(df, srch_binder, srch_company, srch_agent,
-                                col_binder, col_company, col_agent_email)
+    srch_binder, srch_company, srch_agent = render_deep_search_strip("anal", col_binder, col_company, col_agent_email)
+    work_df = apply_deep_search(df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email)
 
     if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
-        st.markdown(
-            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
-            f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
-            f" &mdash; <strong>{len(work_df)}</strong> records matched</div>",
-            unsafe_allow_html=True)
+        terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
+        st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong> — <strong>{len(work_df)}</strong> records matched</div>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='section-title'>{t('period')}</div>", unsafe_allow_html=True)
-    periods = [("all", t("all_time")), ("today", t("today")),
-               ("this_week", t("this_week")), ("this_month", t("this_month"))]
-    for cw, (pk, pl) in zip(st.columns(len(periods)), periods):
-        lbl = f"[{pl}]" if st.session_state.date_filter == pk else pl
-        if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
-            st.session_state.date_filter = pk; st.rerun()
+    st.markdown(f"<div class='section-title'>{_html.escape(t('period'))}</div>", unsafe_allow_html=True)
+    periods = [("all",t("all_time")),("today",t("today")),("this_week",t("this_week")),("this_month",t("this_month"))]
+    for cw,(pk,pl) in zip(st.columns(len(periods)), periods):
+        lbl = f"[{pl}]" if st.session_state.date_filter==pk else pl
+        if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"): st.session_state.date_filter=pk; st.rerun()
 
-    done_base = work_df[work_df[COL_STATUS] == VAL_DONE].copy()
+    done_base = work_df[work_df[COL_STATUS]==VAL_DONE].copy()
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
     if done_f.empty: st.info(t("no_records")); return
 
-    ma, mb, mc = st.columns(3)
+    ma,mb,mc = st.columns(3)
     ma.metric(t("records_period"), len(done_f))
     active = 0
-    if COL_DATE in done_f.columns:
-        active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
+    if COL_DATE in done_f.columns: active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
     mb.metric(t("active_days"), active)
     mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
 
-    left, right = st.columns([1, 1.6], gap="large")
+    left, right = st.columns([1,1.6], gap="large")
 
     with left:
-        st.markdown(f"<div class='section-title'>{t('leaderboard')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('leaderboard'))}</div>", unsafe_allow_html=True)
         if COL_AUDITOR in done_f.columns:
-            lb = done_f[COL_AUDITOR].replace("", "-").value_counts().reset_index()
-            lb.columns = ["Auditor", "Count"]
+            lb = done_f[COL_AUDITOR].replace("","-").value_counts().reset_index()
+            lb.columns = ["Auditor","Count"]
             for i, r in lb.head(10).iterrows():
-                rank = f"{i+1}."
-                st.markdown(
-                    f'<div class="lb-row">'
-                    f'<span class="lb-medal">{rank}</span>'
-                    f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
-                    f'<span class="lb-count">{r["Count"]}</span>'
-                    f'</div>', unsafe_allow_html=True)
-            fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h",
-                         color="Count", color_continuous_scale=[blu, nvy], template=pt)
-            fig.update_traces(marker_line_width=0,
-                hovertemplate="<b>%{y}</b><br>Records: <b>%{x}</b><extra></extra>")
-            fig.update_layout(
-                paper_bgcolor=pb, plot_bgcolor=pb,
-                font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
-                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
-                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
-                           tickfont=dict(color="#4B5563")),
-                height=min(320, max(180, 36*len(lb.head(10)))))
+                st.markdown(f'<div class="lb-row"><span class="lb-medal">{i+1}.</span><span class="lb-name">{_html.escape(str(r["Auditor"]))}</span><span class="lb-count">{r["Count"]}</span></div>', unsafe_allow_html=True)
+            fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h", color="Count", color_continuous_scale=[blu, nvy], template=pt)
+            fig.update_traces(marker_line_width=0, hovertemplate="<b>%{y}</b><br>Records: <b>%{x}</b><extra></extra>")
+            fig.update_layout(paper_bgcolor=pb, plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8), xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=tc)), yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending", tickfont=dict(color=tc)), height=min(320, max(180, 36*len(lb.head(10)))))
             st.plotly_chart(fig, use_container_width=True)
 
     with right:
-        st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('daily_trend'))}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
-            done_f["_date"] = done_f[COL_DATE].apply(
-                lambda s: parse_dt(s).date() if parse_dt(s) else None)
+            done_f["_date"] = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None)
             trend = done_f.dropna(subset=["_date"]).groupby("_date").size().reset_index(name="Records")
-            trend.columns = ["Date", "Records"]
+            trend.columns = ["Date","Records"]
             if not trend.empty:
                 if len(trend) > 1:
                     rng   = pd.date_range(trend["Date"].min(), trend["Date"].max())
-                    trend = trend.set_index("Date").reindex(rng.date, fill_value=0).reset_index()
-                    trend.columns = ["Date", "Records"]
+                    trend = trend.set_index("Date").reindex(rng.date,fill_value=0).reset_index()
+                    trend.columns = ["Date","Records"]
                 fig2 = go.Figure()
-                fig2.add_trace(go.Scatter(x=trend["Date"], y=trend["Records"], mode="none",
-                    fill="tozeroy", fillcolor="rgba(99,102,241,0.07)", showlegend=False))
-                fig2.add_trace(go.Scatter(
-                    x=trend["Date"], y=trend["Records"], mode="lines+markers",
-                    line=dict(color=nvy, width=2.5),
-                    marker=dict(color=blu, size=7, line=dict(color="#FFFFFF", width=2)),
-                    hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
-                fig2.update_layout(
-                    template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
-                    font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                    showlegend=False, margin=dict(l=8,r=8,t=10,b=8),
-                    xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
-                    yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
-                    height=380, hovermode="x unified")
+                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"], mode="none",fill="tozeroy", fillcolor="rgba(124,58,237,0.10)",showlegend=False))
+                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"],mode="lines+markers", line=dict(color=nvy,width=2.5), marker=dict(color=blu,size=6,line=dict(color=pb,width=2)), hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
+                fig2.update_layout(template=pt,paper_bgcolor=pb,plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), showlegend=False,margin=dict(l=8,r=8,t=10,b=8), xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)), yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)), height=380,hovermode="x unified")
                 st.plotly_chart(fig2, use_container_width=True)
             else: st.info(t("no_records"))
 
-    st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
-
+    st.markdown(f"<div class='section-title'>{_html.escape(t('acc_ranking_title'))}</div>", unsafe_allow_html=True)
     if col_agent_email and col_agent_email in done_f.columns and COL_EVAL in done_f.columns:
-        eval_df = done_f[[col_agent_email, COL_EVAL]].copy()
-        eval_df[col_agent_email] = eval_df[col_agent_email].replace("", "-")
-
-        def _classify(v: str) -> str:
+        eval_df = done_f[[col_agent_email,COL_EVAL]].copy()
+        eval_df[col_agent_email] = eval_df[col_agent_email].replace("","-")
+        def _cls(v):
             n = _normalise_eval(v)
-            if "Good" in n:                         return "good"
-            if "Bad" in n or "Incorrect" in n:      return "bad"
-            if "Duplicate" in n:                    return "dup"
+            if "Good"       in n: return "good"
+            if "Bad"        in n or "Incorrect" in n: return "bad"
+            if "Duplicate"  in n: return "dup"
             return "unrated"
-
-        eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
-        acc = (eval_df.groupby(col_agent_email)["_cls"]
-               .value_counts().unstack(fill_value=0).reset_index())
-        for cn in ("good", "bad", "dup", "unrated"):
+        eval_df["_cls"] = eval_df[COL_EVAL].apply(_cls)
+        acc = (eval_df.groupby(col_agent_email)["_cls"].value_counts().unstack(fill_value=0).reset_index())
+        for cn in ("good","bad","dup","unrated"):
             if cn not in acc.columns: acc[cn] = 0
-        acc["Total"]    = acc["good"] + acc["bad"] + acc["dup"] + acc["unrated"]
-        acc["Accuracy"] = (acc["good"] / acc["Total"].replace(0, 1) * 100).round(1)
-        acc = acc.sort_values("Accuracy", ascending=False).reset_index(drop=True)
+        acc["Total"]    = acc["good"]+acc["bad"]+acc["dup"]+acc["unrated"]
+        acc["Accuracy"] = (acc["good"]/acc["Total"].replace(0,1)*100).round(1)
+        acc = acc.sort_values("Accuracy",ascending=False).reset_index(drop=True)
 
-        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
-                  f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
-                  f"<th>{t('acc_rate')}</th></tr>")
+        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th><th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th><th>{t('acc_rate')}</th></tr>")
         td_rows = ""
         for i, row in acc.iterrows():
             pct = row["Accuracy"]
-            if pct >= 80:   rc = "acc-rate-high"; bc = "#16A34A"
-            elif pct >= 50: rc = "acc-rate-mid";  bc = "#B45309"
-            else:           rc = "acc-rate-low";  bc = "#DC2626"
-            bar = (f"<span class='acc-bar-wrap'>"
-                   f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
-                   f"</span>")
-            td_rows += (
-                f"<tr>"
-                f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
-                f"<td style='font-weight:600;'>{_html.escape(str(row[col_agent_email]))}</td>"
-                f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['Total'])}</td>"
-                f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
-                f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
-                f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
-                f"<td class='{rc}'>{pct}% {bar}</td>"
-                f"</tr>"
-            )
-        st.markdown(
-            f"<div class='gov-table-wrap'><table class='acc-table'>"
-            f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
-            unsafe_allow_html=True)
+            if pct >= 80:   rc="acc-rate-high"; bc="#3FB950"
+            elif pct >= 50: rc="acc-rate-mid";  bc="#D29922"
+            else:           rc="acc-rate-low";  bc="#F85149"
+            bar = (f"<span class='acc-bar-wrap'><span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span></span>")
+            td_rows += (f"<tr><td style='color:var(--text-muted);font-family:var(--mono);font-size:.68rem;'>{i+1}</td><td style='font-weight:500;'>{_html.escape(str(row[col_agent_email]))}</td><td style='font-family:var(--mono);font-weight:600;'>{int(row['Total'])}</td><td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td><td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td><td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td><td class='{rc}'>{pct}% {bar}</td></tr>")
+        st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>", unsafe_allow_html=True)
 
-        st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('eval_breakdown'))}</div>", unsafe_allow_html=True)
         st.caption(t("eval_breakdown_sub"))
         if not acc.empty:
-            good_pct = (acc["good"]    / acc["Total"].replace(0,1) * 100).round(1)
-            bad_pct  = (acc["bad"]     / acc["Total"].replace(0,1) * 100).round(1)
-            dup_pct  = (acc["dup"]     / acc["Total"].replace(0,1) * 100).round(1)
-            unr_pct  = (acc["unrated"] / acc["Total"].replace(0,1) * 100).round(1)
+            g_pct = (acc["good"]   /acc["Total"].replace(0,1)*100).round(1)
+            b_pct = (acc["bad"]    /acc["Total"].replace(0,1)*100).round(1)
+            d_pct = (acc["dup"]    /acc["Total"].replace(0,1)*100).round(1)
+            u_pct = (acc["unrated"]/acc["Total"].replace(0,1)*100).round(1)
             fig3 = go.Figure()
-            fig3.add_trace(go.Bar(name="Good",          x=acc[col_agent_email], y=acc["good"],    marker_color="#16A34A", hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>", customdata=list(zip(good_pct, acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Bad/Incorrect", x=acc[col_agent_email], y=acc["bad"],     marker_color="#DC2626", hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(bad_pct,  acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Duplicate",     x=acc[col_agent_email], y=acc["dup"],     marker_color="#F59E0B", hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(dup_pct,  acc["Total"]))))
-            if acc["unrated"].sum() > 0:
-                fig3.add_trace(go.Bar(name="Unrated", x=acc[col_agent_email], y=acc["unrated"], marker_color="#9CA3AF", hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>", customdata=unr_pct))
-            fig3.update_layout(
-                barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
-                font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(size=11), bgcolor="rgba(255,255,255,0.8)",
-                            bordercolor="#E4E7F0", borderwidth=1),
-                margin=dict(l=8,r=8,t=40,b=60),
-                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
-                           tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
-                yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
-                           title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
-                height=400, hovermode="x")
+            fig3.add_trace(go.Bar(name="Good",x=acc[col_agent_email],y=acc["good"], marker_color="#3FB950", hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(g_pct,acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Bad/Incorrect",x=acc[col_agent_email],y=acc["bad"], marker_color="#F85149", hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(b_pct,acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Duplicate",x=acc[col_agent_email],y=acc["dup"], marker_color="#D29922", hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(d_pct,acc["Total"]))))
+            if acc["unrated"].sum() > 0: fig3.add_trace(go.Bar(name="Unrated",x=acc[col_agent_email],y=acc["unrated"], marker_color="#484F58", hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>", customdata=u_pct))
+            fig3.update_layout(barmode="stack",template=pt,paper_bgcolor=pb,plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1, font=dict(size=11),bgcolor="rgba(22,27,34,0.9)", bordercolor=pg,borderwidth=1), margin=dict(l=8,r=8,t=40,b=60), xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc), tickangle=-30,title=dict(text="Agent",font=dict(size=11,color=tc))), yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc), title=dict(text="Records",font=dict(size=11,color=tc))), height=400,hovermode="x")
             fig3.update_traces(marker_line_width=0)
             st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.info(t("acc_no_data") +
-                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
+        st.info(t("acc_no_data") + ("" if col_agent_email else " (Agent Email column not detected.)"))
 
 
 # -----------------------------------------------------------------------------
 #  17 . AUDITOR LOGS
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
-    st.markdown(f"""
-    <div class="worklist-header">
-      <div>
-        <div class="worklist-title">{t('logs_title')}</div>
-        <div class="worklist-sub">{t('logs_sub')}</div>
-      </div>
-      <span class="chip chip-admin">Admin / Manager</span>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">{_html.escape(t('logs_title'))}</div><div class="worklist-sub">{_html.escape(t('logs_sub'))}</div></div><span class="chip chip-admin">Admin / Manager</span></div>""", unsafe_allow_html=True)
 
-    srch_binder, srch_company, srch_agent = render_deep_search_strip(
-        "logs", col_binder, col_company, col_agent_email)
-
-    done_df = df[df[COL_STATUS] == VAL_DONE].copy()
+    srch_binder, srch_company, srch_agent = render_deep_search_strip("logs", col_binder, col_company, col_agent_email)
+    done_df = df[df[COL_STATUS]==VAL_DONE].copy()
     if done_df.empty: st.info(t("logs_no_data")); return
 
-    done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent,
-                                col_binder, col_company, col_agent_email)
+    done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email)
     if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
-        st.markdown(
-            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
-            f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
-            f" &mdash; <strong>{len(done_df)}</strong> records matched</div>",
-            unsafe_allow_html=True)
+        terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
+        st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong> — <strong>{len(done_df)}</strong> records matched</div>", unsafe_allow_html=True)
 
     if done_df.empty: st.info(t("logs_no_data")); return
 
-    display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
+    display_cols = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
     if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
     if col_agent_email and col_agent_email in done_df.columns: display_cols.insert(2, col_agent_email)
     seen_c: set = set()
-    display_cols = [c for c in display_cols
-                    if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
+    display_cols = [c for c in display_cols if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
 
-    auditor_list = sorted(
-        [a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")],
-        key=str.lower)
+    auditor_list = sorted([a for a in done_df[COL_AUDITOR].unique() if str(a).strip() not in ("","-")], key=str.lower)
     all_opt = t("logs_filter_all")
-    sel_aud = st.selectbox(t("logs_auditor_sel"), options=[all_opt] + auditor_list,
-                           key="logs_auditor_sel")
-    view_df = (done_df[done_df[COL_AUDITOR] == sel_aud].copy()
-               if sel_aud != all_opt else done_df.copy())
+    sel_aud = st.selectbox(t("logs_auditor_sel"), options=[all_opt]+auditor_list, key="logs_auditor_sel")
+    view_df = (done_df[done_df[COL_AUDITOR]==sel_aud].copy() if sel_aud!=all_opt else done_df.copy())
 
     total_p = len(view_df)
     uniq_a  = view_df[COL_AUDITOR].nunique()
     pdates  = view_df[COL_DATE].apply(parse_dt).dropna()
-    dr_str  = (f"{pdates.min().strftime('%Y-%m-%d')} - {pdates.max().strftime('%Y-%m-%d')}"
-               if not pdates.empty else "-")
+    dr_str  = (f"{pdates.min().strftime('%Y-%m-%d')} — {pdates.max().strftime('%Y-%m-%d')}" if not pdates.empty else "-")
 
-    st.markdown(f"""
-    <div class="log-summary-card">
-      <div class="log-stat-row">
-        <div class="log-stat"><span class="log-stat-value">{total_p}</span><span class="log-stat-label">{t('logs_total')}</span></div>
-        <div class="log-stat-divider"></div>
-        <div class="log-stat"><span class="log-stat-value">{uniq_a}</span><span class="log-stat-label">{t('logs_auditors')}</span></div>
-        <div class="log-stat-divider"></div>
-        <div class="log-stat"><span class="log-stat-value" style="font-size:1.05rem;">{dr_str}</span><span class="log-stat-label">{t('logs_date_range')}</span></div>
-      </div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="log-summary-card"><div class="log-stat-row"><div class="log-stat"><span class="log-stat-value">{total_p}</span><span class="log-stat-label">{_html.escape(t('logs_total'))}</span></div><div class="log-stat-divider"></div><div class="log-stat"><span class="log-stat-value">{uniq_a}</span><span class="log-stat-label">{_html.escape(t('logs_auditors'))}</span></div><div class="log-stat-divider"></div><div class="log-stat"><span class="log-stat-value" style="font-size:1.0rem;">{_html.escape(dr_str)}</span><span class="log-stat-label">{_html.escape(t('logs_date_range'))}</span></div></div></div>""", unsafe_allow_html=True)
 
-    shown = " - ".join(display_cols)
-    st.markdown(f"<div class='section-title'>{t('logs_cols_shown')}: "
-                f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{_html.escape(shown)}</span></div>",
-                unsafe_allow_html=True)
+    shown_label = " · ".join(display_cols)
+    st.markdown(f"<div class='section-title'>{_html.escape(t('logs_cols_shown'))}: <span style='font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-secondary);'>{_html.escape(shown_label)}</span></div>", unsafe_allow_html=True)
 
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = table_df[COL_DATE].apply(parse_dt)
-        table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
+        table_df = (table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"]))
     table_df = table_df.reset_index(drop=True)
-    
     render_paginated_table(table_df, page_key="page_logs")
 
     csv_buf = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
-    dtag    = datetime.now(TZ).strftime("%Y%m%d")
-    atag    = sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors"
-    st.markdown(f"""
-    <div class="export-strip">
-      <div><div class="export-text">{t('logs_export_hdr')}</div>
-      <div class="export-sub">{t('logs_export_sub')} - {total_p} rows - {len(display_cols)} columns</div></div>
-    </div>""", unsafe_allow_html=True)
-    st.download_button(label=t("logs_export_btn"), data=csv_bytes,
-                       file_name=f"audit_log_{atag}_{dtag}.csv", mime="text/csv",
-                       key="logs_csv_download")
+    dtag  = datetime.now(TZ).strftime("%Y%m%d")
+    atag  = (sel_aud.replace("@","_").replace(".","_") if sel_aud!=all_opt else "all_auditors")
+    st.markdown(f"""<div class="export-strip"><div><div class="export-text">{_html.escape(t('logs_export_hdr'))}</div><div class="export-sub">{_html.escape(t('logs_export_sub'))} · {total_p} rows · {len(display_cols)} columns</div></div></div>""", unsafe_allow_html=True)
+    st.download_button(label=t("logs_export_btn"), data=csv_bytes, file_name=f"audit_log_{atag}_{dtag}.csv", mime="text/csv", key="logs_csv_download")
 
 
 # -----------------------------------------------------------------------------
 #  18 . USER ADMIN
 # -----------------------------------------------------------------------------
-def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
+def _ensure_role_col(df_u):
     if "role" not in df_u.columns:
-        spr = get_spreadsheet()
-        uws = spr.worksheet(USERS_SHEET)
+        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
         col_idx = len(df_u.columns) + 1
         try:
             _gsheets_call(uws.update_cell, 1, col_idx, "role")
-            for i in range(2, len(df_u) + 2):
-                _gsheets_call(uws.update_cell, i, col_idx, "auditor")
+            for i in range(2, len(df_u) + 2): _gsheets_call(uws.update_cell, i, col_idx, "auditor")
             _fetch_users_cached.clear()
-        except Exception:
-            pass
+        except Exception: pass
     return df_u
 
 def render_user_admin(spreadsheet_id):
     staff_raw = _fetch_users_cached(spreadsheet_id)
     staff     = pd.DataFrame(staff_raw) if staff_raw else pd.DataFrame()
-    if not staff.empty:
-        staff = _ensure_role_col(staff)
+    if not staff.empty: staff = _ensure_role_col(staff)
 
-    cl, cr = st.columns([1, 1], gap="large")
-
+    cl, cr = st.columns([1,1], gap="large")
     with cl:
-        st.markdown(f"<div class='section-title'>{t('add_auditor')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('add_auditor'))}</div>", unsafe_allow_html=True)
         with st.form("add_user_form"):
             nu_e = st.text_input("Email", placeholder="user@mof.gov")
             nu_p = st.text_input("Password", type="password")
             nu_r = st.selectbox(t("role_label"), VALID_ROLES, format_func=lambda r: r.title())
             if st.form_submit_button("Register User", use_container_width=True):
                 if nu_e.strip() and nu_p.strip():
-                    already = (not staff.empty and
-                               nu_e.lower().strip() in staff.get("email", pd.Series()).values)
+                    already = (not staff.empty and nu_e.lower().strip() in staff.get("email",pd.Series()).values)
                     if already: st.error(t("dup_email"))
                     else:
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
-                        _gsheets_call(uws.append_row,
-                                      [nu_e.lower().strip(), hash_pw(nu_p.strip()), nu_r, now_str()])
-                        _fetch_users_cached.clear()
-                        st.success(f"{nu_e} registered as {nu_r}.")
-                        time.sleep(0.7); st.rerun()
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
+                        _gsheets_call(uws.append_row, [nu_e.lower().strip(),hash_pw(nu_p.strip()),nu_r,now_str()])
+                        _fetch_users_cached.clear(); st.success(f"{nu_e} registered as {nu_r}."); time.sleep(0.7); st.rerun()
                 else: st.warning(t("fill_fields"))
 
-        st.markdown(f"<div class='section-title'>{t('update_pw')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('update_pw'))}</div>", unsafe_allow_html=True)
         if not staff.empty and "email" in staff.columns:
             with st.form("upd_pw_form"):
                 se  = st.selectbox("Select staff", staff["email"].tolist(), key="upd_pw_sel")
                 np_ = st.text_input("New Password", type="password")
                 if st.form_submit_button("Update Password", use_container_width=True):
                     if np_.strip():
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                         cell = _gsheets_call(uws.find, se)
-                        if cell:
-                            _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip()))
-                            st.success(f"Updated for {se}.")
-                            time.sleep(0.7); st.rerun()
+                        if cell: _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip())); st.success(f"Updated for {se}."); time.sleep(0.7); st.rerun()
 
-        st.markdown(f"<div class='section-title'>{t('change_role')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('change_role'))}</div>", unsafe_allow_html=True)
         st.caption(t("change_role_sub"))
         if not staff.empty and "email" in staff.columns:
             with st.form("change_role_form"):
                 cr_email = st.selectbox("Select user", staff["email"].tolist(), key="cr_email_sel")
-                cr_role  = st.selectbox("New Role", VALID_ROLES,
-                                        format_func=lambda r: r.title(), key="cr_role_sel")
+                cr_role  = st.selectbox("New Role", VALID_ROLES, format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
-                        header_row   = _gsheets_call(uws.row_values, 1)
-                        role_col_idx = (header_row.index("role") + 1) if "role" in header_row \
-                                       else len(header_row) + 1
-                        if "role" not in header_row:
-                            _gsheets_call(uws.update_cell, 1, role_col_idx, "role")
-                        user_cell = _gsheets_call(uws.find, cr_email)
-                        if user_cell:
-                            _gsheets_call(uws.update_cell, user_cell.row, role_col_idx, cr_role)
-                            _fetch_users_cached.clear()
-                            st.success(f"{t('role_updated')} ({cr_email} -> {cr_role})")
-                            time.sleep(0.7); st.rerun()
-                        else:
-                            st.error("User not found in sheet.")
-                    except Exception as e:
-                        st.error(f"Role update failed: {e}")
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
+                        hdr  = _gsheets_call(uws.row_values, 1)
+                        rcol = (hdr.index("role") + 1) if "role" in hdr else len(hdr) + 1
+                        if "role" not in hdr: _gsheets_call(uws.update_cell, 1, rcol, "role")
+                        uc = _gsheets_call(uws.find, cr_email)
+                        if uc: _gsheets_call(uws.update_cell, uc.row, rcol, cr_role); _fetch_users_cached.clear(); st.success(f"{t('role_updated')} ({cr_email} → {cr_role})"); time.sleep(0.7); st.rerun()
+                        else: st.error("User not found.")
+                    except Exception as e: st.error(f"Role update failed: {e}")
 
     with cr:
-        st.markdown(f"<div class='section-title'>{t('staff_dir')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'>{_html.escape(t('staff_dir'))}</div>", unsafe_allow_html=True)
         if not staff.empty and "email" in staff.columns:
-            show_cols = [c for c in ["email", "role", "created_at"] if c in staff.columns]
+            show_cols = [c for c in ["email","role","created_at"] if c in staff.columns]
             tbl = staff[show_cols].copy().reset_index()
-            th_html = "<tr><th class='row-idx'>#</th>" + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>"
+            th_html = ("<tr><th class='row-idx'>#</th>" + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
             td_html = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
                 for c in show_cols:
-                    val = str(row.get(c, "")) or "-"
+                    val = str(row.get(c,"")) or "-"
                     if c == "role":
-                        safe_role = val if val in VALID_ROLES else "auditor"
-                        tr += f"<td><span class='role-badge-{safe_role}'>{_html.escape(val.title())}</span></td>"
-                    else:
-                        tr += f"<td>{_html.escape(val[:40])}</td>"
+                        sr = val if val in VALID_ROLES else "auditor"
+                        tr += f"<td><span class='role-badge-{sr}'>{_html.escape(val.title())}</span></td>"
+                    else: tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
-            st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'>"
-                        f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
-                        f"</table></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'><thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody></table></div>", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='section-title'>{t('remove_user')}</div>", unsafe_allow_html=True)
-            de = st.selectbox("Select to revoke", ["-"] + staff["email"].tolist(), key="del_sel")
+            st.markdown(f"<div class='section-title'>{_html.escape(t('remove_user'))}</div>", unsafe_allow_html=True)
+            de = st.selectbox("Select to revoke", ["-"]+staff["email"].tolist(), key="del_sel")
             if de != "-":
-                if st.button(f"Revoke access - {_html.escape(de)}", key="del_btn"):
-                    spr = get_spreadsheet()
-                    uws = spr.worksheet(USERS_SHEET)
+                if st.button(f"Revoke access — {_html.escape(de)}", key="del_btn"):
+                    spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                     cell = _gsheets_call(uws.find, de)
-                    if cell:
-                        _gsheets_call(uws.delete_rows, cell.row)
-                        _fetch_users_cached.clear()
-                        st.success(f"{de} revoked.")
-                        time.sleep(0.7); st.rerun()
-        else:
-            st.info("No auditor accounts registered yet.")
+                    if cell: _gsheets_call(uws.delete_rows, cell.row); _fetch_users_cached.clear(); st.success(f"{de} revoked."); time.sleep(0.7); st.rerun()
+        else: st.info("No auditor accounts registered yet.")
 
 
 # -----------------------------------------------------------------------------
@@ -1736,142 +2081,95 @@ def render_user_admin(spreadsheet_id):
 def main():
     try:
         def _on_ws_change():
-            for k in ("f_email", "f_binder", "f_company", "f_license"):
-                st.session_state[k] = ""
+            for k in ("f_email","f_binder","f_company","f_license"): st.session_state[k] = ""
             st.session_state["f_status"] = "all"
-            
-            for k in ("arch_binder", "arch_license", "arch_company", "arch_auditor"):
-                st.session_state[k] = ""
-            
-            for prefix in ("anal", "logs"):
-                for suffix in ("_binder", "_company", "_agent"):
-                    st.session_state[f"{prefix}{suffix}"] = ""
-            
-            for pk in ("page_worklist", "page_archive", "page_logs"):
-                st.session_state[pk] = 1
-            
-            st.session_state["local_cache_key"]  = None
-            st.session_state["local_df"]         = None
-            st.session_state["local_headers"]    = None
-            st.session_state["local_col_map"]    = None
-            st.session_state["active_ws_key"]    = None
-            
+            for k in ("arch_binder","arch_license","arch_company","arch_auditor"): st.session_state[k] = ""
+            for pref in ("anal","logs"):
+                for sfx in ("_binder","_company","_agent"): st.session_state[f"{pref}{sfx}"] = ""
+            for pk in ("page_worklist","page_archive","page_logs"): st.session_state[pk] = 1
+            for k in ("local_cache_key","local_df","local_headers","local_col_map","active_ws_key"): st.session_state[k] = None
+
         sid, all_titles = _fetch_sheet_metadata()
-        
+
         if USERS_SHEET not in all_titles:
             spr = get_spreadsheet()
-            uw = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
-            _gsheets_call(uw.append_row, ["email", "password", "role", "created_at"])
+            uw  = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
+            _gsheets_call(uw.append_row, ["email","password","role","created_at"])
             _fetch_sheet_metadata.clear()
             all_titles.append(USERS_SHEET)
 
-        if not st.session_state.logged_in:
-            render_login(sid); return
-
-        st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
-                    unsafe_allow_html=True)
+        if not st.session_state.logged_in: render_login(sid); return
 
         role          = st.session_state.user_role
         is_admin      = (role == "admin")
         is_manager    = (role == "manager")
         can_analytics = is_admin or is_manager
 
-        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
-        st.markdown(f"""
-        <div class="page-header">
-          <div>
-            <div class="page-title">{_html.escape(t('portal_title'))}</div>
-            <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
-          </div>
-          <div class="page-timestamp">{ts_str}</div>
-        </div>""", unsafe_allow_html=True)
+        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  ·  %H:%M")
+        st.markdown(f"""<div class="page-header"><div><div class="page-title">{_html.escape(t('portal_title'))}</div><div class="page-subtitle">{_html.escape(t('ministry'))}</div></div><div class="page-timestamp">{ts_str}</div></div>""", unsafe_allow_html=True)
 
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS if s.strip().lower() in atm]
 
-        df = pd.DataFrame(); headers = []; col_map = {}; ws_title = None; fetched_at = "-"
+        df = pd.DataFrame(); headers=[]; col_map={}; ws_title=None; fetched_at="-"
 
-        if not available:
-            st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
+        if not available: st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
         else:
-            ws_title = st.selectbox(
-                t("workspace"),
-                available,
-                key="ws_sel",
-                on_change=_on_ws_change,
-            )
-            try:
-                df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
-            except gspread.exceptions.WorksheetNotFound:
-                st.error(f"Worksheet '{ws_title}' not found.")
-            except gspread.exceptions.APIError as e:
-                st.error(f"{t('retry_warning')}\n\n{e}")
+            ws_title = st.selectbox(t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
+            try: df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
+            except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet '{ws_title}' not found.")
+            except gspread.exceptions.APIError as e: st.error(f"{t('retry_warning')}\n\n{e}")
 
         col_binder      = detect_column(headers, "binder")
         col_company     = detect_column(headers, "company")
         col_license     = detect_column(headers, "license")
         col_agent_email = detect_column(headers, "agent_email")
 
-        f_email, f_binder, f_company, f_license, f_status = render_sidebar(
-            headers, col_binder, col_company, col_license, is_admin, fetched_at)
+        f_email, f_binder, f_company, f_license, f_status = render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at)
 
         if not df.empty:
-            st.markdown(f"<div class='section-title'>{t('overview')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-title'>{_html.escape(t('overview'))}</div>", unsafe_allow_html=True)
             total_n   = len(df)
-            done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
+            done_n    = int((df[COL_STATUS]==VAL_DONE).sum())
             pending_n = total_n - done_n
             pct       = done_n / total_n if total_n else 0
-            m1, m2, m3 = st.columns(3)
+            m1,m2,m3  = st.columns(3)
             m1.metric(t("total"),       total_n)
             m2.metric(t("processed"),   done_n,    delta=f"{int(pct*100)}%")
-            m3.metric(t("outstanding"), pending_n,
-                      delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
-            st.markdown(f"""
-            <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
-            <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
-            unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(df, f_email, f_binder, f_company, f_license,
-                                                f_status, col_binder, col_company, col_license)
-            render_filter_bar(total_n, len(filtered_df),
-                              f_email, f_binder, f_company, f_license, f_status)
-        else:
-            filtered_df = pd.DataFrame()
+            m3.metric(t("outstanding"), pending_n, delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
+            st.markdown(f"""<div class="prog-labels"><span>{_html.escape(t('processed'))}</span><span>{int(pct*100)}%</span></div><div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""", unsafe_allow_html=True)
+            filtered_df = apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status, col_binder, col_company, col_license)
+            render_filter_bar(total_n, len(filtered_df), f_email, f_binder, f_company, f_license, f_status)
+        else: filtered_df = pd.DataFrame()
 
         if is_admin:
-            tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
-                            t("tab_analytics"), t("tab_logs"), t("tab_users")])
-            t_work, t_arch, t_anal, t_logs, t_uadm = tabs
+            tabs = st.tabs([t("tab_worklist"),t("tab_archive"), t("tab_analytics"),t("tab_logs"),t("tab_users")])
+            t_work,t_arch,t_anal,t_logs,t_uadm = tabs
         elif is_manager:
-            tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
-                            t("tab_analytics"), t("tab_logs")])
-            t_work, t_arch, t_anal, t_logs = tabs
+            tabs = st.tabs([t("tab_worklist"),t("tab_archive"), t("tab_analytics"),t("tab_logs")])
+            t_work,t_arch,t_anal,t_logs = tabs
             t_uadm = None
         else:
-            st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>", unsafe_allow_html=True)
-            tabs = st.tabs([t("tab_worklist"), t("tab_archive")])
-            t_work, t_arch = tabs
-            t_anal = t_logs = t_uadm = None
+            st.markdown(f"<div class='rbac-banner'>{_html.escape(t('rbac_notice'))}</div>", unsafe_allow_html=True)
+            tabs = st.tabs([t("tab_worklist"),t("tab_archive")])
+            t_work,t_arch = tabs
+            t_anal=t_logs=t_uadm=None
 
         with t_work:
             if not df.empty and ws_title:
-                pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
+                pv  = filtered_df[filtered_df[COL_STATUS]!=VAL_DONE].copy()
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
-                render_worklist(pd_, df, headers, col_map, ws_title,
-                                f_email, f_binder, f_company, f_license, f_status)
+                render_worklist(pd_, df, headers, col_map, ws_title, f_email, f_binder, f_company, f_license, f_status)
 
         with t_arch:
             if not df.empty and ws_title:
-                dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
+                dv = filtered_df[filtered_df[COL_STATUS]==VAL_DONE].copy()
                 dv.index = dv.index + 2
-                render_archive(dv, df, col_map, ws_title, is_admin,
-                               f_email, f_binder, f_company, f_license, f_status,
-                               col_binder=col_binder, col_company=col_company, col_license=col_license)
+                render_archive(dv, df, col_map, ws_title, is_admin, f_email, f_binder, f_company, f_license, f_status, col_binder=col_binder, col_company=col_company, col_license=col_license)
 
         if can_analytics and t_anal is not None:
             with t_anal:
-                if not df.empty:
-                    render_analytics(df, col_agent_email=col_agent_email,
-                                     col_binder=col_binder, col_company=col_company)
+                if not df.empty: render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder, col_company=col_company)
 
         if can_analytics and t_logs is not None:
             with t_logs:
@@ -1879,13 +2177,12 @@ def main():
                 else:        render_auditor_logs(df, col_company, col_binder, col_agent_email)
 
         if is_admin and t_uadm is not None:
-            with t_uadm:
-                render_user_admin(sid)
+            with t_uadm: render_user_admin(sid)
 
     except Exception as exc:
         st.error(f"System Error: {exc}")
-        with st.expander("Technical Details", expanded=False):
-            st.exception(exc)
+        with st.expander("Technical Details", expanded=False): st.exception(exc)
+
 
 if __name__ == "__main__":
     main()
