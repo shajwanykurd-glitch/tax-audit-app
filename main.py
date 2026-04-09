@@ -1,19 +1,3 @@
-Claude, here is my complete Streamlit application code. I want to apply a robust custom 'GitHub Dark Primer & Glassmorphism' theme.
-
-However, I have experienced issues with Streamlit's floating, BaseWeb, and notification elements remaining glaringly white, misaligned, or having invisible text in dark mode.
-
-Please return the FULL, unbroken code with the following strict requirements:
-
-1. **Zero Logic Changes**: Do NOT alter any backend logic, Google Sheets API calls, data fetching, optimistic UI mutations, or concurrency protection. Just update the UI/CSS.
-2. **Ultimate Global CSS Fix**: Create an `inject_custom_theme(is_dark: bool)` function that completely overrides these specific elements with deep dark backgrounds (`#161B22`), appropriate borders (`#30363D`), and high-contrast text (`#E6EDF3`) when `is_dark` is True:
-   - **Dropdowns/Selects**: `div[data-baseweb="select"]`, `div[data-baseweb="popover"]`, `li[role="option"]`.
-   - **Form Buttons**: `[data-testid="stFormSubmitButton"]`.
-   - **Toasts & Alerts**: `[data-testid="stToast"]`, `[data-testid="stAlert"]`, and `[data-testid="stNotification"]`. Make sure the toast notifications that slide in/out match the dark theme perfectly without white text on white backgrounds.
-3. **Easily Removable/Toggleable**: Add a UI toggle in the sidebar (e.g., `dark_mode = st.sidebar.toggle("Dark Mode", value=True)`) so I can easily turn this custom CSS injection on or off. If toggled off, the app should revert to the default Light theme by not injecting the dark CSS.
-4. **Completeness**: Do not truncate the code. Provide the entire working script.
-
-Here is the code:
-
 import html as _html
 import streamlit as st
 import gspread
@@ -71,6 +55,7 @@ _DEFAULTS: dict = dict(
     local_col_map    = None,
     local_cache_key  = None,
     local_fetched_at = None,
+    dark_mode        = True,   # ← NEW: controls theme injection
 )
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -128,53 +113,42 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  5 · DARK MODE CSS  —  GitHub Dark / VS Code aesthetic
-#      Design tokens mirror the official GitHub Primer dark colour system.
-#      Glassmorphism applied to cards, sidebar, metric containers, and tables.
+#  5 · THEME INJECTION
+#      inject_custom_theme(is_dark) is the SINGLE point of CSS injection.
+#      Dark  → GitHub Dark Primer + Glassmorphism + all floating-element fixes.
+#      Light → GitHub Light Primer with identical custom component shapes.
+#
+#  TOGGLED via st.sidebar.toggle("🌙 Dark Mode") in render_sidebar().
+#  Called once at the top of main() reading st.session_state.dark_mode.
 # ─────────────────────────────────────────────────────────────────────────────
-def inject_css() -> None:
-    st.markdown("""
-<style>
-/* ═══════════════════════════════════════════════════════════════════════════
-   FONTS
-═══════════════════════════════════════════════════════════════════════════ */
+
+_DARK_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS  —  GitHub Dark Primer
 ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Backgrounds ── */
-  --bg-canvas:      #0D1117;   /* page canvas — deepest layer              */
-  --bg-default:     #161B22;   /* primary surface (cards, sidebar)         */
-  --bg-subtle:      #1C2128;   /* raised surface (inputs, table rows)      */
-  --bg-muted:       #21262D;   /* hover / alt rows                         */
-  --bg-overlay:     #30363D;   /* tooltips / popovers                      */
-
-  /* ── Borders ── */
+  --bg-canvas:      #0D1117;
+  --bg-default:     #161B22;
+  --bg-subtle:      #1C2128;
+  --bg-muted:       #21262D;
+  --bg-overlay:     #30363D;
   --border-default: rgba(240,246,252,0.10);
   --border-muted:   rgba(240,246,252,0.06);
   --border-strong:  rgba(240,246,252,0.18);
-
-  /* ── Text ── */
-  --text-primary:   #E6EDF3;   /* headings, labels — maximum contrast      */
-  --text-secondary: #8B949E;   /* supporting copy                          */
-  --text-muted:     #484F58;   /* placeholders, disabled                   */
-  --text-link:      #58A6FF;   /* links                                    */
-
-  /* ── Accent: Electric Indigo ── */
-  --accent:         #7C3AED;   /* main CTA background                      */
+  --text-primary:   #E6EDF3;
+  --text-secondary: #8B949E;
+  --text-muted:     #484F58;
+  --text-link:      #58A6FF;
+  --accent:         #7C3AED;
   --accent-hover:   #6D28D9;
   --accent-subtle:  rgba(124,58,237,0.18);
   --accent-border:  rgba(124,58,237,0.40);
   --accent-glow:    rgba(124,58,237,0.28);
-
-  /* ── Electric Blue (secondary) ── */
   --blue:           #388BFD;
   --blue-subtle:    rgba(56,139,253,0.15);
   --blue-border:    rgba(56,139,253,0.40);
-
-  /* ── Semantic ── */
   --green:          #3FB950;
   --green-subtle:   rgba(63,185,80,0.14);
   --green-border:   rgba(63,185,80,0.35);
@@ -187,27 +161,15 @@ def inject_css() -> None:
   --orange:         #F0883E;
   --orange-subtle:  rgba(240,136,62,0.14);
   --orange-border:  rgba(240,136,62,0.35);
-
-  /* ── Glass effect ── */
   --glass-bg:       rgba(22,27,34,0.82);
   --glass-border:   rgba(240,246,252,0.10);
   --glass-blur:     blur(16px) saturate(1.4);
-
-  /* ── Spacing / Radius ── */
-  --r-sm:   6px;
-  --r-md:   10px;
-  --r-lg:   14px;
-  --r-xl:   20px;
-  --r-full: 9999px;
-
-  /* ── Shadows ── */
-  --shadow-sm:  0 1px 4px rgba(0,0,0,0.35);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.45);
-  --shadow-lg:  0 12px 40px rgba(0,0,0,0.55);
-  --shadow-glow:0 0 20px var(--accent-glow);
-
+  --r-sm:   6px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 20px;  --r-full: 9999px;
+  --shadow-sm:   0 1px 4px rgba(0,0,0,0.35);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.45);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.55);
+  --shadow-glow: 0 0 20px var(--accent-glow);
   --ring: 0 0 0 3px var(--accent-subtle);
-
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
@@ -215,10 +177,7 @@ def inject_css() -> None:
 /* ═══════════════════════════════════════════════════════════════════════════
    GLOBAL RESET
 ═══════════════════════════════════════════════════════════════════════════ */
-*, *::before, *::after {
-  box-sizing: border-box !important;
-  font-family: var(--font) !important;
-}
+*, *::before, *::after { box-sizing: border-box !important; font-family: var(--font) !important; }
 html, body, .stApp,
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {
@@ -229,15 +188,21 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
 .stMarkdown, [data-testid="stMarkdownContainer"] {
   color: var(--text-primary) !important;
 }
-
-/* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR  —  glass panel
+   SCROLLBAR
+═══════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0D1117; }
+::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484F58; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR
 ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
   background: var(--glass-bg) !important;
@@ -253,106 +218,339 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
 ═══════════════════════════════════════════════════════════════════════════ */
 .stTextInput > div > div > input,
 .stTextArea  > div > div > textarea {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
+  background: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: var(--r-md) !important;
-  font-size:     0.875rem !important;
-  font-weight:   400 !important;
-  padding:       10px 14px !important;
-  caret-color:   var(--accent) !important;
+  font-size: 0.875rem !important;
+  padding: 10px 14px !important;
+  caret-color: var(--accent) !important;
   transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea  > div > div > textarea:focus {
   border-color: var(--accent) !important;
-  box-shadow:   var(--ring) !important;
-  outline:      none !important;
+  box-shadow: var(--ring) !important;
+  outline: none !important;
 }
 .stTextInput > div > div > input::placeholder,
-.stTextArea  > div > div > textarea::placeholder {
-  color: var(--text-muted) !important;
-}
-.stTextInput > div > div > input:disabled {
-  opacity: 0.40 !important;
-  cursor: not-allowed !important;
-}
+.stTextArea  > div > div > textarea::placeholder { color: var(--text-muted) !important; }
+.stTextInput > div > div > input:disabled { opacity: 0.40 !important; cursor: not-allowed !important; }
 .stTextInput > label, .stTextArea > label,
 .stSelectbox > label, .stMultiSelect > label {
-  color:          var(--text-secondary) !important;
-  font-size:      0.68rem !important;
-  font-weight:    700 !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
   letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SELECTBOX
+   SELECTBOX  —  trigger container
 ═══════════════════════════════════════════════════════════════════════════ */
 .stSelectbox > div > div,
 [data-baseweb="select"] > div {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
+  background: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: var(--r-md) !important;
-  font-weight:   400 !important;
-}
-[data-baseweb="menu"],
-[data-baseweb="popover"] > div {
-  background:    var(--bg-default) !important;
-  border:        1px solid var(--border-strong) !important;
-  border-radius: var(--r-md) !important;
-  box-shadow:    var(--shadow-lg) !important;
-}
-[data-baseweb="menu"] li,
-[data-baseweb="menu"] [role="option"] {
-  background: transparent !important;
-  color:      var(--text-primary) !important;
-  font-size:  0.875rem !important;
-}
-[data-baseweb="menu"] li:hover,
-[data-baseweb="menu"] [aria-selected="true"] {
-  background: var(--accent-subtle) !important;
-  color:      var(--text-primary) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   METRIC CARDS  —  glassmorphism lift
+   BASEWEB FLOATING ELEMENTS  —  Ultimate Dark Fix
+   Popovers, menus, and option lists are appended to <body> at runtime;
+   they need high-specificity overrides to defeat the BaseWeb inline styles.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* Select trigger & inner div */
+div[data-baseweb="select"],
+div[data-baseweb="select"] > div,
+div[data-baseweb="select"] > div:first-child {
+  background-color: #1C2128 !important;
+  color: #E6EDF3 !important;
+  border-color: #30363D !important;
+}
+div[data-baseweb="select"] input {
+  background-color: transparent !important;
+  color: #E6EDF3 !important;
+}
+
+/* Popover shell (the floating container) */
+div[data-baseweb="popover"],
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] > div > div,
+[data-baseweb="popover"] > div > div > div {
+  background-color: #161B22 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 10px !important;
+  color: #E6EDF3 !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.70), 0 0 0 1px rgba(240,246,252,0.06) !important;
+}
+
+/* Menu / listbox inside popover */
+[data-baseweb="menu"],
+ul[data-baseweb="menu"],
+[data-baseweb="select"] ul,
+[role="listbox"],
+[data-baseweb="select"] [role="listbox"] {
+  background-color: #161B22 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 10px !important;
+  color: #E6EDF3 !important;
+  padding: 4px !important;
+}
+
+/* Individual option items */
+li[role="option"],
+[data-baseweb="option"],
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"],
+[data-baseweb="menu"] div[role="option"] {
+  background-color: #161B22 !important;
+  color: #E6EDF3 !important;
+  border-radius: 6px !important;
+}
+li[role="option"]:hover,
+[data-baseweb="option"]:hover,
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [role="option"]:hover,
+[aria-selected="true"][role="option"],
+[data-baseweb="menu"] [aria-selected="true"] {
+  background-color: rgba(124,58,237,0.22) !important;
+  color: #E6EDF3 !important;
+}
+/* Text nodes inside options */
+li[role="option"] *,
+[data-baseweb="option"] *,
+[data-baseweb="menu"] li *,
+[data-baseweb="menu"] [role="option"] * {
+  color: #E6EDF3 !important;
+  background-color: transparent !important;
+}
+
+/* Multiselect tags */
+[data-baseweb="tag"],
+[data-baseweb="multi-value"] {
+  background-color: rgba(124,58,237,0.22) !important;
+  color: #E6EDF3 !important;
+  border: 1px solid rgba(124,58,237,0.45) !important;
+  border-radius: 6px !important;
+}
+[data-baseweb="tag"] span,
+[data-baseweb="multi-value"] span { color: #E6EDF3 !important; }
+
+/* Calendar / Date picker */
+[data-baseweb="calendar"],
+[data-baseweb="datepicker"],
+[data-baseweb="calendar"] > div,
+[data-baseweb="datepicker"] > div {
+  background-color: #161B22 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 10px !important;
+  color: #E6EDF3 !important;
+}
+[data-baseweb="calendar"] *,
+[data-baseweb="calendar"] div,
+[data-baseweb="calendar"] span {
+  color: #E6EDF3 !important;
+  background-color: transparent !important;
+}
+[data-baseweb="calendar"] button {
+  background-color: transparent !important;
+  color: #E6EDF3 !important;
+  border-color: transparent !important;
+}
+[data-baseweb="calendar"] button:hover {
+  background-color: rgba(124,58,237,0.20) !important;
+  color: #E6EDF3 !important;
+}
+[data-baseweb="calendar"] [aria-selected="true"],
+[data-baseweb="calendar"] [data-selected="true"] {
+  background-color: #7C3AED !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+}
+/* Month/year header in calendar */
+[data-baseweb="calendar"] [data-baseweb="select"] > div,
+[data-baseweb="calendar"] [data-baseweb="select"] > div > div {
+  background-color: #21262D !important;
+  color: #E6EDF3 !important;
+  border-color: #30363D !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORM SUBMIT BUTTON  —  gradient + glow, all specificity variants
+═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stFormSubmitButton"] > button,
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] > div > button {
+  background: linear-gradient(135deg, #7C3AED 0%, #388BFD 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(124,58,237,0.60) !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: 0.94rem !important;
+  padding: 12px !important;
+  width: 100% !important;
+  margin-top: 8px !important;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.40) !important;
+  transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+[data-testid="stFormSubmitButton"] > button:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+  transform: translateY(-2px) scale(1.01) !important;
+  box-shadow: 0 10px 32px rgba(124,58,237,0.55) !important;
+}
+[data-testid="stFormSubmitButton"] > button:disabled,
+[data-testid="stFormSubmitButton"] button:disabled {
+  background: #21262D !important;
+  color: #484F58 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS  —  Dark Fix
+   Toasts are appended directly to <body>; they escape the main Stylediv tree.
+   We must override their inline background and every child text node.
+═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stToast"],
+[data-testid="stToast"] > div,
+div[class*="stToast"],
+div[class*="Toast"] {
+  background-color: #161B22 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 10px !important;
+  color: #E6EDF3 !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.65), 0 0 0 1px rgba(240,246,252,0.07) !important;
+  backdrop-filter: blur(12px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+}
+/* All descendants — prevents white-on-white text */
+[data-testid="stToast"] *,
+div[class*="stToast"] * {
+  color: #E6EDF3 !important;
+  background-color: transparent !important;
+}
+[data-testid="stToast"] p,
+[data-testid="stToast"] span,
+[data-testid="stToast"] div,
+[data-testid="stToast"] [data-testid="stMarkdownContainer"],
+[data-testid="stToast"] [data-testid="stMarkdownContainer"] p {
+  color: #E6EDF3 !important;
+  background-color: transparent !important;
+}
+/* Toast icon / emoji area */
+[data-testid="stToast"] svg { fill: #E6EDF3 !important; color: #E6EDF3 !important; }
+/* Toast close button */
+[data-testid="stToast"] button {
+  background-color: transparent !important;
+  color: #8B949E !important;
+  border: none !important;
+}
+[data-testid="stToast"] button:hover { color: #E6EDF3 !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALERTS & NOTIFICATIONS  —  Dark Fix
+═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stAlert"],
+[data-testid="stNotification"],
+.stAlert,
+div[data-baseweb="notification"] {
+  background-color: #1C2128 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 10px !important;
+  color: #E6EDF3 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+}
+[data-testid="stAlert"] *,
+[data-testid="stNotification"] *,
+.stAlert *,
+div[data-baseweb="notification"] * {
+  color: #E6EDF3 !important;
+  background-color: transparent !important;
+}
+[data-testid="stAlert"] p,
+[data-testid="stNotification"] p { color: #E6EDF3 !important; }
+
+/* Semantic tints on alerts */
+[data-testid="stAlert"][data-kind="info"],
+[data-testid="stNotification"][data-kind="info"],
+div[data-baseweb="notification"][kind="info"] {
+  background-color: rgba(56,139,253,0.10) !important;
+  border-color: rgba(56,139,253,0.35) !important;
+}
+[data-testid="stAlert"][data-kind="success"],
+[data-testid="stNotification"][data-kind="success"],
+div[data-baseweb="notification"][kind="positive"] {
+  background-color: rgba(63,185,80,0.10) !important;
+  border-color: rgba(63,185,80,0.30) !important;
+}
+[data-testid="stAlert"][data-kind="warning"],
+[data-testid="stNotification"][data-kind="warning"],
+div[data-baseweb="notification"][kind="warning"] {
+  background-color: rgba(210,153,34,0.10) !important;
+  border-color: rgba(210,153,34,0.30) !important;
+}
+[data-testid="stAlert"][data-kind="error"],
+[data-testid="stNotification"][data-kind="error"],
+div[data-baseweb="notification"][kind="negative"] {
+  background-color: rgba(248,81,73,0.10) !important;
+  border-color: rgba(248,81,73,0.30) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOOLTIP
+═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stTooltipContent"],
+[data-baseweb="tooltip"],
+div[role="tooltip"] {
+  background-color: #30363D !important;
+  color: #E6EDF3 !important;
+  border: 1px solid rgba(240,246,252,0.15) !important;
+  border-radius: 6px !important;
+}
+[data-testid="stTooltipContent"] *,
+div[role="tooltip"] * { color: #E6EDF3 !important; background-color: transparent !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   METRIC CARDS
 ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stMetricContainer"] {
-  background:     var(--glass-bg) !important;
+  background: var(--glass-bg) !important;
   backdrop-filter: var(--glass-blur) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important;
-  border:         1px solid var(--border-default) !important;
-  border-top:     2px solid var(--accent) !important;
-  border-radius:  var(--r-lg) !important;
-  padding:        22px 24px !important;
-  box-shadow:     var(--shadow-md) !important;
-  transition:     transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
-                  box-shadow 0.22s ease !important;
+  border: 1px solid var(--border-default) !important;
+  border-top: 2px solid var(--accent) !important;
+  border-radius: var(--r-lg) !important;
+  padding: 22px 24px !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease !important;
 }
 [data-testid="stMetricContainer"]:hover {
-  transform:   translateY(-4px) !important;
-  box-shadow:  var(--shadow-lg), 0 0 24px var(--accent-glow) !important;
+  transform: translateY(-4px) !important;
+  box-shadow: var(--shadow-lg), 0 0 24px var(--accent-glow) !important;
   border-color: var(--accent-border) !important;
 }
 [data-testid="stMetricValue"] {
-  font-family:    var(--mono) !important;
-  font-size:      2.1rem !important;
-  font-weight:    700 !important;
-  color:          var(--blue) !important;
+  font-family: var(--mono) !important;
+  font-size: 2.1rem !important;
+  font-weight: 700 !important;
+  color: var(--blue) !important;
   letter-spacing: -0.02em !important;
-  line-height:    1.1 !important;
+  line-height: 1.1 !important;
 }
 [data-testid="stMetricLabel"] {
-  font-size:      0.65rem !important;
-  font-weight:    700 !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
   letter-spacing: 0.12em !important;
   text-transform: uppercase !important;
-  color:          var(--text-secondary) !important;
+  color: var(--text-secondary) !important;
 }
 [data-testid="stMetricDelta"] {
-  font-size:   0.78rem !important;
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
   font-family: var(--mono) !important;
 }
@@ -361,49 +559,42 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
    BUTTONS
 ═══════════════════════════════════════════════════════════════════════════ */
 .stButton > button {
-  background:    linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%) !important;
-  color:         #FFFFFF !important;
-  border:        1px solid var(--accent-border) !important;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--accent-border) !important;
   border-radius: var(--r-md) !important;
-  font-weight:   600 !important;
-  font-size:     0.84rem !important;
-  padding:       9px 18px !important;
-  letter-spacing: 0.01em !important;
-  box-shadow:    0 2px 10px var(--accent-glow) !important;
-  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
+  font-weight: 600 !important;
+  font-size: 0.84rem !important;
+  padding: 9px 18px !important;
+  box-shadow: 0 2px 10px var(--accent-glow) !important;
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
 }
 .stButton > button:hover {
-  background:  linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%) !important;
-  transform:   translateY(-2px) scale(1.01) !important;
-  box-shadow:  0 8px 28px var(--accent-glow) !important;
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%) !important;
+  transform: translateY(-2px) scale(1.01) !important;
+  box-shadow: 0 8px 28px var(--accent-glow) !important;
 }
-.stButton > button:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 2px 8px var(--accent-glow) !important;
-}
+.stButton > button:active { transform: translateY(0) scale(0.98) !important; }
 .stButton > button:disabled {
   background: var(--bg-overlay) !important;
-  color:      var(--text-muted) !important;
+  color: var(--text-muted) !important;
   border-color: var(--border-muted) !important;
   box-shadow: none !important;
-  transform:  none !important;
-  cursor:     not-allowed !important;
+  transform: none !important;
 }
-
-/* Download button — teal accent */
 [data-testid="stDownloadButton"] > button {
   background: linear-gradient(135deg, #1B6CA8 0%, #0D9488 100%) !important;
-  color:      #FFFFFF !important;
-  border:     1px solid rgba(13,148,136,0.50) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(13,148,136,0.50) !important;
   box-shadow: 0 2px 10px rgba(13,148,136,0.30) !important;
   border-radius: var(--r-md) !important;
   font-weight: 600 !important;
-  font-size:  0.84rem !important;
-  padding:    9px 18px !important;
+  font-size: 0.84rem !important;
+  padding: 9px 18px !important;
   transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
 }
 [data-testid="stDownloadButton"] > button:hover {
-  transform:  translateY(-2px) scale(1.01) !important;
+  transform: translateY(-2px) scale(1.01) !important;
   box-shadow: 0 8px 24px rgba(13,148,136,0.40) !important;
 }
 
@@ -411,616 +602,532 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
    FORMS
 ═══════════════════════════════════════════════════════════════════════════ */
 div[data-testid="stForm"] {
-  background:     var(--glass-bg) !important;
+  background: var(--glass-bg) !important;
   backdrop-filter: var(--glass-blur) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important;
-  border:         1px solid var(--border-default) !important;
-  border-radius:  var(--r-lg) !important;
-  padding:        26px 30px !important;
-  box-shadow:     var(--shadow-md) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--r-lg) !important;
+  padding: 26px 30px !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TABS  —  pill-style, inline
+   TABS
 ═══════════════════════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
-  gap:           2px !important;
-  background:    var(--bg-subtle) !important;
-  border:        1px solid var(--border-default) !important;
+  gap: 2px !important;
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: var(--r-full) !important;
-  padding:       4px !important;
-  width:         fit-content !important;
-  box-shadow:    var(--shadow-sm) !important;
+  padding: 4px !important;
+  width: fit-content !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 .stTabs [data-baseweb="tab"] {
-  background:    transparent !important;
-  color:         var(--text-secondary) !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
   border-radius: var(--r-full) !important;
-  border:        none !important;
-  padding:       8px 20px !important;
-  font-weight:   600 !important;
-  font-size:     0.82rem !important;
-  transition:    all 0.18s ease !important;
+  border: none !important;
+  padding: 8px 20px !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  transition: all 0.18s ease !important;
 }
 .stTabs [data-baseweb="tab"]:hover {
-  color:      var(--text-primary) !important;
+  color: var(--text-primary) !important;
   background: var(--bg-muted) !important;
 }
 .stTabs [aria-selected="true"] {
-  background:  var(--accent-subtle) !important;
-  color:       var(--text-primary) !important;
-  border:      1px solid var(--accent-border) !important;
-  box-shadow:  inset 0 0 0 1px var(--accent-border) !important;
+  background: var(--accent-subtle) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--accent-border) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    EXPANDER
 ═══════════════════════════════════════════════════════════════════════════ */
 .streamlit-expanderHeader {
-  background:    var(--bg-subtle) !important;
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--border-default) !important;
+  background: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: var(--r-md) !important;
-  font-weight:   600 !important;
-  font-size:     0.85rem !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
 }
 .streamlit-expanderContent {
-  background:    var(--bg-default) !important;
-  border:        1px solid var(--border-default) !important;
-  border-top:    none !important;
+  background: var(--bg-default) !important;
+  border: 1px solid var(--border-default) !important;
+  border-top: none !important;
   border-radius: 0 0 var(--r-md) var(--r-md) !important;
-  padding:       16px !important;
+  padding: 16px !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ALERTS
+   SPINNER / PROGRESS
 ═══════════════════════════════════════════════════════════════════════════ */
-[data-testid="stAlert"] {
-  background:    var(--bg-subtle) !important;
-  border:        1px solid var(--border-default) !important;
-  border-radius: var(--r-md) !important;
-  box-shadow:    var(--shadow-sm) !important;
-}
-[data-testid="stAlert"] * { color: var(--text-primary) !important; }
+[data-testid="stSpinner"] > div { color: var(--accent) !important; }
+[data-testid="stSpinner"] * { color: var(--text-secondary) !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LOGIN PAGE  —  animated gradient + glass card
+   MODAL / DIALOG
 ═══════════════════════════════════════════════════════════════════════════ */
-.login-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
+[data-testid="stModal"],
+[role="dialog"],
+[data-baseweb="modal"],
+[data-baseweb="dialog"],
+[data-baseweb="modal"] > div {
+  background-color: #161B22 !important;
+  border: 1px solid #30363D !important;
+  border-radius: 14px !important;
+  color: #E6EDF3 !important;
 }
+[data-testid="stModal"] *,
+[role="dialog"] * { color: #E6EDF3 !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PAGE HEADER
+   NATIVE STREAMLIT WIDGET TWEAKS
 ═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stNumberInput"] button {
+  background-color: #21262D !important;
+  color: #E6EDF3 !important;
+  border-color: #30363D !important;
+}
+[data-testid="stCheckbox"] input[type="checkbox"]  { accent-color: #7C3AED !important; }
+[data-testid="stRadio"]    input[type="radio"]      { accent-color: #7C3AED !important; }
+[data-testid="stToggle"]   input[type="checkbox"]   { accent-color: #7C3AED !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CUSTOM COMPONENTS
+═══════════════════════════════════════════════════════════════════════════ */
+.login-wrap { display:flex;align-items:center;justify-content:center;min-height:100vh; }
+
 .page-header {
-  display:         flex;
-  align-items:     center;
-  justify-content: space-between;
-  padding:         4px 0 22px;
-  border-bottom:   1px solid var(--border-default);
-  margin-bottom:   26px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 0 22px;border-bottom:1px solid var(--border-default);margin-bottom:26px;
 }
-.page-title {
-  font-size:      1.45rem;
-  font-weight:    800;
-  color:          var(--text-primary) !important;
-  letter-spacing: -0.03em;
-  margin:         0;
-}
-.page-subtitle {
-  font-size:   0.76rem;
-  color:       var(--text-secondary) !important;
-  margin-top:  4px;
-  font-weight: 400;
-}
+.page-title    { font-size:1.45rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.03em;margin:0; }
+.page-subtitle { font-size:0.76rem;color:var(--text-secondary)!important;margin-top:4px;font-weight:400; }
 .page-timestamp {
-  font-size:      0.72rem;
-  color:          var(--text-secondary) !important;
-  font-weight:    500;
-  background:     var(--bg-subtle);
-  padding:        6px 14px;
-  border-radius:  var(--r-full);
-  border:         1px solid var(--border-default);
-  box-shadow:     var(--shadow-sm);
-  font-family:    var(--mono) !important;
+  font-size:0.72rem;color:var(--text-secondary)!important;font-weight:500;
+  background:var(--bg-subtle);padding:6px 14px;border-radius:var(--r-full);
+  border:1px solid var(--border-default);box-shadow:var(--shadow-sm);font-family:var(--mono)!important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SECTION TITLE  —  left-border pill
-═══════════════════════════════════════════════════════════════════════════ */
 .section-title {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            8px;
-  font-size:      0.67rem;
-  font-weight:    800;
-  color:          var(--blue) !important;
-  margin:         22px 0 12px;
-  padding:        5px 12px 5px 10px;
-  border-left:    3px solid var(--accent);
-  border-radius:  0 var(--r-sm) var(--r-sm) 0;
-  background:     var(--accent-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  display:inline-flex;align-items:center;gap:8px;font-size:0.67rem;font-weight:800;
+  color:var(--blue)!important;margin:22px 0 12px;padding:5px 12px 5px 10px;
+  border-left:3px solid var(--accent);border-radius:0 var(--r-sm) var(--r-sm) 0;
+  background:var(--accent-subtle);text-transform:uppercase;letter-spacing:0.08em;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORKLIST / ARCHIVE HEADER CARD
-═══════════════════════════════════════════════════════════════════════════ */
 .worklist-header {
-  display:         flex;
-  align-items:     center;
-  justify-content: space-between;
-  background:      var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border:          1px solid var(--border-default);
-  border-top:      2px solid var(--accent);
-  border-radius:   var(--r-lg);
-  padding:         16px 22px;
-  margin-bottom:   16px;
-  box-shadow:      var(--shadow-md);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--border-default);border-top:2px solid var(--accent);
+  border-radius:var(--r-lg);padding:16px 22px;margin-bottom:16px;box-shadow:var(--shadow-md);
 }
-.worklist-title { font-size: 0.98rem; font-weight: 700; color: var(--text-primary) !important; }
-.worklist-sub   { font-size: 0.74rem; color: var(--text-secondary) !important; margin-top: 3px; }
+.worklist-title { font-size:0.98rem;font-weight:700;color:var(--text-primary)!important; }
+.worklist-sub   { font-size:0.74rem;color:var(--text-secondary)!important;margin-top:3px; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOG SUMMARY CARD
-═══════════════════════════════════════════════════════════════════════════ */
 .log-summary-card {
-  background:      var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border:          1px solid var(--border-default);
-  border-top:      2px solid var(--accent);
-  border-radius:   var(--r-lg);
-  padding:         20px 24px;
-  box-shadow:      var(--shadow-md);
-  margin-bottom:   16px;
+  background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--border-default);border-top:2px solid var(--accent);
+  border-radius:var(--r-lg);padding:20px 24px;box-shadow:var(--shadow-md);margin-bottom:16px;
 }
-.log-stat-row       { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
-.log-stat           { display:flex;flex-direction:column;gap:3px; }
-.log-stat-value     { font-size:1.45rem;font-weight:800;color:var(--blue)!important;letter-spacing:-.02em;font-family:var(--mono)!important; }
-.log-stat-label     { font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary)!important; }
-.log-stat-divider   { width:1px;height:38px;background:var(--border-default); }
+.log-stat-row     { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
+.log-stat         { display:flex;flex-direction:column;gap:3px; }
+.log-stat-value   { font-size:1.45rem;font-weight:800;color:var(--blue)!important;letter-spacing:-.02em;font-family:var(--mono)!important; }
+.log-stat-label   { font-size:.60rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary)!important; }
+.log-stat-divider { width:1px;height:38px;background:var(--border-default); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   EXPORT STRIP
-═══════════════════════════════════════════════════════════════════════════ */
 .export-strip {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--green-border);
-  border-left:   3px solid var(--green);
-  border-radius: var(--r-md);
-  padding:       13px 18px;
-  display:       flex;
-  align-items:   center;
-  justify-content: space-between;
-  flex-wrap:     wrap;
-  gap:           12px;
-  margin-bottom: 18px;
+  background:var(--bg-subtle);border:1px solid var(--green-border);border-left:3px solid var(--green);
+  border-radius:var(--r-md);padding:13px 18px;display:flex;align-items:center;
+  justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;
 }
 .export-text { font-size:.80rem;font-weight:600;color:var(--text-primary)!important; }
 .export-sub  { font-size:.68rem;color:var(--text-secondary)!important;margin-top:2px; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PROGRESS BAR
-═══════════════════════════════════════════════════════════════════════════ */
-.prog-wrap {
-  background:    var(--bg-muted);
-  border-radius: var(--r-full);
-  height:        6px;
-  overflow:      hidden;
-  margin:        5px 0 10px;
-}
-.prog-fill {
-  height:        100%;
-  border-radius: var(--r-full);
-  background:    linear-gradient(90deg, var(--accent), var(--blue));
-  transition:    width 0.8s cubic-bezier(0.4,0,0.2,1);
-  box-shadow:    0 0 10px var(--accent-glow);
-}
-.prog-labels {
-  display:         flex;
-  justify-content: space-between;
-  font-size:       0.70rem;
-  color:           var(--text-secondary) !important;
-  font-weight:     600;
-  margin-bottom:   3px;
-}
+.prog-wrap   { background:var(--bg-muted);border-radius:var(--r-full);height:6px;overflow:hidden;margin:5px 0 10px; }
+.prog-fill   { height:100%;border-radius:var(--r-full);background:linear-gradient(90deg,var(--accent),var(--blue));transition:width 0.8s cubic-bezier(0.4,0,0.2,1);box-shadow:0 0 10px var(--accent-glow); }
+.prog-labels { display:flex;justify-content:space-between;font-size:0.70rem;color:var(--text-secondary)!important;font-weight:600;margin-bottom:3px; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   STATUS / EVAL CHIPS
-═══════════════════════════════════════════════════════════════════════════ */
-.chip {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            5px;
-  padding:        4px 11px;
-  border-radius:  var(--r-full);
-  font-size:      0.67rem;
-  font-weight:    700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.chip-done    { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
-.chip-pending { background:var(--amber-subtle); color:var(--amber)   !important; border:1px solid var(--amber-border);  }
-.chip-admin   { background:var(--accent-subtle);color:var(--blue)    !important; border:1px solid var(--accent-border); }
-.chip-audit   { background:var(--green-subtle); color:var(--green)   !important; border:1px solid var(--green-border);  }
-.chip-manager { background:var(--orange-subtle);color:var(--orange)  !important; border:1px solid var(--orange-border); }
+.chip         { display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:var(--r-full);font-size:0.67rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
+.chip-done    { background:var(--green-subtle);  color:var(--green)  !important;border:1px solid var(--green-border);  }
+.chip-pending { background:var(--amber-subtle);  color:var(--amber)  !important;border:1px solid var(--amber-border);  }
+.chip-admin   { background:var(--accent-subtle); color:var(--blue)   !important;border:1px solid var(--accent-border); }
+.chip-audit   { background:var(--green-subtle);  color:var(--green)  !important;border:1px solid var(--green-border);  }
+.chip-manager { background:var(--orange-subtle); color:var(--orange) !important;border:1px solid var(--orange-border); }
 
-.s-chip        { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
-.s-done        { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-pending     { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
-.s-eval-good   { background:var(--green-subtle); color:var(--green)  !important; border:1px solid var(--green-border);  }
-.s-eval-bad    { background:var(--red-subtle);  color:var(--red)    !important; border:1px solid var(--red-border);    }
-.s-eval-dup    { background:var(--amber-subtle); color:var(--amber)  !important; border:1px solid var(--amber-border);  }
+.s-chip      { display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r-full);font-size:.63rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase; }
+.s-done      { background:var(--green-subtle);  color:var(--green)  !important;border:1px solid var(--green-border);  }
+.s-pending   { background:var(--amber-subtle);  color:var(--amber)  !important;border:1px solid var(--amber-border);  }
+.s-eval-good { background:var(--green-subtle);  color:var(--green)  !important;border:1px solid var(--green-border);  }
+.s-eval-bad  { background:var(--red-subtle);    color:var(--red)    !important;border:1px solid var(--red-border);    }
+.s-eval-dup  { background:var(--amber-subtle);  color:var(--amber)  !important;border:1px solid var(--amber-border);  }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DATA TABLE  —  dark glass rows
-═══════════════════════════════════════════════════════════════════════════ */
-.gov-table-wrap {
-  overflow-x:    auto;
-  border:        1px solid var(--border-default);
-  border-radius: var(--r-lg);
-  margin-bottom: 16px;
-  box-shadow:    var(--shadow-md);
-  background:    var(--bg-default);
-}
-.gov-table {
-  width:           100%;
-  border-collapse: collapse;
-  background:      var(--bg-default);
-  font-size:       0.84rem;
-}
-.gov-table thead tr {
-  background:    var(--bg-subtle);
-  border-bottom: 1px solid var(--border-strong);
-}
-.gov-table th {
-  color:          var(--text-secondary)  !important;
-  background:     var(--bg-subtle)       !important;
-  font-weight:    700 !important;
-  font-size:      0.62rem !important;
-  letter-spacing: 0.10em !important;
-  text-transform: uppercase !important;
-  padding:        12px 16px !important;
-  white-space:    nowrap;
-  text-align:     left !important;
-  border-right:   1px solid var(--border-muted);
-}
-.gov-table th:last-child  { border-right: none; }
-.gov-table td {
-  color:          var(--text-primary)  !important;
-  background:     var(--bg-default)    !important;
-  padding:        10px 16px !important;
-  font-size:      0.84rem !important;
-  font-weight:    400 !important;
-  border-bottom:  1px solid var(--border-muted) !important;
-  border-right:   1px solid var(--border-muted) !important;
-  vertical-align: middle !important;
-  max-width:      220px;
-  overflow:       hidden;
-  text-overflow:  ellipsis;
-  white-space:    nowrap;
-  transition:     background 0.12s ease !important;
-}
-.gov-table td:last-child                { border-right: none; }
-.gov-table tbody tr:nth-child(even) td  { background: var(--bg-subtle) !important; }
-.gov-table tbody tr:hover td            { background: var(--bg-muted)  !important; }
-.gov-table tbody tr:last-child td       { border-bottom: none !important; }
-.gov-table td.row-idx,
-.gov-table th.row-idx {
-  color:       var(--text-muted)  !important;
-  font-family: var(--mono) !important;
-  font-size:   0.68rem !important;
-  min-width:   48px;
-  text-align:  center !important;
-}
-/* Evaluation + feedback column highlights */
-.gov-table th.col-eval,
-.gov-table th.col-feedback {
-  background:    var(--accent-subtle) !important;
-  color:         var(--blue)          !important;
-  border-bottom: 2px solid var(--accent-border) !important;
-}
-.gov-table td.col-feedback {
-  max-width:   280px;
-  white-space: normal !important;
-  word-break:  break-word;
-  font-size:   0.74rem !important;
-  font-family: var(--mono) !important;
-  color:       var(--text-secondary) !important;
-}
+.gov-table-wrap  { overflow-x:auto;border:1px solid var(--border-default);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-md);background:var(--bg-default); }
+.gov-table       { width:100%;border-collapse:collapse;background:var(--bg-default);font-size:0.84rem; }
+.gov-table thead tr { background:var(--bg-subtle);border-bottom:1px solid var(--border-strong); }
+.gov-table th    { color:var(--text-secondary)!important;background:var(--bg-subtle)!important;font-weight:700!important;font-size:0.62rem!important;letter-spacing:.10em!important;text-transform:uppercase!important;padding:12px 16px!important;white-space:nowrap;text-align:left!important;border-right:1px solid var(--border-muted); }
+.gov-table th:last-child { border-right:none; }
+.gov-table td    { color:var(--text-primary)!important;background:var(--bg-default)!important;padding:10px 16px!important;font-size:0.84rem!important;border-bottom:1px solid var(--border-muted)!important;border-right:1px solid var(--border-muted)!important;vertical-align:middle!important;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background 0.12s ease!important; }
+.gov-table td:last-child { border-right:none; }
+.gov-table tbody tr:nth-child(even) td { background:var(--bg-subtle)!important; }
+.gov-table tbody tr:hover td           { background:var(--bg-muted)!important;  }
+.gov-table tbody tr:last-child td      { border-bottom:none!important; }
+.gov-table td.row-idx,.gov-table th.row-idx { color:var(--text-muted)!important;font-family:var(--mono)!important;font-size:0.68rem!important;min-width:48px;text-align:center!important; }
+.gov-table th.col-eval,.gov-table th.col-feedback { background:var(--accent-subtle)!important;color:var(--blue)!important;border-bottom:2px solid var(--accent-border)!important; }
+.gov-table td.col-feedback { max-width:280px;white-space:normal!important;word-break:break-word;font-size:0.74rem!important;font-family:var(--mono)!important;color:var(--text-secondary)!important; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCURACY TABLE
-═══════════════════════════════════════════════════════════════════════════ */
-.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
 .acc-table th { background:var(--accent-subtle)!important;color:var(--blue)!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.09em!important;text-transform:uppercase!important;padding:11px 16px!important;border-bottom:2px solid var(--accent-border)!important;text-align:left!important; }
 .acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border-muted)!important;vertical-align:middle!important;font-weight:400!important;color:var(--text-primary)!important;background:var(--bg-default)!important; }
 .acc-table tbody tr:nth-child(even) td { background:var(--bg-subtle)!important; }
-.acc-table tbody tr:hover td { background:var(--bg-muted)!important; }
-.acc-table tbody tr:last-child td { border-bottom:none!important; }
-.acc-rate-high { color:var(--green) !important;font-weight:700!important;font-family:var(--mono)!important; }
-.acc-rate-mid  { color:var(--amber) !important;font-weight:700!important;font-family:var(--mono)!important; }
-.acc-rate-low  { color:var(--red)   !important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-table tbody tr:hover td           { background:var(--bg-muted)!important;  }
+.acc-table tbody tr:last-child td      { border-bottom:none!important; }
+.acc-rate-high { color:var(--green)!important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-rate-mid  { color:var(--amber)!important;font-weight:700!important;font-family:var(--mono)!important; }
+.acc-rate-low  { color:var(--red)!important;  font-weight:700!important;font-family:var(--mono)!important; }
 .acc-bar-wrap  { background:var(--bg-muted);border-radius:var(--r-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
 .acc-bar-fill  { height:100%;border-radius:var(--r-full); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LEADERBOARD ROWS
-═══════════════════════════════════════════════════════════════════════════ */
-.lb-row {
-  display:       flex;
-  align-items:   center;
-  gap:           12px;
-  padding:       11px 16px;
-  background:    var(--glass-bg);
-  border:        1px solid var(--border-default);
-  border-radius: var(--r-md);
-  margin-bottom: 7px;
-  box-shadow:    var(--shadow-sm);
-  transition:    all 0.18s cubic-bezier(0.34,1.56,0.64,1);
-}
-.lb-row:hover {
-  transform:    translateX(5px);
-  border-color: var(--accent-border);
-  box-shadow:   0 4px 20px var(--accent-glow);
-}
-.lb-medal {
-  font-size:     0.78rem;
-  font-weight:   700;
-  min-width:     30px;
-  text-align:    center;
-  color:         var(--text-secondary);
-  font-family:   var(--mono) !important;
-  background:    var(--bg-muted);
-  border-radius: var(--r-sm);
-  padding:       2px 5px;
-}
-.lb-name  { flex:1; font-size:.84rem; font-weight:500; color:var(--text-primary) !important; }
-.lb-count {
-  font-size:     0.86rem;
-  font-weight:   700;
-  color:         var(--blue) !important;
-  font-family:   var(--mono) !important;
-  background:    var(--blue-subtle);
-  padding:       3px 10px;
-  border-radius: var(--r-full);
-  border:        1px solid var(--blue-border);
-}
+.lb-row { display:flex;align-items:center;gap:12px;padding:11px 16px;background:var(--glass-bg);border:1px solid var(--border-default);border-radius:var(--r-md);margin-bottom:7px;box-shadow:var(--shadow-sm);transition:all 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+.lb-row:hover { transform:translateX(5px);border-color:var(--accent-border);box-shadow:0 4px 20px var(--accent-glow); }
+.lb-medal { font-size:0.78rem;font-weight:700;min-width:30px;text-align:center;color:var(--text-secondary);font-family:var(--mono)!important;background:var(--bg-muted);border-radius:var(--r-sm);padding:2px 5px; }
+.lb-name  { flex:1;font-size:.84rem;font-weight:500;color:var(--text-primary)!important; }
+.lb-count { font-size:0.86rem;font-weight:700;color:var(--blue)!important;font-family:var(--mono)!important;background:var(--blue-subtle);padding:3px 10px;border-radius:var(--r-full);border:1px solid var(--blue-border); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   AUDIT LOG LINES
-═══════════════════════════════════════════════════════════════════════════ */
-.log-line {
-  font-family:  var(--mono) !important;
-  font-size:    0.74rem;
-  color:        var(--text-secondary) !important;
-  padding:      5px 0;
-  border-bottom: 1px dashed var(--border-muted);
-  line-height:  1.5;
-}
-.log-line:last-child { border-bottom: none; }
+.log-line { font-family:var(--mono)!important;font-size:0.74rem;color:var(--text-secondary)!important;padding:5px 0;border-bottom:1px dashed var(--border-muted);line-height:1.5; }
+.log-line:last-child { border-bottom:none; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR COMPONENTS
-═══════════════════════════════════════════════════════════════════════════ */
-.sidebar-header {
-  border-top: 2px solid var(--accent);
-  padding:    18px 16px 14px;
-}
-.sidebar-logo-text {
-  font-size:      0.95rem;
-  font-weight:    800;
-  color:          var(--text-primary) !important;
-  letter-spacing: -0.02em;
-  margin-bottom:  3px;
-}
-.sidebar-ministry {
-  font-size:      0.58rem;
-  color:          var(--text-secondary) !important;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight:    600;
-}
-.sb-label {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color:          var(--text-secondary) !important;
-  margin-bottom:  4px;
-}
-.sb-email {
-  font-size:  0.84rem;
-  font-weight:700;
-  color:      var(--text-primary) !important;
-  word-break: break-all;
-}
-.sb-user-card {
-  background:     var(--bg-subtle);
-  border:         1px solid var(--accent-border);
-  border-radius:  var(--r-md);
-  padding:        13px 15px;
-  margin-bottom:  10px;
-  box-shadow:     inset 0 0 0 1px var(--accent-subtle);
-}
-.cache-badge {
-  display:        inline-flex;
-  align-items:    center;
-  gap:            5px;
-  background:     var(--green-subtle);
-  color:          var(--green)   !important;
-  border:         1px solid var(--green-border);
-  border-radius:  var(--r-full);
-  font-size:      0.58rem;
-  font-weight:    800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  padding:        3px 9px;
-}
-.cache-info  {
-  font-size:   0.60rem;
-  color:       var(--text-secondary) !important;
-  margin-top:  5px;
-  font-family: var(--mono) !important;
-}
-.cache-strip {
-  padding:       9px 16px;
-  background:    var(--bg-subtle);
-  border-bottom: 1px solid var(--border-muted);
-}
+.sidebar-header { border-top:2px solid var(--accent);padding:18px 16px 14px; }
+.sidebar-logo-text { font-size:0.95rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.02em;margin-bottom:3px; }
+.sidebar-ministry  { font-size:0.58rem;color:var(--text-secondary)!important;letter-spacing:.14em;text-transform:uppercase;font-weight:600; }
+.sb-label   { font-size:0.60rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-secondary)!important;margin-bottom:4px; }
+.sb-email   { font-size:0.84rem;font-weight:700;color:var(--text-primary)!important;word-break:break-all; }
+.sb-user-card { background:var(--bg-subtle);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:13px 15px;margin-bottom:10px;box-shadow:inset 0 0 0 1px var(--accent-subtle); }
+.cache-badge { display:inline-flex;align-items:center;gap:5px;background:var(--green-subtle);color:var(--green)!important;border:1px solid var(--green-border);border-radius:var(--r-full);font-size:0.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:3px 9px; }
+.cache-info  { font-size:0.60rem;color:var(--text-secondary)!important;margin-top:5px;font-family:var(--mono)!important; }
+.cache-strip { padding:9px 16px;background:var(--bg-subtle);border-bottom:1px solid var(--border-muted); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   FILTERS & FILTER BAR
-═══════════════════════════════════════════════════════════════════════════ */
-.adv-filter-header {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color:          var(--blue) !important;
-  margin-bottom:  10px;
-  padding-bottom: 8px;
-  border-bottom:  1px solid var(--border-default);
-}
+.adv-filter-header { font-size:.60rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--blue)!important;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-default); }
 .col-hint { font-size:.58rem;font-weight:400;opacity:.55;color:var(--text-secondary)!important; }
-.filter-result-bar {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--border-default);
-  border-left:   3px solid var(--accent);
-  border-radius: var(--r-md);
-  padding:       11px 16px;
-  margin-bottom: 16px;
-  display:       flex;
-  align-items:   center;
-  gap:           8px;
-  flex-wrap:     wrap;
-  box-shadow:    var(--shadow-sm);
-}
-.filter-badge {
-  display:       inline-flex;
-  align-items:   center;
-  gap:           4px;
-  background:    var(--accent-subtle);
-  color:         var(--text-primary) !important;
-  border:        1px solid var(--accent-border);
-  border-radius: var(--r-full);
-  font-size:     0.63rem;
-  font-weight:   600;
-  padding:       2px 9px;
-}
-.result-count {
-  font-size:   0.74rem;
-  color:       var(--text-secondary) !important;
-  margin-left: auto;
-  font-family: var(--mono) !important;
-}
+.filter-result-bar { background:var(--bg-subtle);border:1px solid var(--border-default);border-left:3px solid var(--accent);border-radius:var(--r-md);padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:var(--shadow-sm); }
+.filter-badge  { display:inline-flex;align-items:center;gap:4px;background:var(--accent-subtle);color:var(--text-primary)!important;border:1px solid var(--accent-border);border-radius:var(--r-full);font-size:0.63rem;font-weight:600;padding:2px 9px; }
+.result-count  { font-size:0.74rem;color:var(--text-secondary)!important;margin-left:auto;font-family:var(--mono)!important; }
+
+.deep-search-strip  { background:var(--bg-subtle);border:1px solid var(--border-default);border-left:3px solid var(--accent);border-radius:var(--r-md);padding:12px 18px 16px;margin-bottom:18px;box-shadow:var(--shadow-sm); }
+.deep-search-title  { font-size:0.60rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--blue)!important;margin-bottom:10px; }
+
+.rbac-banner { background:var(--blue-subtle);border:1px solid var(--blue-border);border-left:3px solid var(--blue);border-radius:var(--r-md);padding:11px 16px;margin-bottom:16px;font-size:0.80rem;color:var(--text-primary)!important;font-weight:500; }
+
+.role-badge-admin   { background:var(--accent-subtle);color:var(--blue)!important;  border:1px solid var(--accent-border);border-radius:var(--r-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
+.role-badge-manager { background:var(--orange-subtle);color:var(--orange)!important;border:1px solid var(--orange-border);border-radius:var(--r-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
+.role-badge-auditor { background:var(--green-subtle); color:var(--green)!important;  border:1px solid var(--green-border); border-radius:var(--r-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
+
+.page-nav-info { text-align:center;padding:8px 0;font-size:0.73rem;font-weight:600;color:var(--text-secondary)!important;font-family:var(--mono)!important; }
+.divider { border:none;border-top:1px solid var(--border-default);margin:12px 0; }
+"""
+
+_LIGHT_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DEEP SEARCH STRIP
+   DESIGN TOKENS  —  GitHub Light Primer
 ═══════════════════════════════════════════════════════════════════════════ */
-.deep-search-strip {
-  background:    var(--bg-subtle);
-  border:        1px solid var(--border-default);
-  border-left:   3px solid var(--accent);
-  border-radius: var(--r-md);
-  padding:       12px 18px 16px;
-  margin-bottom: 18px;
-  box-shadow:    var(--shadow-sm);
-}
-.deep-search-title {
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color:          var(--blue) !important;
-  margin-bottom:  10px;
+:root {
+  --bg-canvas:      #FFFFFF;
+  --bg-default:     #F6F8FA;
+  --bg-subtle:      #EAEEF2;
+  --bg-muted:       #D0D7DE;
+  --bg-overlay:     #FFFFFF;
+  --border-default: rgba(31,35,40,0.15);
+  --border-muted:   rgba(31,35,40,0.08);
+  --border-strong:  rgba(31,35,40,0.25);
+  --text-primary:   #1F2328;
+  --text-secondary: #57606A;
+  --text-muted:     #8C959F;
+  --text-link:      #0969DA;
+  --accent:         #7C3AED;
+  --accent-hover:   #6D28D9;
+  --accent-subtle:  rgba(124,58,237,0.10);
+  --accent-border:  rgba(124,58,237,0.30);
+  --accent-glow:    rgba(124,58,237,0.15);
+  --blue:           #0969DA;
+  --blue-subtle:    rgba(9,105,218,0.10);
+  --blue-border:    rgba(9,105,218,0.30);
+  --green:          #1A7F37;
+  --green-subtle:   rgba(26,127,55,0.10);
+  --green-border:   rgba(26,127,55,0.28);
+  --amber:          #9A6700;
+  --amber-subtle:   rgba(154,103,0,0.10);
+  --amber-border:   rgba(154,103,0,0.28);
+  --red:            #CF222E;
+  --red-subtle:     rgba(207,34,46,0.10);
+  --red-border:     rgba(207,34,46,0.28);
+  --orange:         #BC4C00;
+  --orange-subtle:  rgba(188,76,0,0.10);
+  --orange-border:  rgba(188,76,0,0.28);
+  --glass-bg:       rgba(246,248,250,0.90);
+  --glass-border:   rgba(31,35,40,0.15);
+  --glass-blur:     blur(16px) saturate(1.2);
+  --r-sm:4px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-full:9999px;
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.10);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.12);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.16);
+  --shadow-glow:0 0 20px var(--accent-glow);
+  --ring: 0 0 0 3px var(--accent-subtle);
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   RBAC BANNER
-═══════════════════════════════════════════════════════════════════════════ */
-.rbac-banner {
-  background:    var(--blue-subtle);
-  border:        1px solid var(--blue-border);
-  border-left:   3px solid var(--blue);
-  border-radius: var(--r-md);
-  padding:       11px 16px;
-  margin-bottom: 16px;
-  font-size:     0.80rem;
-  color:         var(--text-primary) !important;
-  font-weight:   500;
+*, *::before, *::after { box-sizing: border-box !important; font-family: var(--font) !important; }
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"], .main, .block-container {
+  background-color: #FFFFFF !important;
+  color: #1F2328 !important;
+}
+p, span, div, li, label, h1, h2, h3, h4, h5, h6,
+.stMarkdown, [data-testid="stMarkdownContainer"] { color: #1F2328 !important; }
+#MainMenu, footer, header, .stDeployButton,
+[data-testid="stToolbar"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"] { display: none !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F6F8FA; }
+::-webkit-scrollbar-thumb { background: #D0D7DE; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #8C959F; }
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+  background: rgba(246,248,250,0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  border-right: 1px solid rgba(31,35,40,0.15) !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.07) !important;
+}
+[data-testid="stSidebar"] * { color: #1F2328 !important; }
+
+/* ── Inputs ── */
+.stTextInput > div > div > input,
+.stTextArea  > div > div > textarea {
+  background: #F6F8FA !important;
+  color: #1F2328 !important;
+  border: 1px solid rgba(31,35,40,0.20) !important;
+  border-radius: var(--r-md) !important;
+  font-size: 0.875rem !important;
+  padding: 10px 14px !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea  > div > div > textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: var(--ring) !important;
+  outline: none !important;
+}
+.stTextInput > div > div > input::placeholder,
+.stTextArea  > div > div > textarea::placeholder { color: #8C959F !important; }
+.stTextInput > label, .stTextArea > label,
+.stSelectbox > label, .stMultiSelect > label {
+  color: #57606A !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ROLE BADGES
-═══════════════════════════════════════════════════════════════════════════ */
-.role-badge-admin {
-  background:     var(--accent-subtle);
-  color:          var(--blue) !important;
-  border:         1px solid var(--accent-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
+/* ── BaseWeb select trigger ── */
+.stSelectbox > div > div,
+[data-baseweb="select"] > div {
+  background: #EAEEF2 !important;
+  color: #1F2328 !important;
+  border: 1px solid rgba(31,35,40,0.20) !important;
+  border-radius: var(--r-md) !important;
 }
-.role-badge-manager {
-  background:     var(--orange-subtle);
-  color:          var(--orange) !important;
-  border:         1px solid var(--orange-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
-}
-.role-badge-auditor {
-  background:     var(--green-subtle);
-  color:          var(--green) !important;
-  border:         1px solid var(--green-border);
-  border-radius:  var(--r-full);
-  padding:        2px 10px;
-  font-size:      0.60rem;
-  font-weight:    800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  display:        inline-block;
+div[data-baseweb="select"],
+div[data-baseweb="select"] > div,
+div[data-baseweb="select"] input {
+  background-color: #EAEEF2 !important;
+  color: #1F2328 !important;
+  border-color: rgba(31,35,40,0.20) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PAGINATION CONTROLS
-═══════════════════════════════════════════════════════════════════════════ */
-.page-nav-info {
-  text-align:  center;
-  padding:     8px 0;
-  font-size:   0.73rem;
-  font-weight: 600;
-  color:       var(--text-secondary) !important;
-  font-family: var(--mono) !important;
+/* ── Popover (floating) ── */
+div[data-baseweb="popover"],
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] > div > div {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(31,35,40,0.18) !important;
+  border-radius: 10px !important;
+  color: #1F2328 !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14) !important;
+}
+[data-baseweb="menu"],
+ul[data-baseweb="menu"],
+[data-baseweb="select"] ul,
+[role="listbox"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(31,35,40,0.18) !important;
+  border-radius: 10px !important;
+  color: #1F2328 !important;
+}
+li[role="option"],
+[data-baseweb="option"],
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"] {
+  background-color: #FFFFFF !important;
+  color: #1F2328 !important;
+}
+li[role="option"]:hover,
+[data-baseweb="option"]:hover,
+[data-baseweb="menu"] li:hover,
+[aria-selected="true"][role="option"],
+[data-baseweb="menu"] [aria-selected="true"] {
+  background-color: rgba(124,58,237,0.10) !important;
+  color: #1F2328 !important;
+}
+li[role="option"] *, [data-baseweb="option"] *,
+[data-baseweb="menu"] li * { color: #1F2328 !important; background-color: transparent !important; }
+
+/* ── Calendar ── */
+[data-baseweb="calendar"],
+[data-baseweb="datepicker"],
+[data-baseweb="calendar"] > div {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(31,35,40,0.18) !important;
+  border-radius: 10px !important;
+  color: #1F2328 !important;
+}
+[data-baseweb="calendar"] * { color: #1F2328 !important; background-color: transparent !important; }
+[data-baseweb="calendar"] button { background-color: transparent !important; color: #1F2328 !important; }
+[data-baseweb="calendar"] button:hover { background-color: rgba(124,58,237,0.10) !important; }
+[data-baseweb="calendar"] [aria-selected="true"] { background-color: #7C3AED !important; color: #FFFFFF !important; border-radius: 6px !important; }
+
+/* ── Form submit button ── */
+[data-testid="stFormSubmitButton"] > button,
+[data-testid="stFormSubmitButton"] button {
+  background: linear-gradient(135deg, #7C3AED 0%, #0969DA 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(124,58,237,0.50) !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: 0.94rem !important;
+  padding: 12px !important;
+  width: 100% !important;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.30) !important;
+  transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+[data-testid="stFormSubmitButton"] > button:hover { transform: translateY(-2px) !important; }
+
+/* ── Toasts ── */
+[data-testid="stToast"],
+[data-testid="stToast"] > div,
+div[class*="stToast"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(31,35,40,0.18) !important;
+  border-radius: 10px !important;
+  color: #1F2328 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+}
+[data-testid="stToast"] *, div[class*="stToast"] * {
+  color: #1F2328 !important;
+  background-color: transparent !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DIVIDER
-═══════════════════════════════════════════════════════════════════════════ */
-.divider {
-  border:     none;
-  border-top: 1px solid var(--border-default);
-  margin:     12px 0;
+/* ── Alerts ── */
+[data-testid="stAlert"],
+[data-testid="stNotification"],
+.stAlert {
+  background-color: #F6F8FA !important;
+  border: 1px solid rgba(31,35,40,0.18) !important;
+  border-radius: 10px !important;
+  color: #1F2328 !important;
 }
-</style>
-    """, unsafe_allow_html=True)
+[data-testid="stAlert"] *, [data-testid="stNotification"] * { color: #1F2328 !important; }
+
+/* ── Metric cards ── */
+[data-testid="stMetricContainer"] {
+  background: rgba(246,248,250,0.92) !important;
+  border: 1px solid rgba(31,35,40,0.12) !important;
+  border-top: 2px solid var(--accent) !important;
+  border-radius: var(--r-lg) !important;
+  padding: 22px 24px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+[data-testid="stMetricValue"]  { font-family: var(--mono) !important; font-size: 2.1rem !important; font-weight: 700 !important; color: #0969DA !important; }
+[data-testid="stMetricLabel"]  { font-size: 0.65rem !important; font-weight: 700 !important; letter-spacing: 0.12em !important; text-transform: uppercase !important; color: #57606A !important; }
+
+/* ── Buttons ── */
+.stButton > button {
+  background: linear-gradient(135deg, var(--accent) 0%, #0969DA 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(124,58,237,0.40) !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 600 !important;
+  font-size: 0.84rem !important;
+  padding: 9px 18px !important;
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+.stButton > button:hover { transform: translateY(-2px) scale(1.01) !important; }
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+  background: #EAEEF2 !important;
+  border: 1px solid rgba(31,35,40,0.12) !important;
+  border-radius: var(--r-full) !important;
+  padding: 4px !important;
+  width: fit-content !important;
+}
+.stTabs [data-baseweb="tab"]     { background: transparent !important; color: #57606A !important; border-radius: var(--r-full) !important; font-weight: 600 !important; }
+.stTabs [aria-selected="true"]   { background: var(--accent-subtle) !important; color: #1F2328 !important; border: 1px solid var(--accent-border) !important; }
+
+/* ── Custom components (light colours) ── */
+.worklist-header, .log-summary-card {
+  background: rgba(246,248,250,0.92) !important;
+  border: 1px solid rgba(31,35,40,0.12) !important;
+  border-top: 2px solid var(--accent) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.gov-table-wrap  { border: 1px solid rgba(31,35,40,0.12) !important; background: #FFFFFF !important; }
+.gov-table       { background: #FFFFFF !important; }
+.gov-table thead tr { background: #EAEEF2 !important; }
+.gov-table th    { background: #EAEEF2 !important; color: #57606A !important; border-right-color: rgba(31,35,40,0.08) !important; }
+.gov-table td    { background: #FFFFFF !important; color: #1F2328 !important; border-color: rgba(31,35,40,0.06) !important; }
+.gov-table tbody tr:nth-child(even) td { background: #F6F8FA !important; }
+.gov-table tbody tr:hover td           { background: #EAEEF2 !important; }
+
+.lb-row  { background: rgba(246,248,250,0.92) !important; border-color: rgba(31,35,40,0.12) !important; }
+.lb-count { background: rgba(9,105,218,0.10) !important; color: #0969DA !important; border-color: rgba(9,105,218,0.25) !important; }
+
+.section-title { background: rgba(124,58,237,0.08) !important; color: #0969DA !important; }
+.filter-result-bar { background: #EAEEF2 !important; border-color: rgba(31,35,40,0.12) !important; }
+.deep-search-strip { background: #F6F8FA !important; border-color: rgba(31,35,40,0.12) !important; }
+.export-strip { background: #F6F8FA !important; }
+.page-timestamp { background: #EAEEF2 !important; color: #57606A !important; border-color: rgba(31,35,40,0.12) !important; }
+.sb-user-card { background: #EAEEF2 !important; }
+.cache-strip  { background: #EAEEF2 !important; }
+.cache-badge  { background: rgba(26,127,55,0.10) !important; color: #1A7F37 !important; }
+.divider { border-top-color: rgba(31,35,40,0.12) !important; }
+.worklist-title, .page-title { color: #1F2328 !important; }
+.worklist-sub, .page-subtitle, .sb-label { color: #57606A !important; }
+.log-stat-value { color: #0969DA !important; }
+div[data-testid="stForm"] {
+  background: rgba(246,248,250,0.92) !important;
+  border: 1px solid rgba(31,35,40,0.12) !important;
+  border-radius: var(--r-lg) !important;
+}
+"""
+
+
+def inject_custom_theme(is_dark: bool) -> None:
+    """
+    Injects GitHub Dark Primer + Glassmorphism CSS when is_dark=True.
+    Injects GitHub Light Primer CSS when is_dark=False.
+    Called once at the top of main() reading st.session_state.dark_mode.
+    """
+    css = _DARK_CSS if is_dark else _LIGHT_CSS
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1094,6 +1201,7 @@ _LANG: dict[str, dict[str, str]] = {
         "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
         "arch_search_title":"Archive Quick Search",
+        "dark_mode_toggle":"🌙  Dark Mode",
     },
     "ku": {
         "ministry":"وەزارەتی دارایی و گومرگ",
@@ -1160,6 +1268,7 @@ _LANG: dict[str, dict[str, str]] = {
         "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
         "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
         "arch_search_title":"گەڕانی خێرای ئەرشیف",
+        "dark_mode_toggle":"🌙  Dark Mode",
     },
 }
 
@@ -1363,21 +1472,13 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
                             auditor, ts_now, log_prefix,
                             eval_val="", feedback_val="") -> bool:
-    """
-    Returns False if the row was already approved by another user (concurrency guard).
-    Returns True on successful write.
-    All writes use batch_update (single API call).
-    """
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
-
-    # ── Optimistic concurrency check: one read of a single cell ──────────────
     if COL_STATUS in col_map:
         status_a1   = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
         live_status = _gsheets_call(ws.acell, status_a1).value
         if live_status == VAL_DONE:
-            return False   # another auditor already committed this row
-
+            return False
     old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
     batch   = []
@@ -1507,7 +1608,10 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 #  12 . LOGIN PAGE
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str) -> None:
-    st.markdown("""
+    is_dark = st.session_state.get("dark_mode", True)
+
+    if is_dark:
+        st.markdown("""
 <style>
 [data-testid="stSidebar"],
 [data-testid="collapsedControl"],
@@ -1534,19 +1638,76 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], 
     border: 1px solid rgba(240,246,252,0.10) !important;
     border-top: 2px solid rgba(124,58,237,0.70) !important;
     border-radius: 18px !important; padding: 40px 36px 32px !important;
-    box-shadow: 0 0 0 1px rgba(124,58,237,0.12), 0 24px 60px rgba(0,0,0,0.70), 0 0 40px rgba(124,58,237,0.12) !important;
+    box-shadow: 0 0 0 1px rgba(124,58,237,0.12), 0 24px 60px rgba(0,0,0,0.70),
+                0 0 40px rgba(124,58,237,0.12) !important;
     max-width: 440px !important; width: 100% !important; margin: 0 auto !important;
 }
-[data-testid="stFormSubmitButton"] button {
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] > button {
     background: linear-gradient(135deg, #7C3AED 0%, #388BFD 100%) !important;
     color: #FFFFFF !important; border: 1px solid rgba(124,58,237,0.60) !important;
     border-radius: 10px !important; font-weight: 700 !important; font-size: 0.94rem !important;
     padding: 12px !important; width: 100% !important; margin-top: 8px !important;
-    box-shadow: 0 4px 20px rgba(124,58,237,0.40) !important; transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.40) !important;
+    transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
 }
-[data-testid="stFormSubmitButton"] button:hover {
-    transform: translateY(-2px) scale(1.01) !important; box-shadow: 0 10px 32px rgba(124,58,237,0.55) !important;
+[data-testid="stFormSubmitButton"] button:hover,
+[data-testid="stFormSubmitButton"] > button:hover {
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 10px 32px rgba(124,58,237,0.55) !important;
 }
+/* Toasts on login page */
+[data-testid="stToast"], [data-testid="stToast"] > div {
+    background-color: #161B22 !important; border: 1px solid #30363D !important;
+    border-radius: 10px !important; color: #E6EDF3 !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.60) !important;
+}
+[data-testid="stToast"] * { color: #E6EDF3 !important; background-color: transparent !important; }
+/* Alerts on login page */
+[data-testid="stAlert"] {
+    background-color: rgba(248,81,73,0.12) !important; border: 1px solid rgba(248,81,73,0.35) !important;
+    border-radius: 10px !important;
+}
+[data-testid="stAlert"] * { color: #E6EDF3 !important; }
+</style>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<style>
+[data-testid="stSidebar"],
+[data-testid="collapsedControl"],
+header { display: none !important; }
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
+    background: #F6F8FA !important;
+}
+.block-container {
+    display: flex !important; flex-direction: column !important;
+    justify-content: center !important; align-items: center !important;
+    min-height: 100vh !important; padding: 1rem !important;
+}
+[data-testid="stForm"] {
+    position: relative; z-index: 1;
+    background: #FFFFFF !important;
+    border: 1px solid rgba(31,35,40,0.15) !important;
+    border-top: 2px solid rgba(124,58,237,0.60) !important;
+    border-radius: 18px !important; padding: 40px 36px 32px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10) !important;
+    max-width: 440px !important; width: 100% !important; margin: 0 auto !important;
+}
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stFormSubmitButton"] > button {
+    background: linear-gradient(135deg, #7C3AED 0%, #0969DA 100%) !important;
+    color: #FFFFFF !important; border: 1px solid rgba(124,58,237,0.50) !important;
+    border-radius: 10px !important; font-weight: 700 !important; font-size: 0.94rem !important;
+    padding: 12px !important; width: 100% !important; margin-top: 8px !important;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.25) !important;
+    transition: all 0.20s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+[data-testid="stFormSubmitButton"] button:hover { transform: translateY(-2px) !important; }
+[data-testid="stAlert"] {
+    background-color: rgba(207,34,46,0.08) !important;
+    border: 1px solid rgba(207,34,46,0.30) !important; border-radius: 10px !important;
+}
+[data-testid="stAlert"] * { color: #1F2328 !important; }
 </style>""", unsafe_allow_html=True)
 
     _g, c1, c2 = st.columns([8, .9, .9])
@@ -1556,12 +1717,25 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], 
         if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
 
     with st.form("login_form", clear_on_submit=False):
+        title_color  = "#E6EDF3" if is_dark else "#1F2328"
+        sub_color    = "#8B949E" if is_dark else "#57606A"
+        badge_bg     = "rgba(248,81,73,0.15)" if is_dark else "rgba(207,34,46,0.10)"
+        badge_border = "rgba(248,81,73,0.35)" if is_dark else "rgba(207,34,46,0.30)"
+        badge_color  = "#F85149"              if is_dark else "#CF222E"
         st.markdown(f"""
         <div style="text-align:center;margin-bottom:6px;">
-          <div style="width:60px;height:60px;margin:0 auto 16px;border-radius:14px;background:linear-gradient(135deg,#7C3AED,#388BFD);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 28px rgba(124,58,237,0.45);">&#127963;</div>
-          <div style="font-size:1.4rem;font-weight:800;color:#E6EDF3;letter-spacing:-.025em;margin-bottom:5px;">{_html.escape(t('portal_title'))}</div>
-          <div style="display:inline-block;font-size:.58rem;font-weight:800;color:#F85149;background:rgba(248,81,73,0.15);border:1px solid rgba(248,81,73,0.35);padding:4px 12px;border-radius:9999px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:14px;">{_html.escape(t('classified'))}</div>
-          <div style="font-size:.84rem;color:#8B949E;margin-bottom:22px;font-weight:400;">{_html.escape(t('login_prompt'))}</div>
+          <div style="width:60px;height:60px;margin:0 auto 16px;border-radius:14px;
+            background:linear-gradient(135deg,#7C3AED,#388BFD);display:flex;align-items:center;
+            justify-content:center;font-size:1.8rem;box-shadow:0 8px 28px rgba(124,58,237,0.45);">
+            &#127963;</div>
+          <div style="font-size:1.4rem;font-weight:800;color:{title_color};
+            letter-spacing:-.025em;margin-bottom:5px;">{_html.escape(t('portal_title'))}</div>
+          <div style="display:inline-block;font-size:.58rem;font-weight:800;color:{badge_color};
+            background:{badge_bg};border:1px solid {badge_border};
+            padding:4px 12px;border-radius:9999px;letter-spacing:.14em;
+            text-transform:uppercase;margin-bottom:14px;">{_html.escape(t('classified'))}</div>
+          <div style="font-size:.84rem;color:{sub_color};margin-bottom:22px;font-weight:400;">
+            {_html.escape(t('login_prompt'))}</div>
         </div>""", unsafe_allow_html=True)
 
         st.text_input(t("email_field"),    placeholder="user@mof.gov.iq",  key="_login_email")
@@ -1598,7 +1772,27 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
     badge_cls  = {"admin":"role-badge-admin","manager":"role-badge-manager","auditor":"role-badge-auditor"}.get(role,"role-badge-auditor")
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-header"><div class="sidebar-logo-text">{_html.escape(t('portal_title'))}</div><div class="sidebar-ministry">{_html.escape(t('ministry'))}</div></div><hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
+        # ── Dark Mode Toggle ─────────────────────────────────────────────
+        # Placed at the very top so it is always visible and easy to find.
+        # Uses key="dark_mode" which syncs directly with st.session_state.dark_mode.
+        # Changing the toggle triggers an immediate rerun; inject_custom_theme()
+        # at the top of main() then picks up the new value on the next pass.
+        st.toggle(
+            t("dark_mode_toggle"),
+            key="dark_mode",
+            help="Switch between GitHub Dark Primer and GitHub Light Primer themes.",
+        )
+        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+
+        # ── Logo & ministry header ────────────────────────────────────────
+        st.markdown(
+            f"""<div class="sidebar-header">
+                  <div class="sidebar-logo-text">{_html.escape(t('portal_title'))}</div>
+                  <div class="sidebar-ministry">{_html.escape(t('ministry'))}</div>
+                </div>
+                <hr class="divider" style="margin:0;"/>""",
+            unsafe_allow_html=True,
+        )
 
         if st.session_state.get("user_role") in ("admin", "manager"):
             COOLDOWN = 600
@@ -1621,7 +1815,14 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
             else:
                 st.button(f"⏳  Wait {max(1,time_left_min)} min", key="sb_refresh_disabled", disabled=True, use_container_width=True, help="Managers may force-refresh once every 10 minutes.")
 
-        st.markdown(f"""<div class="cache-strip"><span class="cache-badge">⚡ {_html.escape(t('local_mode'))}</span><div class="cache-info">{_html.escape(t('cache_age'))}: {READ_TTL//60} min &nbsp;·&nbsp; Last sync: {fetched_at[-8:] if fetched_at else '—'}</div></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="cache-strip">
+                  <span class="cache-badge">⚡ {_html.escape(t('local_mode'))}</span>
+                  <div class="cache-info">{_html.escape(t('cache_age'))}: {READ_TTL//60} min
+                  &nbsp;·&nbsp; Last sync: {fetched_at[-8:] if fetched_at else '—'}</div>
+                </div>""",
+            unsafe_allow_html=True,
+        )
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         st.markdown(f"<div class='sb-label'>{_html.escape(t('language'))}</div>", unsafe_allow_html=True)
         lc1, lc2 = st.columns(2)
@@ -1638,19 +1839,36 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
             ("f_company", t("f_company"), col_company or "not detected",    col_company is None),
             ("f_license", t("f_license"), col_license or "not detected",    col_license is None),
         ]:
-            st.markdown(f"<div class='sb-label' style='margin-top:9px;'>{_html.escape(label)}<span class='col-hint'> ({_html.escape(hint)})</span></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='sb-label' style='margin-top:9px;'>{_html.escape(label)}"
+                f"<span class='col-hint'> ({_html.escape(hint)})</span></div>",
+                unsafe_allow_html=True,
+            )
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
 
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
         st.button(f"✕  {t('clear_filters')}", use_container_width=True, key="clr_f", on_click=clear_all_filters)
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
-        st.markdown(f"""<div class="sb-user-card"><div class="sb-label">{_html.escape(t('signed_as'))}</div><div class="sb-email">{_html.escape(st.session_state.user_email)}</div><span class="{badge_cls}" style="margin-top:8px;">{_html.escape(role_label)}</span></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="sb-user-card">
+                  <div class="sb-label">{_html.escape(t('signed_as'))}</div>
+                  <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
+                  <span class="{badge_cls}" style="margin-top:8px;">{_html.escape(role_label)}</span>
+                </div>""",
+            unsafe_allow_html=True,
+        )
         if st.button(f"→  {t('sign_out')}", use_container_width=True, key="sb_logout"):
             for k, v in _DEFAULTS.items(): st.session_state[k] = v
             st.rerun()
 
-    return (st.session_state.get("f_email",""), st.session_state.get("f_binder",""), st.session_state.get("f_company",""), st.session_state.get("f_license",""), st.session_state.get("f_status","all"))
+    return (
+        st.session_state.get("f_email",""),
+        st.session_state.get("f_binder",""),
+        st.session_state.get("f_company",""),
+        st.session_state.get("f_license",""),
+        st.session_state.get("f_status","all"),
+    )
 
 def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, f_status):
     n = _n_active(f_email, f_binder, f_company, f_license, f_status)
@@ -1661,7 +1879,18 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
     if f_binder.strip(): badges+=f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
     if f_company.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
     if f_license.strip():badges+=f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
-    st.markdown(f"""<div class="filter-result-bar"><span style="font-size:.68rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;">{_html.escape(t('active_filters'))} ({n})</span>{badges}<span class="result-count"><strong style="color:var(--blue);">{filtered}</strong>/{total}&nbsp;{_html.escape(t('results_shown'))}</span></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="filter-result-bar">
+              <span style="font-size:.68rem;font-weight:800;color:var(--blue);
+                text-transform:uppercase;letter-spacing:.08em;">
+                {_html.escape(t('active_filters'))} ({n})</span>
+              {badges}
+              <span class="result-count">
+                <strong style="color:var(--blue);">{filtered}</strong>/{total}
+                &nbsp;{_html.escape(t('results_shown'))}</span>
+            </div>""",
+        unsafe_allow_html=True,
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -1672,7 +1901,11 @@ def render_deep_search_strip(key_prefix, col_binder, col_company, col_agent_emai
         for sfx in ("_binder","_company","_agent"): st.session_state[f"{key_prefix}{sfx}"] = ""
         for pk in ("page_worklist","page_archive","page_logs"): st.session_state[pk] = 1
 
-    st.markdown(f"<div class='deep-search-strip'><div class='deep-search-title'>{_html.escape(t('deep_search'))}</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='deep-search-strip'>"
+        f"<div class='deep-search-title'>{_html.escape(t('deep_search'))}</div></div>",
+        unsafe_allow_html=True,
+    )
     c1, c2, c3, c4 = st.columns([1,1,1,0.32])
     with c1: st.text_input(t("ds_binder"),  key=f"{key_prefix}_binder",  placeholder=col_binder      or "not detected", disabled=(col_binder is None))
     with c2: st.text_input(t("ds_company"), key=f"{key_prefix}_company", placeholder=col_company     or "not detected", disabled=(col_company is None))
@@ -1681,7 +1914,11 @@ def render_deep_search_strip(key_prefix, col_binder, col_company, col_agent_emai
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr", use_container_width=True, on_click=_clear)
         st.markdown("</div>", unsafe_allow_html=True)
-    return (st.session_state.get(f"{key_prefix}_binder",""), st.session_state.get(f"{key_prefix}_company",""), st.session_state.get(f"{key_prefix}_agent",""))
+    return (
+        st.session_state.get(f"{key_prefix}_binder",""),
+        st.session_state.get(f"{key_prefix}_company",""),
+        st.session_state.get(f"{key_prefix}_agent",""),
+    )
 
 def apply_deep_search(df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email):
     r = df.copy()
@@ -1698,7 +1935,16 @@ def _deep_search_active(b, c, a): return any(x.strip() for x in (b, c, a))
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title, f_email, f_binder, f_company, f_license, f_status):
     p_count = len(pending_display)
-    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">{_html.escape(t('worklist_title'))}</div><div class="worklist-sub">{_html.escape(t('worklist_sub'))}</div></div><span class="chip chip-pending">{p_count} {_html.escape(t('outstanding'))}</span></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="worklist-header">
+              <div>
+                <div class="worklist-title">{_html.escape(t('worklist_title'))}</div>
+                <div class="worklist-sub">{_html.escape(t('worklist_sub'))}</div>
+              </div>
+              <span class="chip chip-pending">{p_count} {_html.escape(t('outstanding'))}</span>
+            </div>""",
+        unsafe_allow_html=True,
+    )
 
     if pending_display.empty:
         st.info(t("no_match") if _n_active(f_email,f_binder,f_company,f_license,f_status) else "All cases processed.")
@@ -1769,7 +2015,16 @@ def render_archive(done_view, df, col_map, ws_title, is_admin, f_email, f_binder
         st.session_state["page_archive"] = 1
 
     d_count = len(done_view)
-    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">Processed Archive</div><div class="worklist-sub">Completed and committed audit records</div></div><span class="chip chip-done">{d_count} {_html.escape(t('processed'))}</span></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="worklist-header">
+              <div>
+                <div class="worklist-title">Processed Archive</div>
+                <div class="worklist-sub">Completed and committed audit records</div>
+              </div>
+              <span class="chip chip-done">{d_count} {_html.escape(t('processed'))}</span>
+            </div>""",
+        unsafe_allow_html=True,
+    )
 
     st.markdown(f"<div class='section-title'>{_html.escape(t('arch_search_title'))}</div>", unsafe_allow_html=True)
     c1,c2,c3,c4,c5 = st.columns([1,1,1,1,0.28])
@@ -1791,7 +2046,14 @@ def render_archive(done_view, df, col_map, ws_title, is_admin, f_email, f_binder
     if fv.empty:
         st.info("No processed records match the search.")
     else:
-        if is_admin: st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-left:3px solid var(--accent);border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('archive_quality_note'))}</div>", unsafe_allow_html=True)
+        if is_admin:
+            st.markdown(
+                f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
+                f"border-left:3px solid var(--accent);border-radius:var(--r-md);padding:9px 14px;"
+                f"margin-bottom:12px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>"
+                f"{_html.escape(t('archive_quality_note'))}</div>",
+                unsafe_allow_html=True,
+            )
         p_cols  = [COL_STATUS,COL_EVAL,COL_FEEDBACK,COL_AUDITOR,COL_DATE]
         o_cols  = [c for c in fv.columns if c not in p_cols and c != COL_LOG]
         ordered = [c for c in p_cols if c in fv.columns] + o_cols
@@ -1816,20 +2078,27 @@ def render_archive(done_view, df, col_map, ws_title, is_admin, f_email, f_binder
 #  16 . ANALYTICS
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None):
-    pt  = "plotly_dark"
-    pb  = "#161B22"
-    pg  = "#21262D"
-    fc  = "#E6EDF3"
-    tc  = "#8B949E"
+    pt  = "plotly_dark" if st.session_state.get("dark_mode", True) else "plotly_white"
+    pb  = "#161B22"     if st.session_state.get("dark_mode", True) else "#FFFFFF"
+    pg  = "#21262D"     if st.session_state.get("dark_mode", True) else "#EAEEF2"
+    fc  = "#E6EDF3"     if st.session_state.get("dark_mode", True) else "#1F2328"
+    tc  = "#8B949E"     if st.session_state.get("dark_mode", True) else "#57606A"
     nvy = "#7C3AED"
-    blu = "#388BFD"
+    blu = "#388BFD"     if st.session_state.get("dark_mode", True) else "#0969DA"
 
     srch_binder, srch_company, srch_agent = render_deep_search_strip("anal", col_binder, col_company, col_agent_email)
     work_df = apply_deep_search(df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email)
 
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
-        st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong> — <strong>{len(work_df)}</strong> records matched</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
+            f"border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;font-size:.78rem;"
+            f"color:var(--text-primary)!important;font-weight:500;'>"
+            f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
+            f" — <strong>{len(work_df)}</strong> records matched</div>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown(f"<div class='section-title'>{_html.escape(t('period'))}</div>", unsafe_allow_html=True)
     periods = [("all",t("all_time")),("today",t("today")),("this_week",t("this_week")),("this_month",t("this_month"))]
@@ -1856,10 +2125,24 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
             lb = done_f[COL_AUDITOR].replace("","-").value_counts().reset_index()
             lb.columns = ["Auditor","Count"]
             for i, r in lb.head(10).iterrows():
-                st.markdown(f'<div class="lb-row"><span class="lb-medal">{i+1}.</span><span class="lb-name">{_html.escape(str(r["Auditor"]))}</span><span class="lb-count">{r["Count"]}</span></div>', unsafe_allow_html=True)
-            fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h", color="Count", color_continuous_scale=[blu, nvy], template=pt)
+                st.markdown(
+                    f'<div class="lb-row"><span class="lb-medal">{i+1}.</span>'
+                    f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
+                    f'<span class="lb-count">{r["Count"]}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h", color="Count",
+                         color_continuous_scale=[blu, nvy], template=pt)
             fig.update_traces(marker_line_width=0, hovertemplate="<b>%{y}</b><br>Records: <b>%{x}</b><extra></extra>")
-            fig.update_layout(paper_bgcolor=pb, plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8), xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=tc)), yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending", tickfont=dict(color=tc)), height=min(320, max(180, 36*len(lb.head(10)))))
+            fig.update_layout(
+                paper_bgcolor=pb, plot_bgcolor=pb,
+                font=dict(family="Inter",color=fc,size=11),
+                showlegend=False, coloraxis_showscale=False,
+                margin=dict(l=8,r=8,t=10,b=8),
+                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=tc)),
+                yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending", tickfont=dict(color=tc)),
+                height=min(320, max(180, 36*len(lb.head(10)))),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
     with right:
@@ -1874,9 +2157,20 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
                     trend = trend.set_index("Date").reindex(rng.date,fill_value=0).reset_index()
                     trend.columns = ["Date","Records"]
                 fig2 = go.Figure()
-                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"], mode="none",fill="tozeroy", fillcolor="rgba(124,58,237,0.10)",showlegend=False))
-                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"],mode="lines+markers", line=dict(color=nvy,width=2.5), marker=dict(color=blu,size=6,line=dict(color=pb,width=2)), hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
-                fig2.update_layout(template=pt,paper_bgcolor=pb,plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), showlegend=False,margin=dict(l=8,r=8,t=10,b=8), xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)), yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)), height=380,hovermode="x unified")
+                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"],mode="none",fill="tozeroy",
+                                          fillcolor="rgba(124,58,237,0.10)",showlegend=False))
+                fig2.add_trace(go.Scatter(x=trend["Date"],y=trend["Records"],mode="lines+markers",
+                                          line=dict(color=nvy,width=2.5),
+                                          marker=dict(color=blu,size=6,line=dict(color=pb,width=2)),
+                                          hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
+                fig2.update_layout(
+                    template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
+                    font=dict(family="Inter",color=fc,size=11),
+                    showlegend=False, margin=dict(l=8,r=8,t=10,b=8),
+                    xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)),
+                    yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc)),
+                    height=380, hovermode="x unified",
+                )
                 st.plotly_chart(fig2, use_container_width=True)
             else: st.info(t("no_records"))
 
@@ -1898,16 +2192,32 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
         acc["Accuracy"] = (acc["good"]/acc["Total"].replace(0,1)*100).round(1)
         acc = acc.sort_values("Accuracy",ascending=False).reset_index(drop=True)
 
-        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th><th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th><th>{t('acc_rate')}</th></tr>")
+        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
+                  f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
+                  f"<th>{t('acc_rate')}</th></tr>")
         td_rows = ""
         for i, row in acc.iterrows():
             pct = row["Accuracy"]
             if pct >= 80:   rc="acc-rate-high"; bc="#3FB950"
             elif pct >= 50: rc="acc-rate-mid";  bc="#D29922"
             else:           rc="acc-rate-low";  bc="#F85149"
-            bar = (f"<span class='acc-bar-wrap'><span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span></span>")
-            td_rows += (f"<tr><td style='color:var(--text-muted);font-family:var(--mono);font-size:.68rem;'>{i+1}</td><td style='font-weight:500;'>{_html.escape(str(row[col_agent_email]))}</td><td style='font-family:var(--mono);font-weight:600;'>{int(row['Total'])}</td><td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td><td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td><td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td><td class='{rc}'>{pct}% {bar}</td></tr>")
-        st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>", unsafe_allow_html=True)
+            bar = (f"<span class='acc-bar-wrap'>"
+                   f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'>"
+                   f"</span></span>")
+            td_rows += (
+                f"<tr><td style='color:var(--text-muted);font-family:var(--mono);font-size:.68rem;'>{i+1}</td>"
+                f"<td style='font-weight:500;'>{_html.escape(str(row[col_agent_email]))}</td>"
+                f"<td style='font-family:var(--mono);font-weight:600;'>{int(row['Total'])}</td>"
+                f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
+                f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
+                f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
+                f"<td class='{rc}'>{pct}% {bar}</td></tr>"
+            )
+        st.markdown(
+            f"<div class='gov-table-wrap'><table class='acc-table'>"
+            f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
+            unsafe_allow_html=True,
+        )
 
         st.markdown(f"<div class='section-title'>{_html.escape(t('eval_breakdown'))}</div>", unsafe_allow_html=True)
         st.caption(t("eval_breakdown_sub"))
@@ -1917,11 +2227,35 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
             d_pct = (acc["dup"]    /acc["Total"].replace(0,1)*100).round(1)
             u_pct = (acc["unrated"]/acc["Total"].replace(0,1)*100).round(1)
             fig3 = go.Figure()
-            fig3.add_trace(go.Bar(name="Good",x=acc[col_agent_email],y=acc["good"], marker_color="#3FB950", hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(g_pct,acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Bad/Incorrect",x=acc[col_agent_email],y=acc["bad"], marker_color="#F85149", hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(b_pct,acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Duplicate",x=acc[col_agent_email],y=acc["dup"], marker_color="#D29922", hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>", customdata=list(zip(d_pct,acc["Total"]))))
-            if acc["unrated"].sum() > 0: fig3.add_trace(go.Bar(name="Unrated",x=acc[col_agent_email],y=acc["unrated"], marker_color="#484F58", hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>", customdata=u_pct))
-            fig3.update_layout(barmode="stack",template=pt,paper_bgcolor=pb,plot_bgcolor=pb, font=dict(family="Inter",color=fc,size=11), legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1, font=dict(size=11),bgcolor="rgba(22,27,34,0.9)", bordercolor=pg,borderwidth=1), margin=dict(l=8,r=8,t=40,b=60), xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc), tickangle=-30,title=dict(text="Agent",font=dict(size=11,color=tc))), yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc), title=dict(text="Records",font=dict(size=11,color=tc))), height=400,hovermode="x")
+            fig3.add_trace(go.Bar(name="Good",x=acc[col_agent_email],y=acc["good"],
+                marker_color="#3FB950",
+                hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>",
+                customdata=list(zip(g_pct,acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Bad/Incorrect",x=acc[col_agent_email],y=acc["bad"],
+                marker_color="#F85149",
+                hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>",
+                customdata=list(zip(b_pct,acc["Total"]))))
+            fig3.add_trace(go.Bar(name="Duplicate",x=acc[col_agent_email],y=acc["dup"],
+                marker_color="#D29922",
+                hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<extra></extra>",
+                customdata=list(zip(d_pct,acc["Total"]))))
+            if acc["unrated"].sum() > 0:
+                fig3.add_trace(go.Bar(name="Unrated",x=acc[col_agent_email],y=acc["unrated"],
+                    marker_color="#484F58",
+                    hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>",
+                    customdata=u_pct))
+            fig3.update_layout(
+                barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
+                font=dict(family="Inter",color=fc,size=11),
+                legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1,
+                            font=dict(size=11),bgcolor=pb,bordercolor=pg,borderwidth=1),
+                margin=dict(l=8,r=8,t=40,b=60),
+                xaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc),
+                           tickangle=-30,title=dict(text="Agent",font=dict(size=11,color=tc))),
+                yaxis=dict(gridcolor=pg,zeroline=False,tickfont=dict(color=tc),
+                           title=dict(text="Records",font=dict(size=11,color=tc))),
+                height=400, hovermode="x",
+            )
             fig3.update_traces(marker_line_width=0)
             st.plotly_chart(fig3, use_container_width=True)
     else:
@@ -1932,7 +2266,16 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
 #  17 . AUDITOR LOGS
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
-    st.markdown(f"""<div class="worklist-header"><div><div class="worklist-title">{_html.escape(t('logs_title'))}</div><div class="worklist-sub">{_html.escape(t('logs_sub'))}</div></div><span class="chip chip-admin">Admin / Manager</span></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="worklist-header">
+              <div>
+                <div class="worklist-title">{_html.escape(t('logs_title'))}</div>
+                <div class="worklist-sub">{_html.escape(t('logs_sub'))}</div>
+              </div>
+              <span class="chip chip-admin">Admin / Manager</span>
+            </div>""",
+        unsafe_allow_html=True,
+    )
 
     srch_binder, srch_company, srch_agent = render_deep_search_strip("logs", col_binder, col_company, col_agent_email)
     done_df = df[df[COL_STATUS]==VAL_DONE].copy()
@@ -1941,7 +2284,14 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent, col_binder, col_company, col_agent_email)
     if _deep_search_active(srch_binder, srch_company, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder,srch_company,srch_agent) if x.strip()]
-        st.markdown(f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;font-size:.78rem;color:var(--text-primary)!important;font-weight:500;'>{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong> — <strong>{len(done_df)}</strong> records matched</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='background:var(--accent-subtle);border:1px solid var(--accent-border);"
+            f"border-radius:var(--r-md);padding:9px 14px;margin-bottom:12px;font-size:.78rem;"
+            f"color:var(--text-primary)!important;font-weight:500;'>"
+            f"{_html.escape(t('ds_showing'))} <strong>{' · '.join(terms)}</strong>"
+            f" — <strong>{len(done_df)}</strong> records matched</div>",
+            unsafe_allow_html=True,
+        )
 
     if done_df.empty: st.info(t("logs_no_data")); return
 
@@ -1962,10 +2312,35 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     pdates  = view_df[COL_DATE].apply(parse_dt).dropna()
     dr_str  = (f"{pdates.min().strftime('%Y-%m-%d')} — {pdates.max().strftime('%Y-%m-%d')}" if not pdates.empty else "-")
 
-    st.markdown(f"""<div class="log-summary-card"><div class="log-stat-row"><div class="log-stat"><span class="log-stat-value">{total_p}</span><span class="log-stat-label">{_html.escape(t('logs_total'))}</span></div><div class="log-stat-divider"></div><div class="log-stat"><span class="log-stat-value">{uniq_a}</span><span class="log-stat-label">{_html.escape(t('logs_auditors'))}</span></div><div class="log-stat-divider"></div><div class="log-stat"><span class="log-stat-value" style="font-size:1.0rem;">{_html.escape(dr_str)}</span><span class="log-stat-label">{_html.escape(t('logs_date_range'))}</span></div></div></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="log-summary-card">
+              <div class="log-stat-row">
+                <div class="log-stat">
+                  <span class="log-stat-value">{total_p}</span>
+                  <span class="log-stat-label">{_html.escape(t('logs_total'))}</span>
+                </div>
+                <div class="log-stat-divider"></div>
+                <div class="log-stat">
+                  <span class="log-stat-value">{uniq_a}</span>
+                  <span class="log-stat-label">{_html.escape(t('logs_auditors'))}</span>
+                </div>
+                <div class="log-stat-divider"></div>
+                <div class="log-stat">
+                  <span class="log-stat-value" style="font-size:1.0rem;">{_html.escape(dr_str)}</span>
+                  <span class="log-stat-label">{_html.escape(t('logs_date_range'))}</span>
+                </div>
+              </div>
+            </div>""",
+        unsafe_allow_html=True,
+    )
 
     shown_label = " · ".join(display_cols)
-    st.markdown(f"<div class='section-title'>{_html.escape(t('logs_cols_shown'))}: <span style='font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-secondary);'>{_html.escape(shown_label)}</span></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='section-title'>{_html.escape(t('logs_cols_shown'))}: "
+        f"<span style='font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-secondary);'>"
+        f"{_html.escape(shown_label)}</span></div>",
+        unsafe_allow_html=True,
+    )
 
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
@@ -1979,8 +2354,22 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
     dtag  = datetime.now(TZ).strftime("%Y%m%d")
     atag  = (sel_aud.replace("@","_").replace(".","_") if sel_aud!=all_opt else "all_auditors")
-    st.markdown(f"""<div class="export-strip"><div><div class="export-text">{_html.escape(t('logs_export_hdr'))}</div><div class="export-sub">{_html.escape(t('logs_export_sub'))} · {total_p} rows · {len(display_cols)} columns</div></div></div>""", unsafe_allow_html=True)
-    st.download_button(label=t("logs_export_btn"), data=csv_bytes, file_name=f"audit_log_{atag}_{dtag}.csv", mime="text/csv", key="logs_csv_download")
+    st.markdown(
+        f"""<div class="export-strip">
+              <div>
+                <div class="export-text">{_html.escape(t('logs_export_hdr'))}</div>
+                <div class="export-sub">{_html.escape(t('logs_export_sub'))} · {total_p} rows · {len(display_cols)} columns</div>
+              </div>
+            </div>""",
+        unsafe_allow_html=True,
+    )
+    st.download_button(
+        label=t("logs_export_btn"),
+        data=csv_bytes,
+        file_name=f"audit_log_{atag}_{dtag}.csv",
+        mime="text/csv",
+        key="logs_csv_download",
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -2043,7 +2432,11 @@ def render_user_admin(spreadsheet_id):
                         rcol = (hdr.index("role") + 1) if "role" in hdr else len(hdr) + 1
                         if "role" not in hdr: _gsheets_call(uws.update_cell, 1, rcol, "role")
                         uc = _gsheets_call(uws.find, cr_email)
-                        if uc: _gsheets_call(uws.update_cell, uc.row, rcol, cr_role); _fetch_users_cached.clear(); st.success(f"{t('role_updated')} ({cr_email} → {cr_role})"); time.sleep(0.7); st.rerun()
+                        if uc:
+                            _gsheets_call(uws.update_cell, uc.row, rcol, cr_role)
+                            _fetch_users_cached.clear()
+                            st.success(f"{t('role_updated')} ({cr_email} → {cr_role})")
+                            time.sleep(0.7); st.rerun()
                         else: st.error("User not found.")
                     except Exception as e: st.error(f"Role update failed: {e}")
 
@@ -2052,7 +2445,9 @@ def render_user_admin(spreadsheet_id):
         if not staff.empty and "email" in staff.columns:
             show_cols = [c for c in ["email","role","created_at"] if c in staff.columns]
             tbl = staff[show_cols].copy().reset_index()
-            th_html = ("<tr><th class='row-idx'>#</th>" + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
+            th_html = ("<tr><th class='row-idx'>#</th>"
+                       + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols)
+                       + "</tr>")
             td_html = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
@@ -2061,9 +2456,14 @@ def render_user_admin(spreadsheet_id):
                     if c == "role":
                         sr = val if val in VALID_ROLES else "auditor"
                         tr += f"<td><span class='role-badge-{sr}'>{_html.escape(val.title())}</span></td>"
-                    else: tr += f"<td>{_html.escape(val[:40])}</td>"
+                    else:
+                        tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
-            st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'><thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody></table></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='gov-table-wrap'><table class='gov-table'>"
+                f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody></table></div>",
+                unsafe_allow_html=True,
+            )
 
             st.markdown(f"<div class='section-title'>{_html.escape(t('remove_user'))}</div>", unsafe_allow_html=True)
             de = st.selectbox("Select to revoke", ["-"]+staff["email"].tolist(), key="del_sel")
@@ -2071,8 +2471,13 @@ def render_user_admin(spreadsheet_id):
                 if st.button(f"Revoke access — {_html.escape(de)}", key="del_btn"):
                     spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                     cell = _gsheets_call(uws.find, de)
-                    if cell: _gsheets_call(uws.delete_rows, cell.row); _fetch_users_cached.clear(); st.success(f"{de} revoked."); time.sleep(0.7); st.rerun()
-        else: st.info("No auditor accounts registered yet.")
+                    if cell:
+                        _gsheets_call(uws.delete_rows, cell.row)
+                        _fetch_users_cached.clear()
+                        st.success(f"{de} revoked.")
+                        time.sleep(0.7); st.rerun()
+        else:
+            st.info("No auditor accounts registered yet.")
 
 
 # -----------------------------------------------------------------------------
@@ -2080,6 +2485,11 @@ def render_user_admin(spreadsheet_id):
 # -----------------------------------------------------------------------------
 def main():
     try:
+        # ── Inject theme CSS immediately based on current dark_mode state ──
+        # On first run: dark_mode=True (from _DEFAULTS).
+        # After toggle: the new session_state value is picked up on rerun.
+        inject_custom_theme(st.session_state.get("dark_mode", True))
+
         def _on_ws_change():
             for k in ("f_email","f_binder","f_company","f_license"): st.session_state[k] = ""
             st.session_state["f_status"] = "all"
@@ -2106,14 +2516,24 @@ def main():
         can_analytics = is_admin or is_manager
 
         ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  ·  %H:%M")
-        st.markdown(f"""<div class="page-header"><div><div class="page-title">{_html.escape(t('portal_title'))}</div><div class="page-subtitle">{_html.escape(t('ministry'))}</div></div><div class="page-timestamp">{ts_str}</div></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="page-header">
+                  <div>
+                    <div class="page-title">{_html.escape(t('portal_title'))}</div>
+                    <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
+                  </div>
+                  <div class="page-timestamp">{ts_str}</div>
+                </div>""",
+            unsafe_allow_html=True,
+        )
 
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS if s.strip().lower() in atm]
 
         df = pd.DataFrame(); headers=[]; col_map={}; ws_title=None; fetched_at="-"
 
-        if not available: st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
+        if not available:
+            st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
         else:
             ws_title = st.selectbox(t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
             try: df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
@@ -2125,7 +2545,9 @@ def main():
         col_license     = detect_column(headers, "license")
         col_agent_email = detect_column(headers, "agent_email")
 
-        f_email, f_binder, f_company, f_license, f_status = render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at)
+        f_email, f_binder, f_company, f_license, f_status = render_sidebar(
+            headers, col_binder, col_company, col_license, is_admin, fetched_at
+        )
 
         if not df.empty:
             st.markdown(f"<div class='section-title'>{_html.escape(t('overview'))}</div>", unsafe_allow_html=True)
@@ -2137,16 +2559,26 @@ def main():
             m1.metric(t("total"),       total_n)
             m2.metric(t("processed"),   done_n,    delta=f"{int(pct*100)}%")
             m3.metric(t("outstanding"), pending_n, delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
-            st.markdown(f"""<div class="prog-labels"><span>{_html.escape(t('processed'))}</span><span>{int(pct*100)}%</span></div><div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""", unsafe_allow_html=True)
+            st.markdown(
+                f"""<div class="prog-labels">
+                      <span>{_html.escape(t('processed'))}</span>
+                      <span>{int(pct*100)}%</span>
+                    </div>
+                    <div class="prog-wrap">
+                      <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
             filtered_df = apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status, col_binder, col_company, col_license)
             render_filter_bar(total_n, len(filtered_df), f_email, f_binder, f_company, f_license, f_status)
-        else: filtered_df = pd.DataFrame()
+        else:
+            filtered_df = pd.DataFrame()
 
         if is_admin:
-            tabs = st.tabs([t("tab_worklist"),t("tab_archive"), t("tab_analytics"),t("tab_logs"),t("tab_users")])
+            tabs = st.tabs([t("tab_worklist"),t("tab_archive"),t("tab_analytics"),t("tab_logs"),t("tab_users")])
             t_work,t_arch,t_anal,t_logs,t_uadm = tabs
         elif is_manager:
-            tabs = st.tabs([t("tab_worklist"),t("tab_archive"), t("tab_analytics"),t("tab_logs")])
+            tabs = st.tabs([t("tab_worklist"),t("tab_archive"),t("tab_analytics"),t("tab_logs")])
             t_work,t_arch,t_anal,t_logs = tabs
             t_uadm = None
         else:
@@ -2169,7 +2601,8 @@ def main():
 
         if can_analytics and t_anal is not None:
             with t_anal:
-                if not df.empty: render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder, col_company=col_company)
+                if not df.empty:
+                    render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder, col_company=col_company)
 
         if can_analytics and t_logs is not None:
             with t_logs:
