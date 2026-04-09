@@ -468,7 +468,7 @@ _LANG: dict[str, dict[str, str]] = {
         "sign_in":"چوونەژوورەوە","sign_out":"چوونەدەرەوە",
         "bad_creds":"ناسناوەکان هەڵەن. تکایە دووبارە هەوڵبدە.",
         "language":"زمانی ڕووکار",
-        "workspace":"تۆماری کیسە چالاکەکان","overview":"کورتەی کەیسەکان",
+        "workspace":"تۆماری کەیسە چالاکەکان","overview":"کورتەی کەیسەکان",
         "total":"کۆی کەیسەکان","processed":"کارکراوە","outstanding":"ماوە",
         "worklist_title":"لیستی کاری وردبینی","worklist_sub":"کیسە چالاکەکانی چاوەڕوان",
         "tab_worklist":"لیستی کاری","tab_archive":"ئەرشیف",
