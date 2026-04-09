@@ -1165,17 +1165,40 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_license, 
     SKIP = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    with st.form("audit_form"):
+   with st.form("audit_form"):
         new_vals = {}
         for fname, fval in fields.items():
-            new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
+            # لێرەدا ڕێک ئەو ناوەمان دانا کە ناردت بۆ ئەوەی ببێتە درۆپ داون
+            dropdown_column_name = "رقم ملف الشركة / ژمارەی بایندەری کۆمپانیا / Company binder number"
+            
+            if fname == dropdown_column_name:
+                # خوێندنەوەی هەموو بژاردە ناوازەکان لەناو شیتەکە
+                dynamic_options = df[fname].dropna().unique().tolist()
+                # خاوێنکردنەوەی بژاردەکان لە بۆشایی زیادە
+                dynamic_options = [str(opt).strip() for opt in dynamic_options if str(opt).strip() != ""]
+                
+                current_val = clean_cell(fval)
+                # ئەگەر بەهاکەی ناو شیتەکە لە لیستەکە نەبوو، با زیادی بکات بۆ ئەوەی ئێرۆر نەدات
+                if current_val and current_val not in dynamic_options:
+                    dynamic_options.insert(0, current_val)
+                elif not dynamic_options:
+                    dynamic_options = [""]
+                
+                # دیاریکردنی شوێنی بەهای ئێستا لەناو درۆپ داونەکەدا
+                default_idx = dynamic_options.index(current_val) if current_val in dynamic_options else 0
+                
+                # دروستکردنی درۆپ داونەکە (Selectbox)
+                new_vals[fname] = st.selectbox(fname, options=dynamic_options, index=default_idx, key=f"field_{fname}")
+            else:
+                # خانەکانی تر وەک خۆیان بە تێکست دەمێننەوە
+                new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
+                
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
         eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
                                     key="form_feedback", height=100)
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
-
     if do_submit:
         ts_now    = now_str()
         auditor   = st.session_state.user_email
