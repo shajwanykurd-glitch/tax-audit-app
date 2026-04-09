@@ -1,13 +1,12 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.7 (Simplified Filters)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.8 (Persistent Auth)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes from v14.6:
-#    [1] _PAGE_SIZE 15 -> 10
-#    [2] Sidebar: removed f_status, f_email, f_company — only f_binder + f_license remain
-#    [3] Archive search: removed Company input, 5-col -> 4-col layout
-#    [4] Deep search strip: removed Company input, 4-col -> 3-col layout
-#    [5] All function signatures/calls updated to match; no broken arguments
-#    [6] Backend (Google Sheets, optimistic UI, CSS) untouched
+#  Changes from v14.7:
+#    [A] Added extra_streamlit_components (stx) import
+#    [B] render_login: JS autocomplete injection + cookie set on success
+#    [C] render_sidebar: cookie delete on sign-out; accepts cookie_manager arg
+#    [D] main(): CookieManager init, cookie auto-login check, pass cookie_manager
+#    All other logic (filters, pagination, sheets backend) strictly unchanged.
 # =============================================================================
 
 import html as _html
@@ -25,6 +24,7 @@ import time
 import pytz
 from datetime import datetime, timedelta
 import io
+import extra_streamlit_components as stx          # [A] NEW
 
 from tenacity import (
     retry,
@@ -103,8 +103,10 @@ READ_TTL    = 600
 BACKOFF_MAX = 5
 _ROW_SEP    = " \u007c "   # " | "
 
-# [1] Page size reduced from 15 to 10
 _PAGE_SIZE  = 10
+
+# [A] Cookie name constant
+_COOKIE_NAME = "portal_auth"
 
 # -----------------------------------------------------------------------------
 #  4 . EXPONENTIAL BACKOFF  (unchanged)
@@ -603,11 +605,9 @@ def apply_period_filter(df, col, period):
     else: return df
     return df[df[col].apply(parse_dt) >= cutoff]
 
-# [2] Only binder + license remain
 def _n_active(fb: str, fl: str) -> int:
     return sum([bool(fb.strip()), bool(fl.strip())])
 
-# [2] Removed f_email, f_company, f_status parameters
 def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_license):
     r = df.copy()
     if f_binder.strip() and col_binder and col_binder in r.columns:
@@ -764,7 +764,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION  (unchanged except _PAGE_SIZE constant above)
+#  11 . HTML TABLE & PAGINATION  (unchanged)
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -846,9 +846,10 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN  (unchanged)
+#  12 . LOGIN  — [B] accepts cookie_manager; sets cookie on success;
+#               injects autocomplete JS for browser "Save Password" dialog
 # -----------------------------------------------------------------------------
-def render_login(spreadsheet_id: str) -> None:
+def render_login(spreadsheet_id: str, cookie_manager) -> None:   # [B] added cookie_manager
     st.markdown("""
     <style>
     [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
@@ -883,6 +884,35 @@ def render_login(spreadsheet_id: str) -> None:
     }
     </style>""", unsafe_allow_html=True)
 
+    # [B] Inject JS to set autocomplete attributes on the login inputs.
+    # Streamlit renders inputs inside shadow-like iframes; we target
+    # window.parent to reach the actual DOM, with retries for timing.
+    st.markdown("""
+    <script>
+    (function () {
+        function applyAutocomplete() {
+            try {
+                var doc = window.parent.document;
+                var textInputs = doc.querySelectorAll('input[type="text"]');
+                if (textInputs.length > 0) {
+                    textInputs[0].setAttribute('autocomplete', 'username');
+                    textInputs[0].setAttribute('name', 'username');
+                }
+                var pwInputs = doc.querySelectorAll('input[type="password"]');
+                if (pwInputs.length > 0) {
+                    pwInputs[0].setAttribute('autocomplete', 'current-password');
+                    pwInputs[0].setAttribute('name', 'password');
+                }
+            } catch(e) {}
+        }
+        // Retry several times to handle Streamlit's async rendering
+        [150, 400, 800, 1500].forEach(function(ms) {
+            setTimeout(applyAutocomplete, ms);
+        });
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
     c1, c2, c3 = st.columns([8, 1, 1])
     with c2:
         if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
@@ -912,19 +942,32 @@ def render_login(spreadsheet_id: str) -> None:
         )
         if role:
             em = st.session_state.get("_login_email", "")
+            display_email = "Admin" if role == "admin" else em.lower().strip()
             st.session_state.logged_in  = True
-            st.session_state.user_email = "Admin" if role == "admin" else em.lower().strip()
+            st.session_state.user_email = display_email
             st.session_state.user_role  = role
+            # [B] Persist login in a 24-hour browser cookie: "email|role"
+            try:
+                expires_at = datetime.now() + timedelta(days=1)
+                cookie_manager.set(
+                    _COOKIE_NAME,
+                    f"{display_email}|{role}",
+                    expires_at=expires_at,
+                    key="login_set_cookie",
+                )
+            except Exception:
+                pass  # Cookie write failure is non-fatal; session still works
             st.rerun()
         else:
             st.error(t("bad_creds"))
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR  — [2] only f_binder + f_license; returns (f_binder, f_license)
+#  13 . SIDEBAR  — [C] accepts cookie_manager; deletes cookie on sign-out
 # -----------------------------------------------------------------------------
-def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at):
-    # [2] Only binder and license cleared now
+def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
+                   cookie_manager):   # [C] added cookie_manager parameter
+
     def clear_all_filters():
         for k in ("f_binder", "f_license"):
             st.session_state[k] = ""
@@ -988,7 +1031,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at):
         st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>",
                     unsafe_allow_html=True)
 
-        # [2] Only Binder No. and License Number remain
         for key, label, hint, disabled in [
             ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
             ("f_license", t("f_license"), col_license or "not detected", col_license is None),
@@ -1009,18 +1051,21 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at):
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
 
+        # [C] Sign-out: delete the persistent cookie, then clear session
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
+            try:
+                cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
+            except Exception:
+                pass  # Non-fatal; session will be cleared regardless
             for k, v in _DEFAULTS.items(): st.session_state[k] = v
             st.rerun()
 
-    # [2] Return only the two remaining filter values
     return (
         st.session_state.get("f_binder",  ""),
         st.session_state.get("f_license", ""),
     )
 
 
-# [2] Updated: only f_binder + f_license
 def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) -> None:
     n = _n_active(f_binder, f_license)
     if n == 0: return
@@ -1035,10 +1080,10 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  [C] DEEP SEARCH WIDGET  — [4] Company input removed; 4-col -> 3-col
+#  DEEP SEARCH WIDGET  (unchanged)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
-    """Returns (srch_binder, srch_agent) — company removed."""
+    """Returns (srch_binder, srch_agent)."""
     def _clear():
         st.session_state[f"{key_prefix}_binder"] = ""
         st.session_state[f"{key_prefix}_agent"]  = ""
@@ -1054,7 +1099,6 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
         f"</div>",
         unsafe_allow_html=True,
     )
-    # [4] 3-column layout: Binder | Agent Email | Clear
     c1, c2, c3 = st.columns([1, 1, 0.32])
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
@@ -1074,7 +1118,6 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
     )
 
 
-# [4] Company removed from apply_deep_search
 def apply_deep_search(df, srch_binder: str, srch_agent: str, col_binder, col_agent_email):
     r = df.copy()
     if srch_binder.strip() and col_binder      and col_binder      in r.columns:
@@ -1084,13 +1127,12 @@ def apply_deep_search(df, srch_binder: str, srch_agent: str, col_binder, col_age
     return r
 
 
-# [4] Company removed from _deep_search_active
 def _deep_search_active(b: str, a: str) -> bool:
     return any(x.strip() for x in (b, a))
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST  — [2] signature uses f_binder, f_license only
+#  14 . WORKLIST  (unchanged)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license):
     p_count = len(pending_display)
@@ -1172,9 +1214,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE  — [3] Company input removed; 5-col -> 4-col
-#                     signature: removed f_binder/f_license (global sidebar filters
-#                     are no longer passed in; archive has its own local search)
+#  15 . ARCHIVE  (unchanged)
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_license=None):
@@ -1197,7 +1237,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         f"{t('arch_search_title')}</div>",
         unsafe_allow_html=True,
     )
-    # [3] 4-column layout: Binder | License | Auditor Email | Clear
     c1, c2, c3, c4 = st.columns([1, 1, 1, 0.28])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
@@ -1214,7 +1253,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
 
-    # [3] Apply archive-local search (company removed)
     filtered_view = done_view.copy()
     if s_binder.strip()  and col_binder  and col_binder  in filtered_view.columns:
         filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(
@@ -1243,7 +1281,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
         render_paginated_table(filtered_view[ordered_cols], page_key="page_archive")
 
-    # Re-open uses the unfiltered done_view so sheet_row indices stay correct
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
@@ -1260,13 +1297,12 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS  — [4] col_company removed; deep search is binder + agent only
+#  16 . ANALYTICS  (unchanged)
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
     nvy = "#4F46E5"; blu = "#60A5FA"
 
-    # [4] Two-field deep search
     srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email)
     work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
@@ -1442,8 +1478,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — [4] deep search is binder + agent only; col_company kept
-#                         for display_cols but removed from search calls
+#  17 . AUDITOR LOGS  (unchanged)
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
@@ -1455,7 +1490,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
       <span class="chip chip-admin">Admin / Manager</span>
     </div>""", unsafe_allow_html=True)
 
-    # [4] Two-field deep search (no company)
     srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email)
 
     done_df = df[df[COL_STATUS] == VAL_DONE].copy()
@@ -1475,7 +1509,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     if done_df.empty: st.info(t("logs_no_data")); return
 
-    # col_company still used for display columns (not search)
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
     if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
@@ -1659,28 +1692,40 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER  — [5] all call sites match updated signatures
+#  19 . MAIN CONTROLLER  — [D] CookieManager init + auto-login + pass-through
 # -----------------------------------------------------------------------------
 def main():
+    # [D] Initialise cookie manager once per session (renders a hidden component).
+    # Use a stable key so Streamlit doesn't duplicate the component on reruns.
+    cookie_manager = stx.CookieManager(key="portal_cm")
+
+    # [D] Auto-login: if a valid auth cookie exists and session is not yet logged in,
+    # restore the session from the cookie so the user bypasses the login screen.
+    if not st.session_state.logged_in:
+        try:
+            raw_cookie = cookie_manager.get(cookie=_COOKIE_NAME)
+            if raw_cookie:
+                parts = str(raw_cookie).split("|", 1)
+                if len(parts) == 2:
+                    c_email, c_role = parts[0].strip(), parts[1].strip()
+                    if c_role in (VALID_ROLES + ["admin"]):
+                        st.session_state.logged_in  = True
+                        st.session_state.user_email = c_email
+                        st.session_state.user_role  = c_role
+        except Exception:
+            pass  # No cookie / parse error → normal login flow
+
     try:
-        # [5] Worksheet-switch callback: only clears the filters that still exist
         def _on_ws_change():
-            # [2] Only binder + license remain in sidebar
             for k in ("f_binder", "f_license"):
                 st.session_state[k] = ""
-
-            # [3] Archive search: company removed
             for k in ("arch_binder", "arch_license", "arch_auditor"):
                 st.session_state[k] = ""
-
-            # [4] Deep-search strips: company removed from both prefixes
             for prefix in ("anal", "logs"):
                 for suffix in ("_binder", "_agent"):
                     st.session_state[f"{prefix}{suffix}"] = ""
-
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state[pk] = 1
-
             st.session_state["local_cache_key"] = None
             st.session_state["local_df"]        = None
             st.session_state["local_headers"]   = None
@@ -1697,7 +1742,7 @@ def main():
             all_titles.append(USERS_SHEET)
 
         if not st.session_state.logged_in:
-            render_login(sid); return
+            render_login(sid, cookie_manager); return   # [D] pass cookie_manager
 
         st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
                     unsafe_allow_html=True)
@@ -1739,9 +1784,9 @@ def main():
         col_license     = detect_column(headers, "license")
         col_agent_email = detect_column(headers, "agent_email")
 
-        # [5] Sidebar now returns only (f_binder, f_license)
+        # [D] Pass cookie_manager to sidebar so logout can delete the cookie
         f_binder, f_license = render_sidebar(
-            headers, col_binder, col_license, is_admin, fetched_at)
+            headers, col_binder, col_license, is_admin, fetched_at, cookie_manager)
 
         if not df.empty:
             st.markdown(f"<div class='section-title'>{t('overview')}</div>", unsafe_allow_html=True)
@@ -1759,7 +1804,6 @@ def main():
             <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
             unsafe_allow_html=True)
 
-            # [5] Updated call: only f_binder, f_license, col_binder, col_license
             filtered_df = apply_filters_locally(df, f_binder, f_license, col_binder, col_license)
             render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
@@ -1784,21 +1828,18 @@ def main():
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
-                # [5] Updated call: removed f_email, f_company, f_status
                 render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license)
 
         with t_arch:
             if not df.empty and ws_title:
                 dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
                 dv.index = dv.index + 2
-                # [5] Updated call: removed f_email, f_company, f_status, col_company
                 render_archive(dv, df, col_map, ws_title, is_admin,
                                col_binder=col_binder, col_license=col_license)
 
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    # [5] Updated call: col_company removed
                     render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder)
 
         if can_analytics and t_logs is not None:
