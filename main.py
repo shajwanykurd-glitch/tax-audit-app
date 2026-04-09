@@ -1053,34 +1053,34 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         </div>""", unsafe_allow_html=True)
 
         # ====================================================================
-        # === بەشی نوێ: گۆڕینی پاسۆرد لەلایەن خودی کارمەندەکەوە ===
+        # === بەشی نوێ: گۆڕینی پاسۆرد بە دوگمەی Toggle ===
         # ====================================================================
-        with st.expander("⚙️ Change My Password", expanded=False):
+        st.markdown("<hr class='divider' style='margin: 8px 0;'/>", unsafe_allow_html=True)
+        
+        if st.toggle(f"🔒 {t('update_pw')}", key="toggle_pw"):
             with st.form("change_my_pw_form_sidebar"):
-                new_pw = st.text_input("New Password", type="password", placeholder="پاسۆردی نوێ بنووسە")
-                if st.form_submit_button("Update Password", use_container_width=True):
+                new_pw = st.text_input(t("password_field"), type="password")
+                if st.form_submit_button(t("update_pw"), use_container_width=True):
                     if new_pw.strip():
                         try:
                             spr = get_spreadsheet()
                             uws = spr.worksheet(USERS_SHEET)
-                            # دەگەڕێت بەدوای ئەو ئیمەیڵەی کە ئێستا لە ژوورەوەیە
                             cell = _gsheets_call(uws.find, st.session_state.user_email)
                             if cell:
-                                # ئەگەر دۆزییەوە، پاسۆردەکەی بۆ هاش دەکات و دەیگۆڕێت
                                 _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
                                 _fetch_users_cached.clear()
-                                st.success("پاسۆردەکەت بە سەرکەوتوویی گۆڕدرا! 🔒")
+                                st.success("بە سەرکەوتوویی گۆڕدرا! 🔒")
                                 time.sleep(1.5)
                                 st.rerun()
                             else:
-                                st.error("ئەکاونتەکەت نەدۆزرایەوە لەناو داتابەیسەکەدا.")
+                                st.error("ئەکاونتەکەت نەدۆزرایەوە.")
                         except Exception as e:
-                            st.error(f"هەڵەیەک ڕوویدا لە کاتی گۆڕینی پاسۆرد: {e}")
+                            st.error(f"هەڵەیەک ڕوویدا: {e}")
                     else:
                         st.warning("تکایە پاسۆردی نوێ بنووسە.")
-        # ====================================================================
-
+        
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        # ====================================================================
 
         # [C] Sign-out: delete the persistent cookie, then clear session
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
@@ -1095,7 +1095,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         st.session_state.get("f_binder",  ""),
         st.session_state.get("f_license", ""),
     )
-
 
 def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) -> None:
     n = _n_active(f_binder, f_license)
