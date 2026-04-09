@@ -474,7 +474,7 @@ _LANG: dict[str, dict[str, str]] = {
         "tab_worklist":"لیستی کاری","tab_archive":"ئەرشیف",
         "tab_analytics":"ئەنالیتیکس","tab_logs":"لۆگی ئۆدیتۆر","tab_users":"بەکارهێنەر",
         "select_case":"کیسێک هەڵبژێرە بۆ پشکنین","audit_trail":"مێژووی گۆڕانکاری",
-        "approve_save":"پەسەندکردن و پاشەکەوتکردن","reopen":"کردنەوەی دووبارەی کیس (ئەدمین)",
+        "approve_save":"پەسەندکردن و پاشەکەوتکردن","reopen":"کردنەوەی دووبارەی کەیس (ئەدمین)",
         "leaderboard":"تەختەی بەرهەمهێنانی ئۆدیتۆر","daily_trend":"ترەندی ڕۆژانە",
         "period":"ماوەی کات","today":"ئەمڕۆ","this_week":"ئەم هەفتەیە",
         "this_month":"ئەم مانگەیە","all_time":"هەموو کات",
