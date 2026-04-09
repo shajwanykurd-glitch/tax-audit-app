@@ -1124,15 +1124,18 @@ def _deep_search_active(b, a):
 # -----------------------------------------------------------------------------
 #  14 . WORKLIST
 # -----------------------------------------------------------------------------
-def render_worklist(pending_display, df, headers, col_map, ws_title, f_license, f_status):
+def render_worklist(pending_display, df, headers, col_map, ws_title,
+                    f_email, f_binder, f_company, f_license, f_status):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">{t('worklist_title')}</div>
       <div class="worklist-sub">{t('worklist_sub')}</div></div>
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
     </div>""", unsafe_allow_html=True)
+
     if pending_display.empty:
-        st.info(t("no_match") if _n_active(f_license, f_status) else "All cases processed.")
+        st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
+                else "All cases processed.")
         return
 
     render_paginated_table(pending_display, page_key="page_worklist")
@@ -1147,8 +1150,8 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_license, 
     row_sel = st.selectbox("", opts, key="row_sel", label_visibility="collapsed")
     if row_sel == "-": return
 
-    sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row ", "").strip())
-    df_iloc   = sheet_row - 2
+    sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row", "").strip())
+    df_iloc   = sheet_row - 2 
     if df_iloc < 0 or df_iloc >= len(df): st.error("Row index out of range."); return
     record = df.iloc[df_iloc].to_dict()
 
@@ -1165,40 +1168,34 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_license, 
     SKIP = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-   with st.form("audit_form"):
+    with st.form("audit_form"):
         new_vals = {}
         for fname, fval in fields.items():
-            # لێرەدا ڕێک ئەو ناوەمان دانا کە ناردت بۆ ئەوەی ببێتە درۆپ داون
+            
             dropdown_column_name = "رقم ملف الشركة / ژمارەی بایندەری کۆمپانیا / Company binder number"
             
             if fname == dropdown_column_name:
-                # خوێندنەوەی هەموو بژاردە ناوازەکان لەناو شیتەکە
                 dynamic_options = df[fname].dropna().unique().tolist()
-                # خاوێنکردنەوەی بژاردەکان لە بۆشایی زیادە
                 dynamic_options = [str(opt).strip() for opt in dynamic_options if str(opt).strip() != ""]
                 
                 current_val = clean_cell(fval)
-                # ئەگەر بەهاکەی ناو شیتەکە لە لیستەکە نەبوو، با زیادی بکات بۆ ئەوەی ئێرۆر نەدات
                 if current_val and current_val not in dynamic_options:
                     dynamic_options.insert(0, current_val)
                 elif not dynamic_options:
                     dynamic_options = [""]
                 
-                # دیاریکردنی شوێنی بەهای ئێستا لەناو درۆپ داونەکەدا
                 default_idx = dynamic_options.index(current_val) if current_val in dynamic_options else 0
-                
-                # دروستکردنی درۆپ داونەکە (Selectbox)
                 new_vals[fname] = st.selectbox(fname, options=dynamic_options, index=default_idx, key=f"field_{fname}")
             else:
-                # خانەکانی تر وەک خۆیان بە تێکست دەمێننەوە
                 new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
-                
+
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
         eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
                                     key="form_feedback", height=100)
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
+
     if do_submit:
         ts_now    = now_str()
         auditor   = st.session_state.user_email
@@ -1212,20 +1209,22 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_license, 
                 is_success = write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
                                                      new_vals, record, auditor, ts_now, log_prefix,
                                                      eval_val=eval_val, feedback_val=feedback_combined)
+                
                 if not is_success:
                     st.toast("⚠️ ببورە، کارمەندێکی تر کەمێک پێش ئێستا ئەم کەیسەی تەواو کرد!")
                     st.session_state.local_df.at[df_iloc, COL_STATUS] = VAL_DONE
                     time.sleep(2)
                     st.rerun()
                     return
+
             except gspread.exceptions.APIError as e:
                 st.error(f"Write failed: {e}")
                 return
 
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
-        st.toast(t("saved_ok"), icon="✅")
-        time.sleep(0.6)
+        st.toast(t("saved_ok"), icon="✅") 
+        time.sleep(0.6) 
         st.rerun()
 
 
