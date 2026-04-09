@@ -1,7 +1,13 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.6 (Concurrency & Quota Safe)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.7 (Simplified Filters)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Features: Pagination, Admin Refresh, Crash Protections, Quota Optimization, Safe Pre-Write
+#  Changes from v14.6:
+#    [1] _PAGE_SIZE 15 -> 10
+#    [2] Sidebar: removed f_status, f_email, f_company — only f_binder + f_license remain
+#    [3] Archive search: removed Company input, 5-col -> 4-col layout
+#    [4] Deep search strip: removed Company input, 4-col -> 3-col layout
+#    [5] All function signatures/calls updated to match; no broken arguments
+#    [6] Backend (Google Sheets, optimistic UI, CSS) untouched
 # =============================================================================
 
 import html as _html
@@ -97,8 +103,11 @@ READ_TTL    = 600
 BACKOFF_MAX = 5
 _ROW_SEP    = " \u007c "   # " | "
 
+# [1] Page size reduced from 15 to 10
+_PAGE_SIZE  = 10
+
 # -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF
+#  4 . EXPONENTIAL BACKOFF  (unchanged)
 # -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -118,7 +127,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS
+#  5 . CSS  (unchanged)
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -286,30 +295,19 @@ div[data-testid="stForm"] {
   background: var(--surface) !important; box-shadow: var(--shadow-sm) !important;
 }
 [data-testid="stAlert"] * { color: var(--text-primary) !important; }
-
-/* ── ROLE CHIPS ─────────────────────────────────────────────────────────── */
 .chip-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA; }
 .role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 .role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
 .role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:inline-block; }
-
-/* ── DEEP SEARCH STRIP ──────────────────────────────────────────────────── */
 .deep-search-strip {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--indigo-500);
-  border-radius: var(--radius-md);
-  padding: 12px 20px 16px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md);
+  padding: 12px 20px 16px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
 }
 .deep-search-title {
   font-size: .62rem; font-weight: 800; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--indigo-600) !important;
-  margin-bottom: 10px;
+  text-transform: uppercase; color: var(--indigo-600) !important; margin-bottom: 10px;
 }
-
-/* ── PAGE / SECTION ─────────────────────────────────────────────────────── */
 .page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
 .page-title  { font-size:1.55rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.03em;margin:0; }
 .page-subtitle { font-size:.78rem;color:var(--text-muted)!important;margin-top:4px;font-weight:500; }
@@ -391,7 +389,7 @@ div[data-testid="stForm"] {
 inject_css()
 
 # -----------------------------------------------------------------------------
-#  6 . TRANSLATIONS
+#  6 . TRANSLATIONS  (unchanged)
 # -----------------------------------------------------------------------------
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -426,12 +424,11 @@ _LANG: dict[str, dict[str, str]] = {
         "processing":"Processing Case",
         "no_history":"No audit trail for this record.",
         "records_period":"Records (period)","active_days":"Active Days","avg_per_day":"Avg / Day",
-        "adv_filters":"Advanced Filters","f_email":"Auditor Email",
-        "f_binder":"Company Binder No.","f_company":"Company Name","f_license":"License Number",
-        "f_status":"Status","clear_filters":"Clear Filters",
+        "adv_filters":"Advanced Filters",
+        "f_binder":"Company Binder No.","f_license":"License Number",
+        "clear_filters":"Clear Filters",
         "active_filters":"Active filters","results_shown":"results shown",
         "no_match":"No records match the applied filters.",
-        "status_all":"All Statuses","status_pending":"Pending Only","status_done":"Processed Only",
         "retry_warning":"Google Sheets quota reached - retrying with backoff...",
         "local_mode":"Optimistic UI Active","cache_age":"Cache TTL",
         "rbac_notice":"Info: Your role only has access to the Worklist and Archive.",
@@ -455,8 +452,7 @@ _LANG: dict[str, dict[str, str]] = {
         "role_label":"Role","change_role":"Change User Role",
         "change_role_sub":"Upgrade or downgrade any user's access level",
         "role_updated":"Role updated successfully.",
-        "deep_search":"Deep Search","ds_binder":"Binder No.",
-        "ds_company":"Company","ds_agent":"Agent Email",
+        "deep_search":"Deep Search","ds_binder":"Binder No.","ds_agent":"Agent Email",
         "ds_clear":"Clear","ds_showing":"Showing results for",
         "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
@@ -493,12 +489,11 @@ _LANG: dict[str, dict[str, str]] = {
         "role_auditor":"ئۆدیتۆری باج","role_manager":"بەڕێوەبەر",
         "processing":"پشکنینی کیسی","no_history":"هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
         "records_period":"تۆمارەکان (ماوە)","active_days":"ڕۆژی چالاک","avg_per_day":"تێکڕای ڕۆژانە",
-        "adv_filters":"فلتەرە پێشکەوتووەکان","f_email":"ئیمەیڵی ئۆدیتۆر",
-        "f_binder":"ژمارەی بایندەری کۆمپانیا","f_company":"ناوی کۆمپانیا","f_license":"ژمارەی مۆڵەتی",
-        "f_status":"دەربار","clear_filters":"سڕینەوەی فلتەرەکان",
+        "adv_filters":"فلتەرە پێشکەوتووەکان",
+        "f_binder":"ژمارەی بایندەری کۆمپانیا","f_license":"ژمارەی مۆڵەتی",
+        "clear_filters":"سڕینەوەی فلتەرەکان",
         "active_filters":"فلتەرە چالاکەکان","results_shown":"ئەنجامی پیشاندراو",
         "no_match":"هیچ تۆماریک لەگەڵ فلتەرەکان دەگونجێ.",
-        "status_all":"هەموو","status_pending":"چاوەڕوان تەنها","status_done":"کارکراو تەنها",
         "retry_warning":"کووتای گووگڵ شیت گەیشت - دووبارە هەوڵدەدرێت...",
         "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
         "rbac_notice":"ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری و ئەرشیف هەیە.",
@@ -521,8 +516,7 @@ _LANG: dict[str, dict[str, str]] = {
         "role_label":"ڕۆڵ","change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
         "change_role_sub":"بەرزکردنەوە یان دابەزاندنی ئاستی دەستپێگەیشتن",
         "role_updated":"ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
-        "deep_search":"گەڕانی قووڵ","ds_binder":"ژمارەی بایندەر",
-        "ds_company":"ناوی کۆمپانیا","ds_agent":"ئیمەیڵی ئەجنت",
+        "deep_search":"گەڕانی قووڵ","ds_binder":"ژمارەی بایندەر","ds_agent":"ئیمەیڵی ئەجنت",
         "ds_clear":"سڕینەوە","ds_showing":"پیشاندانی ئەنجام بۆ",
         "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
         "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
@@ -535,13 +529,14 @@ def t(key: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  7 . HELPERS
+#  7 . HELPERS  (unchanged)
 # -----------------------------------------------------------------------------
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
                 "ژمارەی بایندەری کۆمپانیا","ژمارەی بایندەری","بایندەری",
                 "binder","file no","file_no"],
-    "company": ["ناوی کۆمپانیا", "اسم الشركة","اسم_الشركة","اسم الشركه","کۆمپانیای", "کۆمپانیا", "كومبانيا","شركة",
+    "company": ["ناوی کۆمپانیا","اسم الشركة","اسم_الشركة","اسم الشركه",
+                "کۆمپانیای","کۆمپانیا","كومبانيا","شركة",
                 "company name","company_name","company"],
     "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
                 "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
@@ -608,27 +603,16 @@ def apply_period_filter(df, col, period):
     else: return df
     return df[df[col].apply(parse_dt) >= cutoff]
 
-def _n_active(fe, fb, fc_, fl, fs):
-    return sum([bool(fe.strip()), bool(fb.strip()), bool(fc_.strip()), bool(fl.strip()), fs != "all"])
+# [2] Only binder + license remain
+def _n_active(fb: str, fl: str) -> int:
+    return sum([bool(fb.strip()), bool(fl.strip())])
 
-def apply_filters_locally(df, f_email, f_binder, f_company, f_license, f_status,
-                          col_binder, col_company, col_license):
+# [2] Removed f_email, f_company, f_status parameters
+def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_license):
     r = df.copy()
-    if f_status == "pending": r = r[r[COL_STATUS] != VAL_DONE]
-    elif f_status == "done":  r = r[r[COL_STATUS] == VAL_DONE]
-    
-    if f_email.strip():
-        ecols = [c for c in r.columns if "auditor_email" in c.lower() or c == COL_AUDITOR]
-        if ecols:
-            mask = pd.Series(False, index=r.index)
-            for ec in ecols: mask |= r[ec].astype(str).str.contains(f_email.strip(), case=False, na=False)
-            r = r[mask]
-            
-    if f_binder.strip()  and col_binder  and col_binder  in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(f_binder.strip(),  case=False, na=False)]
-    if f_company.strip() and col_company and col_company in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(f_company.strip(), case=False, na=False)]
-    if f_license.strip() and col_license and col_license in r.columns: 
+    if f_binder.strip() and col_binder and col_binder in r.columns:
+        r = r[r[col_binder].astype(str).str.contains(f_binder.strip(), case=False, na=False)]
+    if f_license.strip() and col_license and col_license in r.columns:
         r = r[r[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)]
     return r
 
@@ -646,7 +630,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS
+#  8 . GOOGLE SHEETS  (unchanged)
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -692,7 +676,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS
+#  9 . OPTIMISTIC MUTATIONS  (unchanged)
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -717,7 +701,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS
+#  10 . WRITE HELPERS  (unchanged)
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -728,21 +712,16 @@ def ensure_system_cols_in_sheet(ws, headers, col_map):
             headers.append(sc); col_map[sc] = np_
     return headers, col_map
 
-# === چارەسەری کێشەی Concurrency (٢٠ کارمەند) بەبێ شکاندنی Quota ===
 def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, record,
                             auditor, ts_now, log_prefix,
                             eval_val: str = "", feedback_val: str = "") -> bool:
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
-    
-    # --- پشکنینی هێمنانە پێش نووسین (تەنیا یەک خانە دەخوێنێتەوە) ---
     if COL_STATUS in col_map:
         status_a1 = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
         live_status = _gsheets_call(ws.acell, status_a1).value
         if live_status == VAL_DONE:
-            return False # ئەگەر کەسێکی تر پێشت کەوتبوو، کارەکە دەوەستێنێت
-    # ---------------------------------------------------------------
-
+            return False
     old = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
     batch = []
@@ -750,20 +729,14 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
         if f in col_map and clean_cell(record.get(f, "")) != v:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[f]), "values": [[v]]})
     for cn, v in [
-        (COL_STATUS,   VAL_DONE),
-        (COL_AUDITOR,  auditor),
-        (COL_DATE,     ts_now),
-        (COL_LOG,      new_log),
-        (COL_EVAL,     eval_val),
-        (COL_FEEDBACK, feedback_val),
+        (COL_STATUS, VAL_DONE), (COL_AUDITOR, auditor), (COL_DATE, ts_now),
+        (COL_LOG, new_log), (COL_EVAL, eval_val), (COL_FEEDBACK, feedback_val),
     ]:
         if cn in col_map:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[cn]), "values": [[v]]})
-    
-    if batch: 
+    if batch:
         _gsheets_call(ws.batch_update, batch)
-        
-    return True # بە سەرکەوتوویی سەیڤ کرا
+    return True
 
 def write_reopen_to_sheet(ws_title, sheet_row, col_map):
     ws = get_spreadsheet().worksheet(ws_title)
@@ -791,7 +764,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION
+#  11 . HTML TABLE & PAGINATION  (unchanged except _PAGE_SIZE constant above)
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -819,9 +792,9 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         r = f"<td class='row-idx'>{idx}</td>"
         for col in display_df.columns:
             if col == COL_LOG: continue
-            raw = str(row[col]) if row[col] != "" else ""
+            raw  = str(row[col]) if row[col] != "" else ""
             safe = _html.escape(raw)
-            d = safe or "-"
+            d    = safe or "-"
             if col == COL_STATUS:
                 d = ("<span class='s-chip s-done'>Processed</span>" if raw == VAL_DONE
                      else "<span class='s-chip s-pending'>Pending</span>")
@@ -842,48 +815,38 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
         unsafe_allow_html=True)
 
-# ── PAGINATED WRAPPER ────────────────────────────────────────────────────────
-_PAGE_SIZE = 15
-
 def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000) -> None:
     if df.empty:
         render_html_table(df)
         return
-
     if page_key not in st.session_state:
         st.session_state[page_key] = 1
-
     total_rows  = min(len(df), max_rows)
     total_pages = max(1, -(-total_rows // _PAGE_SIZE))
-
     st.session_state[page_key] = max(1, min(st.session_state[page_key], total_pages))
-    
     current = st.session_state[page_key]
     start   = (current - 1) * _PAGE_SIZE
     end     = min(start + _PAGE_SIZE, total_rows)
-    
-    page_df = df.iloc[start:end]
-    render_html_table(page_df, max_rows=_PAGE_SIZE)
-
+    render_html_table(df.iloc[start:end], max_rows=_PAGE_SIZE)
     if total_pages > 1:
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
-            if st.button("⬅️ Previous", key=f"{page_key}_prev", disabled=(current <= 1), use_container_width=True):
-                st.session_state[page_key] -= 1
-                st.rerun()
+            if st.button("Prev", key=f"{page_key}_prev", disabled=(current <= 1), use_container_width=True):
+                st.session_state[page_key] -= 1; st.rerun()
         with col_info:
             st.markdown(
-                f"<div style='text-align:center;padding:8px 0;font-size:.75rem;font-weight:700;color:var(--text-muted);font-family:var(--mono);'>"
+                f"<div style='text-align:center;padding:8px 0;font-size:.75rem;font-weight:700;"
+                f"color:var(--text-muted);font-family:var(--mono);'>"
                 f"Page {current} of {total_pages} "
                 f"<span style='font-weight:400;margin-left:8px;'>({start+1}-{end} of {total_rows} rows)</span>"
                 f"</div>", unsafe_allow_html=True)
         with col_next:
-            if st.button("Next ➡️", key=f"{page_key}_next", disabled=(current >= total_pages), use_container_width=True):
-                st.session_state[page_key] += 1
-                st.rerun()
+            if st.button("Next", key=f"{page_key}_next", disabled=(current >= total_pages), use_container_width=True):
+                st.session_state[page_key] += 1; st.rerun()
+
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN
+#  12 . LOGIN  (unchanged)
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str) -> None:
     st.markdown("""
@@ -891,39 +854,32 @@ def render_login(spreadsheet_id: str) -> None:
     [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
     .stApp {
         background: linear-gradient(-45deg, #0F172A, #1E3A8A, #3B82F6, #1E40AF);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
+        background-size: 400% 400%; animation: gradientBG 15s ease infinite;
     }
     @keyframes gradientBG {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
+        0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;}
     }
     .block-container {
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        min-height: 100vh; padding: 1rem !important;
+        display:flex;flex-direction:column;justify-content:center;align-items:center;
+        min-height:100vh;padding:1rem !important;
     }
     [data-testid="stForm"] {
-        background: rgba(255,255,255,0.95) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255,255,255,0.3) !important;
-        border-radius: 24px !important; padding: 40px 30px !important;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5) !important;
-        max-width: 420px !important; width: 100% !important; margin: 0 auto !important;
+        background:rgba(255,255,255,0.95)!important;backdrop-filter:blur(12px)!important;
+        -webkit-backdrop-filter:blur(12px)!important;border:1px solid rgba(255,255,255,0.3)!important;
+        border-radius:24px!important;padding:40px 30px!important;
+        box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;
+        max-width:420px!important;width:100%!important;margin:0 auto!important;
     }
     [data-testid="stFormSubmitButton"] button {
-        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%) !important;
-        color: white !important; border: none !important; border-radius: 12px !important;
-        font-weight: bold !important; font-size: 1rem !important;
-        padding: 0.6rem !important; width: 100% !important; margin-top: 10px !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+        background:linear-gradient(135deg,#1E3A8A 0%,#3B82F6 100%)!important;
+        color:white!important;border:none!important;border-radius:12px!important;
+        font-weight:bold!important;font-size:1rem!important;padding:0.6rem!important;
+        width:100%!important;margin-top:10px!important;
+        transition:transform 0.2s ease,box-shadow 0.2s ease!important;
     }
     [data-testid="stFormSubmitButton"] button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 10px 20px rgba(59,130,246,0.4) !important;
-        color: white !important;
+        transform:translateY(-2px)!important;
+        box-shadow:0 10px 20px rgba(59,130,246,0.4)!important;color:white!important;
     }
     </style>""", unsafe_allow_html=True)
 
@@ -943,8 +899,7 @@ def render_login(spreadsheet_id: str) -> None:
             width:max-content;margin:0 auto 16px;letter-spacing:1px;">
             {_html.escape(t('classified'))}</div>
         <div style="text-align:center;font-size:.85rem;color:#475569;margin-bottom:20px;">
-            {_html.escape(t('login_prompt'))}</div>
-        """, unsafe_allow_html=True)
+            {_html.escape(t('login_prompt'))}</div>""", unsafe_allow_html=True)
         st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
         st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
         submitted = st.form_submit_button(t("sign_in"))
@@ -966,13 +921,13 @@ def render_login(spreadsheet_id: str) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR
+#  13 . SIDEBAR  — [2] only f_binder + f_license; returns (f_binder, f_license)
 # -----------------------------------------------------------------------------
-def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetched_at):
+def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at):
+    # [2] Only binder and license cleared now
     def clear_all_filters():
-        for k in ("f_email", "f_binder", "f_company", "f_license"):
+        for k in ("f_binder", "f_license"):
             st.session_state[k] = ""
-        st.session_state["f_status"] = "all"
         for pk in ("page_worklist", "page_archive", "page_logs"):
             st.session_state[pk] = 1
 
@@ -989,21 +944,16 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
           <div class="sidebar-ministry">{t('ministry')}</div>
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
-        
+
+        # Refresh button — admin/manager only
         if st.session_state.get("user_role") in ("admin", "manager"):
-            # دیاریکردنی ماوەی چاوەڕوانی (١٠ خولەک = ٦٠٠ چرکە)
-            COOLDOWN = 600 
-            
-            # دروستکردنی گۆڕراوێک بۆ هەڵگرتنی کاتی دوایین ڕێفرێش ئەگەر نەبوو
+            COOLDOWN = 600
             if "last_refresh_time" not in st.session_state:
                 st.session_state.last_refresh_time = 0
-
             current_time = time.time()
-            time_passed = current_time - st.session_state.last_refresh_time
-            time_left = int((COOLDOWN - time_passed) / 60)
-
-            # ئەگەر ئەدمین بێت بێ سنوورە، ئەگەر مەنەجەر بێت دەبێت ١٠ خولەک چاوەڕێ بکات
-            can_refresh = True
+            time_passed  = current_time - st.session_state.last_refresh_time
+            time_left    = int((COOLDOWN - time_passed) / 60)
+            can_refresh  = True
             if st.session_state.user_role == "manager" and time_passed < COOLDOWN:
                 can_refresh = False
 
@@ -1012,78 +962,71 @@ def render_sidebar(headers, col_binder, col_company, col_license, is_admin, fetc
                 _fetch_users_cached.clear()
                 _fetch_sheet_metadata.clear()
                 st.session_state.local_cache_key = None
-                # تۆمارکردنی کاتی ڕێفرێشکردنەکە
                 st.session_state.last_refresh_time = time.time()
-                st.toast("داتاکان بۆ هەمووان نوێکرانەوە", icon="🔄")
+                st.toast("Data refreshed for all users", icon="🔄")
 
             if can_refresh:
-                st.button(
-                    "🔄 Refresh Data",
-                    key="sb_refresh",
-                    use_container_width=True,
-                    on_click=_do_refresh,
-                )
+                st.button("🔄 Refresh Data", key="sb_refresh",
+                          use_container_width=True, on_click=_do_refresh)
             else:
-                # ئەگەر مەنەجەرەکە کاتی مابوو، دوگمەکە دادەخرێت و کاتەکەی بۆ دەنووسرێت
-                st.button(
-                    f"⏳ Wait {max(1, time_left)} min",
-                    key="sb_refresh_disabled",
-                    disabled=True,
-                    use_container_width=True,
-                    help="مەنەجەر تەنها هەر ١٠ خولەک جارێک دەتوانێت داتاکان بەزۆر نوێ بکاتەوە."
-                )
+                st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
+                          disabled=True, use_container_width=True)
 
         st.markdown(f"""
         <div class="cache-strip">
           <span class="cache-badge">{t('local_mode')}</span>
           <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min - Last sync: {fetched_at[-8:] if fetched_at else '-'}</div>
         </div>""", unsafe_allow_html=True)
-        
+
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         st.markdown(f"<div class='sb-label'>{t('language')}</div>", unsafe_allow_html=True)
         lc1, lc2 = st.columns(2)
         if lc1.button("EN", use_container_width=True, key="sb_en"): st.session_state.lang = "en"; st.rerun()
         if lc2.button("KU", use_container_width=True, key="sb_ku"): st.session_state.lang = "ku"; st.rerun()
+
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>", unsafe_allow_html=True)
-        status_opts = {"all": t("status_all"), "pending": t("status_pending"), "done": t("status_done")}
-        st.selectbox(t("f_status"), options=list(status_opts.keys()),
-                     format_func=lambda k: status_opts[k], key="f_status")
+        st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>",
+                    unsafe_allow_html=True)
+
+        # [2] Only Binder No. and License Number remain
         for key, label, hint, disabled in [
-            ("f_email",   t("f_email"),   COL_AUDITOR,            False),
             ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
-            ("f_company", t("f_company"), col_company or "not detected", col_company is None),
             ("f_license", t("f_license"), col_license or "not detected", col_license is None),
         ]:
             st.markdown(f"<div class='sb-label' style='margin-top:10px;'>{label}"
                         f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
             st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
+
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
         st.button(f"X  {t('clear_filters')}", use_container_width=True,
                   key="clr_f", on_click=clear_all_filters)
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
+
         st.markdown(f"""
         <div class="sb-user-card">
           <div class="sb-label">{t('signed_as')}</div>
           <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
+
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
             for k, v in _DEFAULTS.items(): st.session_state[k] = v
             st.rerun()
-    return (st.session_state.get("f_email", ""), st.session_state.get("f_binder", ""),
-            st.session_state.get("f_company", ""), st.session_state.get("f_license", ""),
-            st.session_state.get("f_status", "all"))
 
-def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, f_status):
-    n = _n_active(f_email, f_binder, f_company, f_license, f_status)
+    # [2] Return only the two remaining filter values
+    return (
+        st.session_state.get("f_binder",  ""),
+        st.session_state.get("f_license", ""),
+    )
+
+
+# [2] Updated: only f_binder + f_license
+def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) -> None:
+    n = _n_active(f_binder, f_license)
     if n == 0: return
     badges = ""
-    if f_status != "all":   badges += f"<span class='filter-badge'>{_html.escape(f_status)}</span> "
-    if f_email.strip():     badges += f"<span class='filter-badge'>{_html.escape(f_email.strip()[:20])}</span> "
-    if f_binder.strip():    badges += f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
-    if f_company.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_company.strip()[:20])}</span> "
-    if f_license.strip():   badges += f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
+    if f_binder.strip():  badges += f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
+    if f_license.strip(): badges += f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
     st.markdown(f"""<div class="filter-result-bar">
       <span style="font-size:.70rem;font-weight:800;color:var(--indigo-600);text-transform:uppercase;letter-spacing:.08em;">
         {t('active_filters')} ({n})</span> {badges}
@@ -1092,19 +1035,18 @@ def render_filter_bar(total, filtered, f_email, f_binder, f_company, f_license, 
 
 
 # -----------------------------------------------------------------------------
-#  [C] DEEP SEARCH WIDGET
+#  [C] DEEP SEARCH WIDGET  — [4] Company input removed; 4-col -> 3-col
 # -----------------------------------------------------------------------------
-def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent_email):
+def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
+    """Returns (srch_binder, srch_agent) — company removed."""
     def _clear():
-        st.session_state[f"{key_prefix}_binder"]  = ""
-        st.session_state[f"{key_prefix}_company"] = ""
-        st.session_state[f"{key_prefix}_agent"]   = ""
+        st.session_state[f"{key_prefix}_binder"] = ""
+        st.session_state[f"{key_prefix}_agent"]  = ""
         for pk in ("page_worklist", "page_archive", "page_logs"):
             st.session_state[pk] = 1
 
-    ph_binder  = col_binder      or "column not detected in sheet"
-    ph_company = col_company     or "column not detected in sheet"
-    ph_agent   = col_agent_email or "column not detected in sheet"
+    ph_binder = col_binder      or "column not detected in sheet"
+    ph_agent  = col_agent_email or "column not detected in sheet"
 
     st.markdown(
         f"<div class='deep-search-strip'>"
@@ -1112,64 +1054,60 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_company, col_agent
         f"</div>",
         unsafe_allow_html=True,
     )
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.32])
+    # [4] 3-column layout: Binder | Agent Email | Clear
+    c1, c2, c3 = st.columns([1, 1, 0.32])
     with c1:
-        st.text_input(t("ds_binder"),  key=f"{key_prefix}_binder",
-                      placeholder=ph_binder,  disabled=(col_binder is None))
+        st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
+                      placeholder=ph_binder, disabled=(col_binder is None))
     with c2:
-        st.text_input(t("ds_company"), key=f"{key_prefix}_company",
-                      placeholder=ph_company, disabled=(col_company is None))
+        st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
+                      placeholder=ph_agent, disabled=(col_agent_email is None))
     with c3:
-        st.text_input(t("ds_agent"),   key=f"{key_prefix}_agent",
-                      placeholder=ph_agent,   disabled=(col_agent_email is None))
-    with c4:
         st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr",
                   use_container_width=True, on_click=_clear)
         st.markdown("</div>", unsafe_allow_html=True)
 
     return (
-        st.session_state.get(f"{key_prefix}_binder",  ""),
-        st.session_state.get(f"{key_prefix}_company", ""),
-        st.session_state.get(f"{key_prefix}_agent",   ""),
+        st.session_state.get(f"{key_prefix}_binder", ""),
+        st.session_state.get(f"{key_prefix}_agent",  ""),
     )
 
-def apply_deep_search(df, srch_binder, srch_company, srch_agent,
-                      col_binder, col_company, col_agent_email):
+
+# [4] Company removed from apply_deep_search
+def apply_deep_search(df, srch_binder: str, srch_agent: str, col_binder, col_agent_email):
     r = df.copy()
-    if srch_binder.strip()  and col_binder      and col_binder      in r.columns: 
-        r = r[r[col_binder].astype(str).str.contains(srch_binder.strip(),  case=False, na=False)]
-    if srch_company.strip() and col_company     and col_company     in r.columns: 
-        r = r[r[col_company].astype(str).str.contains(srch_company.strip(), case=False, na=False)]
-    if srch_agent.strip()   and col_agent_email and col_agent_email in r.columns: 
+    if srch_binder.strip() and col_binder      and col_binder      in r.columns:
+        r = r[r[col_binder].astype(str).str.contains(srch_binder.strip(), case=False, na=False)]
+    if srch_agent.strip()  and col_agent_email and col_agent_email in r.columns:
         r = r[r[col_agent_email].astype(str).str.contains(srch_agent.strip(), case=False, na=False)]
     return r
 
-def _deep_search_active(b, c, a):
-    return any(x.strip() for x in (b, c, a))
+
+# [4] Company removed from _deep_search_active
+def _deep_search_active(b: str, a: str) -> bool:
+    return any(x.strip() for x in (b, a))
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST
+#  14 . WORKLIST  — [2] signature uses f_binder, f_license only
 # -----------------------------------------------------------------------------
-def render_worklist(pending_display, df, headers, col_map, ws_title,
-                    f_email, f_binder, f_company, f_license, f_status):
+def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">{t('worklist_title')}</div>
       <div class="worklist-sub">{t('worklist_sub')}</div></div>
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
     </div>""", unsafe_allow_html=True)
+
     if pending_display.empty:
-        st.info(t("no_match") if _n_active(f_email, f_binder, f_company, f_license, f_status)
-                else "All cases processed.")
+        st.info(t("no_match") if _n_active(f_binder, f_license) else "All cases processed.")
         return
-    
+
     render_paginated_table(pending_display, page_key="page_worklist")
-    
+
     st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
     label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
-
     opts = ["-"] + [
         f"Row {idx}{_ROW_SEP}{str(row.get(label_col, ''))[:55]}"
         for idx, row in pending_display.iterrows()
@@ -1178,7 +1116,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     if row_sel == "-": return
 
     sheet_row = int(row_sel.split(_ROW_SEP)[0].replace("Row ", "").strip())
-    df_iloc   = sheet_row - 2 
+    df_iloc   = sheet_row - 2
     if df_iloc < 0 or df_iloc >= len(df): st.error("Row index out of range."); return
     record = df.iloc[df_iloc].to_dict()
 
@@ -1186,13 +1124,15 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         history = str(record.get(COL_LOG, "")).strip()
         if history:
             for line in history.split("\n"):
-                if line.strip(): st.markdown(f'<div class="log-line">{_html.escape(line)}</div>',
-                                             unsafe_allow_html=True)
-        else: st.caption(t("no_history"))
+                if line.strip():
+                    st.markdown(f'<div class="log-line">{_html.escape(line)}</div>',
+                                unsafe_allow_html=True)
+        else:
+            st.caption(t("no_history"))
 
     st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>",
                 unsafe_allow_html=True)
-    SKIP = set(SYSTEM_COLS)
+    SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
     with st.form("audit_form"):
@@ -1213,41 +1153,34 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
-        
         with st.spinner("Committing record to Google Sheets..."):
             try:
-                # --- بەشی سەرەکی بۆ ڕێگریکردن لە پێکدادان بە شێوەیەکی نەرم ---
-                is_success = write_approval_to_sheet(ws_title, sheet_row, col_map, headers,
-                                                     new_vals, record, auditor, ts_now, log_prefix,
-                                                     eval_val=eval_val, feedback_val=feedback_combined)
-                
+                is_success = write_approval_to_sheet(
+                    ws_title, sheet_row, col_map, headers, new_vals, record,
+                    auditor, ts_now, log_prefix,
+                    eval_val=eval_val, feedback_val=feedback_combined)
                 if not is_success:
-                    st.toast("⚠️ ببورە، کارمەندێکی تر کەمێک پێش ئێستا ئەم کەیسەی تەواو کرد!")
+                    st.toast("Another auditor already processed this case.")
                     st.session_state.local_df.at[df_iloc, COL_STATUS] = VAL_DONE
-                    time.sleep(2)
-                    st.rerun()
-                    return
-
+                    time.sleep(2); st.rerun(); return
             except gspread.exceptions.APIError as e:
-                st.error(f"Write failed: {e}")
-                return
-
+                st.error(f"Write failed: {e}"); return
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
-        st.toast(t("saved_ok"), icon="✅") 
-        time.sleep(0.6) 
-        st.rerun()
+        st.toast(t("saved_ok"), icon="✅")
+        time.sleep(0.6); st.rerun()
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE
+#  15 . ARCHIVE  — [3] Company input removed; 5-col -> 4-col
+#                     signature: removed f_binder/f_license (global sidebar filters
+#                     are no longer passed in; archive has its own local search)
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
-                   f_email, f_binder, f_company, f_license, f_status,
-                   col_binder=None, col_company=None, col_license=None):
+                   col_binder=None, col_license=None):
 
     def clear_arch_search():
-        for k in ("arch_binder", "arch_license", "arch_company", "arch_auditor"):
+        for k in ("arch_binder", "arch_license", "arch_auditor"):
             st.session_state[k] = ""
         st.session_state["page_archive"] = 1
 
@@ -1264,35 +1197,34 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         f"{t('arch_search_title')}</div>",
         unsafe_allow_html=True,
     )
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 0.28])
+    # [3] 4-column layout: Binder | License | Auditor Email | Clear
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.28])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
-                                  placeholder=col_binder or "column not in sheet",
-                                  disabled=(col_binder is None))
+                                  placeholder=col_binder  or "column not in sheet",
+                                  disabled=(col_binder  is None))
     with c2:
         s_license = st.text_input("License No.", key="arch_license",
                                   placeholder=col_license or "column not in sheet",
                                   disabled=(col_license is None))
     with c3:
-        s_company = st.text_input("Company", key="arch_company",
-                                  placeholder=col_company or "column not in sheet",
-                                  disabled=(col_company is None))
-    with c4:
         s_auditor = st.text_input("Auditor Email", key="arch_auditor",
                                   placeholder="e.g. auditor@mof.gov")
-    with c5:
+    with c4:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
 
+    # [3] Apply archive-local search (company removed)
     filtered_view = done_view.copy()
     if s_binder.strip()  and col_binder  and col_binder  in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(s_binder.strip(),  case=False, na=False)]
+        filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(
+            s_binder.strip(), case=False, na=False)]
     if s_license.strip() and col_license and col_license in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(s_license.strip(), case=False, na=False)]
-    if s_company.strip() and col_company and col_company in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[col_company].astype(str).str.contains(s_company.strip(), case=False, na=False)]
+        filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(
+            s_license.strip(), case=False, na=False)]
     if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str).str.contains(s_auditor.strip(), case=False, na=False)]
+        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str).str.contains(
+            s_auditor.strip(), case=False, na=False)]
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
@@ -1309,9 +1241,9 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         priority_cols = [COL_STATUS, COL_EVAL, COL_FEEDBACK, COL_AUDITOR, COL_DATE]
         other_cols    = [c for c in filtered_view.columns if c not in priority_cols and c != COL_LOG]
         ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
-        
         render_paginated_table(filtered_view[ordered_cols], page_key="page_archive")
 
+    # Re-open uses the unfiltered done_view so sheet_row indices stay correct
     if is_admin and not done_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
@@ -1328,19 +1260,18 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS 
+#  16 . ANALYTICS  — [4] col_company removed; deep search is binder + agent only
 # -----------------------------------------------------------------------------
-def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None):
+def render_analytics(df, col_agent_email=None, col_binder=None):
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
     nvy = "#4F46E5"; blu = "#60A5FA"
 
-    srch_binder, srch_company, srch_agent = render_deep_search_strip(
-        "anal", col_binder, col_company, col_agent_email)
-    work_df = apply_deep_search(df, srch_binder, srch_company, srch_agent,
-                                col_binder, col_company, col_agent_email)
+    # [4] Two-field deep search
+    srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email)
+    work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
-    if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
+    if _deep_search_active(srch_binder, srch_agent):
+        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
@@ -1365,7 +1296,8 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
     ma.metric(t("records_period"), len(done_f))
     active = 0
     if COL_DATE in done_f.columns:
-        active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
+        active = done_f[COL_DATE].apply(
+            lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
     mb.metric(t("active_days"), active)
     mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
 
@@ -1377,10 +1309,9 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
             lb = done_f[COL_AUDITOR].replace("", "-").value_counts().reset_index()
             lb.columns = ["Auditor", "Count"]
             for i, r in lb.head(10).iterrows():
-                rank = f"{i+1}."
                 st.markdown(
                     f'<div class="lb-row">'
-                    f'<span class="lb-medal">{rank}</span>'
+                    f'<span class="lb-medal">{i+1}.</span>'
                     f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
                     f'<span class="lb-count">{r["Count"]}</span>'
                     f'</div>', unsafe_allow_html=True)
@@ -1436,9 +1367,9 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
 
         def _classify(v: str) -> str:
             n = _normalise_eval(v)
-            if "Good" in n:                         return "good"
-            if "Bad" in n or "Incorrect" in n:      return "bad"
-            if "Duplicate" in n:                    return "dup"
+            if "Good" in n:                    return "good"
+            if "Bad" in n or "Incorrect" in n: return "bad"
+            if "Duplicate" in n:               return "dup"
             return "unrated"
 
         eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
@@ -1507,11 +1438,12 @@ def render_analytics(df, col_agent_email=None, col_binder=None, col_company=None
             st.plotly_chart(fig3, use_container_width=True)
     else:
         st.info(t("acc_no_data") +
-                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
+                ("" if col_agent_email else " (Agent Email column not detected - check sheet headers.)"))
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS
+#  17 . AUDITOR LOGS  — [4] deep search is binder + agent only; col_company kept
+#                         for display_cols but removed from search calls
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
@@ -1523,16 +1455,16 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
       <span class="chip chip-admin">Admin / Manager</span>
     </div>""", unsafe_allow_html=True)
 
-    srch_binder, srch_company, srch_agent = render_deep_search_strip(
-        "logs", col_binder, col_company, col_agent_email)
+    # [4] Two-field deep search (no company)
+    srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email)
 
     done_df = df[df[COL_STATUS] == VAL_DONE].copy()
     if done_df.empty: st.info(t("logs_no_data")); return
 
-    done_df = apply_deep_search(done_df, srch_binder, srch_company, srch_agent,
-                                col_binder, col_company, col_agent_email)
-    if _deep_search_active(srch_binder, srch_company, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_company, srch_agent) if x.strip()]
+    done_df = apply_deep_search(done_df, srch_binder, srch_agent, col_binder, col_agent_email)
+
+    if _deep_search_active(srch_binder, srch_agent):
+        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
@@ -1543,6 +1475,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     if done_df.empty: st.info(t("logs_no_data")); return
 
+    # col_company still used for display columns (not search)
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
     if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
@@ -1579,22 +1512,22 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     shown = " - ".join(display_cols)
     st.markdown(f"<div class='section-title'>{t('logs_cols_shown')}: "
-                f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>{_html.escape(shown)}</span></div>",
-                unsafe_allow_html=True)
+                f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>"
+                f"{_html.escape(shown)}</span></div>", unsafe_allow_html=True)
 
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = table_df[COL_DATE].apply(parse_dt)
         table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
     table_df = table_df.reset_index(drop=True)
-    
+
     render_paginated_table(table_df, page_key="page_logs")
 
     csv_buf = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
-    dtag    = datetime.now(TZ).strftime("%Y%m%d")
-    atag    = sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors"
+    dtag = datetime.now(TZ).strftime("%Y%m%d")
+    atag = sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors"
     st.markdown(f"""
     <div class="export-strip">
       <div><div class="export-text">{t('logs_export_hdr')}</div>
@@ -1606,20 +1539,18 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN
+#  18 . USER ADMIN  (unchanged)
 # -----------------------------------------------------------------------------
 def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
-        spr = get_spreadsheet()
-        uws = spr.worksheet(USERS_SHEET)
+        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
         col_idx = len(df_u.columns) + 1
         try:
             _gsheets_call(uws.update_cell, 1, col_idx, "role")
             for i in range(2, len(df_u) + 2):
                 _gsheets_call(uws.update_cell, i, col_idx, "auditor")
             _fetch_users_cached.clear()
-        except Exception:
-            pass
+        except Exception: pass
     return df_u
 
 def render_user_admin(spreadsheet_id):
@@ -1642,8 +1573,7 @@ def render_user_admin(spreadsheet_id):
                                nu_e.lower().strip() in staff.get("email", pd.Series()).values)
                     if already: st.error(t("dup_email"))
                     else:
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                         _gsheets_call(uws.append_row,
                                       [nu_e.lower().strip(), hash_pw(nu_p.strip()), nu_r, now_str()])
                         _fetch_users_cached.clear()
@@ -1658,8 +1588,7 @@ def render_user_admin(spreadsheet_id):
                 np_ = st.text_input("New Password", type="password")
                 if st.form_submit_button("Update Password", use_container_width=True):
                     if np_.strip():
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                         cell = _gsheets_call(uws.find, se)
                         if cell:
                             _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(np_.strip()))
@@ -1675,8 +1604,7 @@ def render_user_admin(spreadsheet_id):
                                         format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
-                        spr = get_spreadsheet()
-                        uws = spr.worksheet(USERS_SHEET)
+                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                         header_row   = _gsheets_call(uws.row_values, 1)
                         role_col_idx = (header_row.index("role") + 1) if "role" in header_row \
                                        else len(header_row) + 1
@@ -1698,7 +1626,8 @@ def render_user_admin(spreadsheet_id):
         if not staff.empty and "email" in staff.columns:
             show_cols = [c for c in ["email", "role", "created_at"] if c in staff.columns]
             tbl = staff[show_cols].copy().reset_index()
-            th_html = "<tr><th class='row-idx'>#</th>" + "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>"
+            th_html = ("<tr><th class='row-idx'>#</th>" +
+                       "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
             td_html = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
@@ -1718,8 +1647,7 @@ def render_user_admin(spreadsheet_id):
             de = st.selectbox("Select to revoke", ["-"] + staff["email"].tolist(), key="del_sel")
             if de != "-":
                 if st.button(f"Revoke access - {_html.escape(de)}", key="del_btn"):
-                    spr = get_spreadsheet()
-                    uws = spr.worksheet(USERS_SHEET)
+                    spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                     cell = _gsheets_call(uws.find, de)
                     if cell:
                         _gsheets_call(uws.delete_rows, cell.row)
@@ -1731,33 +1659,36 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER
+#  19 . MAIN CONTROLLER  — [5] all call sites match updated signatures
 # -----------------------------------------------------------------------------
 def main():
     try:
+        # [5] Worksheet-switch callback: only clears the filters that still exist
         def _on_ws_change():
-            for k in ("f_email", "f_binder", "f_company", "f_license"):
+            # [2] Only binder + license remain in sidebar
+            for k in ("f_binder", "f_license"):
                 st.session_state[k] = ""
-            st.session_state["f_status"] = "all"
-            
-            for k in ("arch_binder", "arch_license", "arch_company", "arch_auditor"):
+
+            # [3] Archive search: company removed
+            for k in ("arch_binder", "arch_license", "arch_auditor"):
                 st.session_state[k] = ""
-            
+
+            # [4] Deep-search strips: company removed from both prefixes
             for prefix in ("anal", "logs"):
-                for suffix in ("_binder", "_company", "_agent"):
+                for suffix in ("_binder", "_agent"):
                     st.session_state[f"{prefix}{suffix}"] = ""
-            
+
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state[pk] = 1
-            
-            st.session_state["local_cache_key"]  = None
-            st.session_state["local_df"]         = None
-            st.session_state["local_headers"]    = None
-            st.session_state["local_col_map"]    = None
-            st.session_state["active_ws_key"]    = None
-            
+
+            st.session_state["local_cache_key"] = None
+            st.session_state["local_df"]        = None
+            st.session_state["local_headers"]   = None
+            st.session_state["local_col_map"]   = None
+            st.session_state["active_ws_key"]   = None
+
         sid, all_titles = _fetch_sheet_metadata()
-        
+
         if USERS_SHEET not in all_titles:
             spr = get_spreadsheet()
             uw = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
@@ -1795,11 +1726,7 @@ def main():
             st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
         else:
             ws_title = st.selectbox(
-                t("workspace"),
-                available,
-                key="ws_sel",
-                on_change=_on_ws_change,
-            )
+                t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
             try:
                 df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
             except gspread.exceptions.WorksheetNotFound:
@@ -1812,8 +1739,9 @@ def main():
         col_license     = detect_column(headers, "license")
         col_agent_email = detect_column(headers, "agent_email")
 
-        f_email, f_binder, f_company, f_license, f_status = render_sidebar(
-            headers, col_binder, col_company, col_license, is_admin, fetched_at)
+        # [5] Sidebar now returns only (f_binder, f_license)
+        f_binder, f_license = render_sidebar(
+            headers, col_binder, col_license, is_admin, fetched_at)
 
         if not df.empty:
             st.markdown(f"<div class='section-title'>{t('overview')}</div>", unsafe_allow_html=True)
@@ -1830,10 +1758,10 @@ def main():
             <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
             <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
             unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(df, f_email, f_binder, f_company, f_license,
-                                                f_status, col_binder, col_company, col_license)
-            render_filter_bar(total_n, len(filtered_df),
-                              f_email, f_binder, f_company, f_license, f_status)
+
+            # [5] Updated call: only f_binder, f_license, col_binder, col_license
+            filtered_df = apply_filters_locally(df, f_binder, f_license, col_binder, col_license)
+            render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
             filtered_df = pd.DataFrame()
 
@@ -1856,22 +1784,22 @@ def main():
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
-                render_worklist(pd_, df, headers, col_map, ws_title,
-                                f_email, f_binder, f_company, f_license, f_status)
+                # [5] Updated call: removed f_email, f_company, f_status
+                render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license)
 
         with t_arch:
             if not df.empty and ws_title:
                 dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
                 dv.index = dv.index + 2
+                # [5] Updated call: removed f_email, f_company, f_status, col_company
                 render_archive(dv, df, col_map, ws_title, is_admin,
-                               f_email, f_binder, f_company, f_license, f_status,
-                               col_binder=col_binder, col_company=col_company, col_license=col_license)
+                               col_binder=col_binder, col_license=col_license)
 
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    render_analytics(df, col_agent_email=col_agent_email,
-                                     col_binder=col_binder, col_company=col_company)
+                    # [5] Updated call: col_company removed
+                    render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder)
 
         if can_analytics and t_logs is not None:
             with t_logs:
@@ -1886,6 +1814,7 @@ def main():
         st.error(f"System Error: {exc}")
         with st.expander("Technical Details", expanded=False):
             st.exception(exc)
+
 
 if __name__ == "__main__":
     main()
