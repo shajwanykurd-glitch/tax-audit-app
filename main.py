@@ -1,16 +1,10 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.0  (Light Mode / Optimized)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v17.0  (Light Mode / Optimized)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.0:
-#    [REMOVE]  Dark mode fully eradicated (inject_dark_mode, toggle, CSS, state).
-#    [PERF]    Vectorized all pd.to_datetime / date filtering — no more .apply().
-#    [PERF]    Removed redundant .copy() calls; copy only when slice is mutated.
-#    [PERF]    Vectorized agent-email classification in analytics.
-#    [CLEAN]   Removed commented-out dead code and unused variables.
-#    [FIX]     render_auditor_logs expanders use plain st.code() (light mode safe).
-#    [KEEP]    Deep-search vertical alignment + agent dropdown.
-#    [KEEP]    Dynamic binder selectbox in worklist form.
-#    [KEEP]    Strict Good/Bad/Dup accuracy logic in analytics.
+#  Changes v17.0:
+#    [REMOVE]  Dynamic binder selectbox fully eradicated from worklist form.
+#    [FEATURE] Combo-box (Select OR Type) pattern for 10 targeted columns.
+#    [KEEP]    All v16.0 light-mode, vectorization, and deep-search behaviour.
 # =============================================================================
 
 import html as _html
@@ -107,6 +101,20 @@ BACKOFF_MAX  = 5
 _ROW_SEP     = " \u007c "
 _PAGE_SIZE   = 10
 _COOKIE_NAME = "portal_auth"
+
+# Combo-box target column substrings (case-insensitive match)
+COMBO_TARGETS = [
+    'باجدەری باج لە کام شاردایە',
+    'هل يوجد نموذج يتضمن عناصر التسجيل',
+    'investment license',
+    'نشاط الشركة',
+    'دوای ساڵی 2020 کار دەکات',
+    'Q1 -',
+    'Q2 -',
+    'Q3.',
+    'Q4.',
+    'Company status',
+]
 
 # Light-mode Plotly constants (hardcoded — no dark mode branch needed)
 _PT  = "plotly_white"
@@ -462,6 +470,19 @@ div[data-testid="stForm"] {
   margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
 }
 .inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
+/* Combo-box column header */
+.combo-field-label {
+  font-size: 0.75rem; font-weight: 700;
+  color: var(--text-secondary) !important;
+  margin-bottom: 5px; margin-top: 12px;
+}
+.combo-col-hint {
+  font-size: 0.60rem; font-weight: 600; letter-spacing: .06em;
+  color: var(--indigo-500) !important;
+  background: var(--indigo-50); border: 1px solid var(--indigo-100);
+  border-radius: var(--radius-full); padding: 1px 8px;
+  display: inline-block; margin-left: 6px; text-transform: uppercase;
+}
 </style>""", unsafe_allow_html=True)
 
 
@@ -541,8 +562,8 @@ _LANG: dict[str, dict[str, str]] = {
         "inspector_empty_trail":"No audit trail recorded for this entry.",
         "inspector_empty_feedback":"No correction notes for this entry.",
         "inspector_no_log_col":"Audit_Log column not present in this view.",
-        "select_binder":"Select Binder Number (Optional)",
-        "binder_hint":"Choose a binder to auto-fill or leave blank to edit manually",
+        "combo_select_hint":"Select from existing values OR type manually in the right box",
+        "combo_manual_placeholder":"Type manually...",
     },
 }
 
@@ -628,7 +649,6 @@ def apply_period_filter(df, col, period):
     elif period == "this_week":  cutoff = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
-    # Fully vectorized — no .apply()
     parsed = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
     cutoff_ts = pd.Timestamp(cutoff)
     return df[parsed >= cutoff_ts]
@@ -653,6 +673,29 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
         if old_v != new_v_clean:
             lines.append(f"[{field}]:\n  WAS: {old_v!r}\n  NOW: {new_v_clean!r}")
     return ("Auto-Log:\n" + "\n".join(lines)) if lines else "Auto-Log: No field changes detected."
+
+
+# -----------------------------------------------------------------------------
+#  7b . COMBO-BOX HELPERS
+# -----------------------------------------------------------------------------
+_COMBO_MANUAL_SENTINEL = "-- Type Manually / بە دەست بنووسە --"
+
+def _is_combo_field(fname: str) -> bool:
+    """Return True if fname contains any COMBO_TARGETS substring (case-insensitive)."""
+    fl = fname.lower()
+    return any(ct.lower() in fl for ct in COMBO_TARGETS)
+
+def _combo_safe_key(fname: str) -> str:
+    """Stable short key derived from field name, safe for Streamlit widget keys."""
+    return hashlib.md5(fname.encode("utf-8")).hexdigest()[:12]
+
+def _combo_unique_vals(df: pd.DataFrame, fname: str) -> list[str]:
+    """Sorted unique non-empty values for a combo column."""
+    if fname not in df.columns:
+        return []
+    series = df[fname].astype(str).str.strip()
+    vals   = series[series != ""].unique().tolist()
+    return sorted(vals)
 
 
 # -----------------------------------------------------------------------------
@@ -1193,41 +1236,77 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
 
     st.markdown(f"<div class='section-title'>{t('processing')} #{sheet_row}</div>",
                 unsafe_allow_html=True)
+
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    # Dynamic binder dropdown
-    binder_options = []
-    if col_binder and col_binder in df.columns:
-        binder_series = df[col_binder].astype(str).str.strip()
-        binder_options = sorted(binder_series[binder_series != ""].unique().tolist())
-        binder_options = ["-- Select Binder (Optional) --"] + binder_options
+    # ------------------------------------------------------------------
+    # Hint banner for combo fields
+    # ------------------------------------------------------------------
+    combo_field_names = [fn for fn in fields if _is_combo_field(fn)]
+    if combo_field_names:
+        st.markdown(
+            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
+            f"border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);"
+            f"padding:10px 16px;margin-bottom:6px;font-size:.76rem;"
+            f"color:var(--indigo-600)!important;font-weight:600;'>"
+            f"&#9432;&nbsp; {t('combo_select_hint')} "
+            f"<span class='combo-col-hint'>combo</span> fields below.</div>",
+            unsafe_allow_html=True,
+        )
 
-    if "selected_binder_value" not in st.session_state:
-        st.session_state.selected_binder_value = ""
+    # ------------------------------------------------------------------
+    # Audit Form  —  combo & standard fields
+    # ------------------------------------------------------------------
+    # Capture return values from widgets inside the form so we can resolve
+    # final values immediately after the submit button is clicked.
+    _std_returns:   dict[str, str] = {}   # fname -> value from st.text_input
+    _combo_sel:     dict[str, str] = {}   # fname -> selectbox return
+    _combo_txt:     dict[str, str] = {}   # fname -> text_input return
 
     with st.form("audit_form"):
-        st.markdown(f"<small class='sb-label'>{t('select_binder')}</small>", unsafe_allow_html=True)
-        st.caption(t("binder_hint"))
 
-        if col_binder and len(binder_options) > 1:
-            selected_binder = st.selectbox(
-                "", options=binder_options, key="binder_dropdown",
-                label_visibility="collapsed", index=0)
-            st.session_state.selected_binder_value = (
-                selected_binder if selected_binder != "-- Select Binder (Optional) --" else "")
-        else:
-            st.info("Binder column not detected or no values available. Using manual entry mode.")
-            st.session_state.selected_binder_value = ""
-
-        new_vals = {}
         for fname, fval in fields.items():
-            default_val = (
-                st.session_state.selected_binder_value
-                if (col_binder and fname == col_binder and st.session_state.selected_binder_value)
-                else clean_cell(fval)
-            )
-            new_vals[fname] = st.text_input(fname, value=default_val, key=f"field_{fname}")
+            safe_key = _combo_safe_key(fname)
+
+            if _is_combo_field(fname):
+                # --- COMBO FIELD: label + side-by-side select / type ---
+                unique_vals = _combo_unique_vals(df, fname)
+                sel_options = [_COMBO_MANUAL_SENTINEL] + unique_vals
+
+                st.markdown(
+                    f"<div class='combo-field-label'>"
+                    f"{_html.escape(fname)}"
+                    f"<span class='combo-col-hint'>combo</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                c1, c2 = st.columns(2)
+                with c1:
+                    sel_val = st.selectbox(
+                        "",
+                        options=sel_options,
+                        key=f"combo_sel_{safe_key}",
+                        label_visibility="collapsed",
+                    )
+                with c2:
+                    txt_val = st.text_input(
+                        "",
+                        value=clean_cell(fval),
+                        key=f"combo_txt_{safe_key}",
+                        placeholder=t("combo_manual_placeholder"),
+                        label_visibility="collapsed",
+                    )
+                _combo_sel[fname] = sel_val
+                _combo_txt[fname] = txt_val
+
+            else:
+                # --- STANDARD FIELD ---
+                _std_returns[fname] = st.text_input(
+                    fname,
+                    value=clean_cell(fval),
+                    key=f"field_{fname}",
+                )
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
@@ -1237,12 +1316,31 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
+        # ------------------------------------------------------------------
+        # Resolve final new_vals from captured widget return values
+        # ------------------------------------------------------------------
+        new_vals: dict[str, str] = {}
+
+        # Standard fields
+        for fname, val in _std_returns.items():
+            new_vals[fname] = val
+
+        # Combo fields: prefer selectbox unless sentinel chosen
+        for fname in _combo_sel:
+            sel = _combo_sel[fname]
+            txt = _combo_txt[fname]
+            new_vals[fname] = txt if sel == _COMBO_MANUAL_SENTINEL else sel
+
+        # ------------------------------------------------------------------
+        # Write to sheet
+        # ------------------------------------------------------------------
         ts_now     = now_str()
         auditor    = st.session_state.user_email
         log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
+
         with st.spinner("Committing record to Google Sheets..."):
             try:
                 is_success = write_approval_to_sheet(
@@ -1255,9 +1353,9 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
                     time.sleep(2); st.rerun(); return
             except gspread.exceptions.APIError as e:
                 st.error(f"Write failed: {e}"); return
+
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
-        st.session_state.selected_binder_value = ""
         st.toast(t("saved_ok"), icon="✅")
         time.sleep(0.6); st.rerun()
 
@@ -1348,7 +1446,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 #  16 . ANALYTICS  — Light mode only, fully vectorized
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
-    # Extract agent options for dropdown
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
@@ -1455,7 +1552,6 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
 
     if col_agent_email and col_agent_email in done_f.columns and COL_EVAL in done_f.columns:
-        # Fully vectorized classification
         normalised  = done_f[COL_EVAL].fillna("").map(_normalise_eval)
         good_mask   = normalised.str.contains("Good", na=False)
         bad_mask    = normalised.str.contains(r"Bad|Incorrect", na=False, regex=True)
@@ -1464,7 +1560,6 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
         agent_col   = done_f[col_agent_email].fillna("").astype(str).str.strip().replace("", "-")
 
-        # Single groupby pass for all counts
         tmp = pd.DataFrame({
             "agent":  agent_col,
             "good":   good_mask.astype(int),
@@ -1600,7 +1695,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     total_p  = len(view_df)
     uniq_a   = view_df[COL_AUDITOR].nunique()
-    # Vectorized date range
     valid_dates = pd.to_datetime(view_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce").dropna()
     dr_str = (f"{valid_dates.min().strftime('%Y-%m-%d')} - {valid_dates.max().strftime('%Y-%m-%d')}"
               if not valid_dates.empty else "-")
@@ -1621,7 +1715,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>"
                 f"{_html.escape(shown)}</span></div>", unsafe_allow_html=True)
 
-    # Sort descending by date — fully vectorized
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = pd.to_datetime(table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
@@ -1867,12 +1960,11 @@ def main():
                     st.session_state[f"{prefix}{suffix}"] = ""
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state.pop(pk, None)
-            st.session_state["logs_inspector_sel"]  = t("inspector_select")
-            st.session_state["local_cache_key"]     = None
-            st.session_state["local_df"]            = None
-            st.session_state["local_headers"]       = None
-            st.session_state["local_col_map"]       = None
-            st.session_state["selected_binder_value"] = ""
+            st.session_state["logs_inspector_sel"] = t("inspector_select")
+            st.session_state["local_cache_key"]    = None
+            st.session_state["local_df"]           = None
+            st.session_state["local_headers"]      = None
+            st.session_state["local_col_map"]      = None
 
         sid, all_titles = _fetch_sheet_metadata()
 
