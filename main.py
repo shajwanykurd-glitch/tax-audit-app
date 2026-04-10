@@ -555,46 +555,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
-/* ── Rule 1: Dropdown menu container — force dark ── */
-[data-testid="stVirtualDropdown"],
-[data-baseweb="menu"],
-[data-baseweb="popover"] > div,
-div[role="listbox"] {
-  background-color: #161B22 !important;
-  border: 1px solid rgba(99,102,241,0.5) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
-}
-
-/* ── Rule 2: Dropdown unselected options — force dark ── */
-li[role="option"],
-[data-baseweb="menu"] li,
-div[role="listbox"] span {
-  background-color: transparent !important;
-  color: #E6EDF3 !important;
-  font-weight: 500 !important;
-}
-
-/* ── Rule 3: Dropdown hover & selected states — match button gradient ── */
-li[role="option"]:hover,
-[data-baseweb="menu"] li:hover,
-li[aria-selected="true"],
-[data-baseweb="menu"] li[aria-selected="true"] {
-  background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-}
-
-/* ── Rule 4: Dropdown main input box — force dark ── */
-.stSelectbox > div > div > div,
-[data-baseweb="select"] > div {
-  background-color: #21262D !important;
-  color: #E6EDF3 !important;
-  border-color: rgba(240,246,252,0.16) !important;
-}
-</style>""", unsafe_allow_html=True)
-
-
 # -----------------------------------------------------------------------------
 #  6 . TRANSLATIONS  [2] Kurdish removed — English only
 # -----------------------------------------------------------------------------
