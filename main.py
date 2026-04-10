@@ -779,6 +779,9 @@ def apply_period_filter(df, col, period):
     elif period == "this_week":  cutoff = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
+    
+    # گەڕاندنەوە بۆ شێوازە سەلامەتەکە کە کاتی بەغدا (TZ) دەناسێت
+    return df[df[col].apply(parse_dt) >= cutoff]
     # Vectorized date parsing
     parsed_dates = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
     return df[parsed_dates >= cutoff]
