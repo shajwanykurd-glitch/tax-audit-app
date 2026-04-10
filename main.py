@@ -1,12 +1,10 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.1
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.2
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes from v15.0:
-#    [P1] build_auto_diff: truncation removed — full strings logged always
-#    [P2] render_auditor_logs: Log Inspector added after paginated table —
-#         selectbox picks any row; COL_LOG + COL_FEEDBACK shown in st.code
-#         with a clean expandable container for scrollable reading
-#    All Dark Mode CSS, RBAC, cookie auth, Google Sheets logic, forms unchanged.
+#  Changes from v15.1:
+#    [CRITICAL] CSS ligature bug fixed — removed global font-family override
+#    [CRITICAL] Added ironclad Material Symbols protection
+#    [FEATURE] Dynamic binder dropdown in audit form (st.selectbox)
 # =============================================================================
 
 import html as _html
@@ -132,12 +130,14 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS  (unchanged from v15.0)
+#  5 . CSS  — FIXED: No global font-family override + Ironclad icon protection
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
+
 :root {
   --bg:            #F7F8FC;
   --surface:       #FFFFFF;
@@ -177,16 +177,59 @@ def inject_css() -> None:
   --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'JetBrains Mono', 'Courier New', monospace;
 }
-*, *::before, *::after { box-sizing: border-box !important; font-family: var(--font) !important; }
+
+/* FIXED: No font-family !important on universal selector */
+*, *::before, *::after { 
+  box-sizing: border-box !important; 
+}
+
+/* Safe typography — can be overridden by icons */
 html, body, .stApp, [data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {
-  background-color: var(--bg) !important; color: var(--text-primary) !important;
+  background-color: var(--bg) !important; 
+  color: var(--text-primary) !important;
+  font-family: var(--font);
 }
+
 p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] { color: var(--text-primary) !important; }
+.stMarkdown, [data-testid="stMarkdownContainer"] { 
+  color: var(--text-primary) !important; 
+  font-family: var(--font);
+}
+
+/* IRONCLAD ICON PROTECTION — Never override Material Symbols */
+.material-symbols-rounded, 
+[data-testid="stIconMaterial"], 
+.stIcon, 
+.streamlit-expanderHeader svg,
+.streamlit-expanderHeader span,
+[data-testid="stIcon"] svg,
+[data-testid="stIcon"] span,
+.stButton button svg,
+button svg.material-symbols-rounded,
+div[data-testid="stMarkdownContainer"] svg,
+span[class*="material-symbols"] {
+    font-family: 'Material Symbols Rounded' !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-smoothing: antialiased !important;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+
+/* Additional protection for Streamlit's internal icons */
+svg:not(.plotly) {
+    font-family: inherit !important;
+}
+
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] { display: none !important; }
+
 [data-testid="stSidebar"] {
   background-color: var(--surface) !important;
   border-right: 1px solid var(--border) !important;
@@ -425,7 +468,7 @@ div[data-testid="stForm"] {
 
 
 # -----------------------------------------------------------------------------
-#  5b. DARK MODE OVERRIDE  (unchanged from v15.0)
+#  5b. DARK MODE OVERRIDE  (with icon protection)
 # -----------------------------------------------------------------------------
 def inject_dark_mode() -> None:
     st.markdown("""
@@ -544,6 +587,29 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   background: #21262D !important;
   border-color: rgba(240,246,252,0.10) !important;
 }
+/* Icon protection in dark mode */
+.material-symbols-rounded, 
+[data-testid="stIconMaterial"], 
+.stIcon, 
+.streamlit-expanderHeader svg,
+.streamlit-expanderHeader span,
+[data-testid="stIcon"] svg,
+[data-testid="stIcon"] span,
+.stButton button svg,
+button svg.material-symbols-rounded,
+div[data-testid="stMarkdownContainer"] svg,
+span[class*="material-symbols"] {
+    font-family: 'Material Symbols Rounded' !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-smoothing: antialiased !important;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
 </style>""", unsafe_allow_html=True)
 
 
@@ -625,6 +691,10 @@ _LANG: dict[str, dict[str, str]] = {
         "inspector_empty_trail":"No audit trail recorded for this entry.",
         "inspector_empty_feedback":"No correction notes for this entry.",
         "inspector_no_log_col":"Audit_Log column not present in this view — re-fetch from the full dataset to inspect.",
+        # Dynamic binder dropdown
+        "select_binder":"Select Binder Number (Optional)",
+        "binder_hint":"Choose a binder to auto-fill or leave blank to edit manually",
+        "manual_entry":"Manual Entry Mode",
     },
 }
 
@@ -918,7 +988,7 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
             elif len(raw) > 55:
                 d = f"<span title='{safe}'>{safe[:52]}...</span>"
             r += f"<td>{d}</td>"
-        rows += f"<tr>{r}</tr>"
+        rows += f"<tr>{r}<tr>"
     st.markdown(
         f"<div class='gov-table-wrap'><table class='gov-table'>"
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
@@ -1230,9 +1300,9 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST  (unchanged)
+#  14 . WORKLIST  — UPDATED: Dynamic binder dropdown added
 # -----------------------------------------------------------------------------
-def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license):
+def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license, col_binder):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">{t('worklist_title')}</div>
@@ -1275,10 +1345,51 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
+    # [NEW] Dynamic binder dropdown
+    binder_options = []
+    if col_binder and col_binder in df.columns:
+        # Get unique non-empty binder values from the entire dataset (not just pending)
+        binder_series = df[col_binder].astype(str).str.strip()
+        binder_series = binder_series[binder_series != ""]
+        binder_options = sorted(binder_series.unique().tolist())
+        binder_options = ["-- Select Binder (Optional) --"] + binder_options
+
+    # Store selected binder in session state to persist across reruns
+    if "selected_binder_value" not in st.session_state:
+        st.session_state.selected_binder_value = ""
+
     with st.form("audit_form"):
+        st.markdown(f"<small class='sb-label'>{t('select_binder')}</small>", unsafe_allow_html=True)
+        st.caption(t("binder_hint"))
+
+        # Show binder dropdown if column exists and has values
+        if col_binder and binder_options and len(binder_options) > 1:
+            selected_binder = st.selectbox(
+                "",
+                options=binder_options,
+                key="binder_dropdown",
+                label_visibility="collapsed",
+                index=0
+            )
+            if selected_binder and selected_binder != "-- Select Binder (Optional) --":
+                st.session_state.selected_binder_value = selected_binder
+            elif selected_binder == "-- Select Binder (Optional) --":
+                st.session_state.selected_binder_value = ""
+        else:
+            st.info("Binder column not detected or no values available. Using manual entry mode.")
+            st.session_state.selected_binder_value = ""
+
+        # Render form fields
         new_vals = {}
         for fname, fval in fields.items():
-            new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
+            # Pre-populate with selected binder if this is the binder field
+            if col_binder and fname == col_binder and st.session_state.selected_binder_value:
+                default_val = st.session_state.selected_binder_value
+            else:
+                default_val = clean_cell(fval)
+
+            new_vals[fname] = st.text_input(fname, value=default_val, key=f"field_{fname}")
+
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
         eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
@@ -1307,6 +1418,8 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
                 st.error(f"Write failed: {e}"); return
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
+        # Clear the selected binder after successful submission
+        st.session_state.selected_binder_value = ""
         st.toast(t("saved_ok"), icon="✅")
         time.sleep(0.6); st.rerun()
 
@@ -1576,7 +1689,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — [P2] Log Inspector added after paginated table
+#  17 . AUDITOR LOGS  — [P2] Log Inspector (unchanged from v15.1)
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
@@ -1869,7 +1982,7 @@ def render_user_admin(spreadsheet_id):
                         tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
             st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'>"
-                        f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
+                        f"<thead><tr>{th_html}</thead><tbody>{td_html}</tbody>"
                         f"</table></div>", unsafe_allow_html=True)
 
             st.markdown(f"<div class='section-title'>{t('remove_user')}</div>", unsafe_allow_html=True)
@@ -1888,7 +2001,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER  (unchanged)
+#  19 . MAIN CONTROLLER  (updated to pass col_binder to render_worklist)
 # -----------------------------------------------------------------------------
 def main():
     cookie_manager = stx.CookieManager(key="portal_cm")
@@ -1929,6 +2042,8 @@ def main():
             st.session_state["local_headers"]   = None
             st.session_state["local_col_map"]   = None
             st.session_state["active_ws_key"]   = None
+            # Reset binder selection
+            st.session_state.selected_binder_value = ""
 
         sid, all_titles = _fetch_sheet_metadata()
 
@@ -2025,7 +2140,7 @@ def main():
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
-                render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license)
+                render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license, col_binder)
 
         if t_arch is not None:
             with t_arch:
