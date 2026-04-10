@@ -579,7 +579,27 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   background: rgba(22,27,34,0.96) !important;
   border-color: rgba(240,246,252,0.12) !important;
 }
-.streamlit-expanderContent { background: #161B22 !important; }
+.streamlit-expande/* ── Expander & Code Blocks Fix (چارەسەری ناوەوەی فۆرمەکان) ── */
+[data-testid="stExpander"] details summary,
+.streamlit-expanderHeader {
+  background-color: #21262D !important;
+  color: #E6EDF3 !important;
+}
+[data-testid="stExpander"] details summary p {
+  color: #E6EDF3 !important;
+}
+.streamlit-expanderContent, 
+[data-testid="stExpanderDetails"],
+[data-testid="stExpanderDetails"] > div { 
+  background-color: #161B22 !important; 
+}
+[data-testid="stCodeBlock"], 
+[data-testid="stCodeBlock"] pre, 
+pre, code {
+  background-color: #0D1117 !important;
+  color: #E6EDF3 !important;
+  border: 1px solid rgba(240,246,252,0.16) !important;
+}rContent { background: #161B22 !important; }
 .prog-wrap { background: #21262D; }
 .export-strip {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
