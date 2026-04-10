@@ -579,27 +579,37 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   background: rgba(22,27,34,0.96) !important;
   border-color: rgba(240,246,252,0.12) !important;
 }
-.streamlit-expande/* ── Expander & Code Blocks Fix (چارەسەری ناوەوەی فۆرمەکان) ── */
-[data-testid="stExpander"] details summary,
-.streamlit-expanderHeader {
+
+/* ── فۆرمەکان و بۆکسی کۆدەکان (Expander & Code Blocks Fix) ── */
+[data-testid="stExpander"] details summary {
   background-color: #21262D !important;
-  color: #E6EDF3 !important;
+  border-bottom: 1px solid rgba(240,246,252,0.10) !important;
 }
 [data-testid="stExpander"] details summary p {
   color: #E6EDF3 !important;
+  font-weight: 600 !important;
 }
 .streamlit-expanderContent, 
 [data-testid="stExpanderDetails"],
 [data-testid="stExpanderDetails"] > div { 
   background-color: #161B22 !important; 
 }
+/* ڕەشکردنی ناوەوەی بۆکسی کۆدەکان و لابردنی سپییەکە */
 [data-testid="stCodeBlock"], 
+[data-testid="stCodeBlock"] > div,
 [data-testid="stCodeBlock"] pre, 
-pre, code {
+[data-testid="stCodeBlock"] code {
   background-color: #0D1117 !important;
+  color: #60A5FA !important; 
+  border: 1px solid rgba(99,102,241,0.2) !important;
+  text-shadow: none !important;
+}
+/* سڕینەوەی باکگراوندی پشتەوەی پیتەکان */
+[data-testid="stCodeBlock"] span {
   color: #E6EDF3 !important;
-  border: 1px solid rgba(240,246,252,0.16) !important;
-}rContent { background: #161B22 !important; }
+  background-color: transparent !important;
+}
+
 .prog-wrap { background: #21262D; }
 .export-strip {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
