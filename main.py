@@ -1,10 +1,12 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.2
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.3
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes from v15.1:
+#  Changes:
 #    [CRITICAL] CSS ligature bug fixed — removed global font-family override
 #    [CRITICAL] Added ironclad Material Symbols protection
 #    [FEATURE] Dynamic binder dropdown in audit form (st.selectbox)
+#    [FEATURE] Analytics re-written with strict accuracy and top/bottom rankings
+#    [FEATURE] Dynamic agent dropdown added to Deep Search filters
 # =============================================================================
 
 import html as _html
@@ -110,7 +112,7 @@ _PAGE_SIZE   = 10
 _COOKIE_NAME = "portal_auth"
 
 # -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF  (unchanged)
+#  4 . EXPONENTIAL BACKOFF
 # -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -788,7 +790,6 @@ def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_lic
         r = r[r[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)]
     return r
 
-
 # [P1] build_auto_diff — truncation completely removed
 def build_auto_diff(record: dict, new_vals: dict) -> str:
     """
@@ -809,7 +810,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS  (unchanged)
+#  8 . GOOGLE SHEETS
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -855,7 +856,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS  (unchanged)
+#  9 . OPTIMISTIC MUTATIONS
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -880,7 +881,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS  (unchanged)
+#  10 . WRITE HELPERS
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -903,6 +904,11 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
             return False
     old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
+    
+    # سەقفی سەلامەتی بۆ لیمیتی ٥٠،٠٠٠ پیتی گووگڵ شیت
+    if len(new_log) > 49000:
+        new_log = new_log[:48900] + "\n... [TRUNCATED - GOOGLE SHEETS 50K LIMIT REACHED]"
+        
     batch   = []
     for f, v in new_vals.items():
         if f in col_map and clean_cell(record.get(f, "")) != v:
@@ -943,7 +949,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION  (unchanged)
+#  11 . HTML TABLE & PAGINATION
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -988,7 +994,7 @@ def render_html_table(df: pd.DataFrame, max_rows: int = 500) -> None:
             elif len(raw) > 55:
                 d = f"<span title='{safe}'>{safe[:52]}...</span>"
             r += f"<td>{d}</td>"
-        rows += f"<tr>{r}<tr>"
+        rows += f"<tr>{r}</tr>"
     st.markdown(
         f"<div class='gov-table-wrap'><table class='gov-table'>"
         f"<thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>",
@@ -1028,7 +1034,7 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN  (unchanged from v15.0)
+#  12 . LOGIN
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str, cookie_manager) -> None:
     st.markdown("""
@@ -1112,7 +1118,7 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR  (unchanged from v15.0)
+#  13 . SIDEBAR
 # -----------------------------------------------------------------------------
 def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cookie_manager):
 
@@ -1249,9 +1255,9 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (unchanged)
+#  DEEP SEARCH WIDGET  (UPDATED: dynamic agent dropdown)
 # -----------------------------------------------------------------------------
-def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
+def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
     def _clear():
         st.session_state[f"{key_prefix}_binder"] = ""
         st.session_state[f"{key_prefix}_agent"]  = ""
@@ -1272,10 +1278,29 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
                       placeholder=ph_binder, disabled=(col_binder is None))
     with c2:
-        st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
-                      placeholder=ph_agent, disabled=(col_agent_email is None))
+        # Dynamic dropdown for agent if options provided, else fallback to text input
+        if agent_options is not None and len(agent_options) > 0:
+            # Create a list with empty string as first option (All Agents)
+            opts = [""] + agent_options
+            current_val = st.session_state.get(f"{key_prefix}_agent", "")
+            # Ensure current_val is in opts (if not, default to "")
+            if current_val not in opts:
+                current_val = ""
+            selected = st.selectbox(
+                t("ds_agent"),
+                options=opts,
+                key=f"{key_prefix}_agent",
+                index=opts.index(current_val) if current_val in opts else 0,
+                disabled=(col_agent_email is None),
+                label_visibility="collapsed"
+            )
+            # Store the selected value (empty string means no filter)
+            st.session_state[f"{key_prefix}_agent"] = selected
+        else:
+            st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
+                          placeholder=ph_agent, disabled=(col_agent_email is None), label_visibility="collapsed")
     with c3:
-        st.markdown("<div style='margin-top:22px;'>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:0px;'>", unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr",
                   use_container_width=True, on_click=_clear)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1300,7 +1325,7 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST  — UPDATED: Dynamic binder dropdown added
+#  14 . WORKLIST
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license, col_binder):
     p_count = len(pending_display)
@@ -1425,7 +1450,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE  (unchanged)
+#  15 . ARCHIVE
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_license=None):
@@ -1508,13 +1533,33 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS  (unchanged)
+#  16 . ANALYTICS  (UPDATED: full agent ranking with strict accuracy)
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
-    pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
-    nvy = "#4F46E5"; blu = "#60A5FA"
+    # Dark mode detection for plotly
+    is_dark = st.session_state.get("dark_mode", False)
+    if is_dark:
+        pt = "plotly_dark"
+        pb = "#161B22"
+        pg = "#21262D"
+        fc = "#E6EDF3"
+    else:
+        pt = "plotly_white"
+        pb = "#FFFFFF"
+        pg = "#E4E7F0"
+        fc = "#0D1117"
+    nvy = "#4F46E5"
+    blu = "#60A5FA"
 
-    srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email)
+    # Extract agent options for dropdown (unique, non-empty agent emails)
+    agent_opts = None
+    if col_agent_email and col_agent_email in df.columns:
+        agent_series = df[col_agent_email].astype(str).str.strip()
+        agent_series = agent_series[agent_series != ""]
+        agent_opts = sorted(agent_series.unique().tolist())
+
+    # Render deep search with agent dropdown
+    srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email, agent_options=agent_opts)
     work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
     if _deep_search_active(srch_binder, srch_agent):
@@ -1533,18 +1578,20 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     for cw, (pk, pl) in zip(st.columns(len(periods)), periods):
         lbl = f"[{pl}]" if st.session_state.date_filter == pk else pl
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
-            st.session_state.date_filter = pk; st.rerun()
+            st.session_state.date_filter = pk
+            st.rerun()
 
     done_base = work_df[work_df[COL_STATUS] == VAL_DONE].copy()
-    done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
-    if done_f.empty: st.info(t("no_records")); return
+    done_f = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
+    if done_f.empty:
+        st.info(t("no_records"))
+        return
 
     ma, mb, mc = st.columns(3)
     ma.metric(t("records_period"), len(done_f))
     active = 0
     if COL_DATE in done_f.columns:
-        active = done_f[COL_DATE].apply(
-            lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
+        active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
     mb.metric(t("active_days"), active)
     mc.metric(t("avg_per_day"), f"{len(done_f)/max(active,1):.1f}")
 
@@ -1570,22 +1617,21 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
                 paper_bgcolor=pb, plot_bgcolor=pb,
                 font=dict(family="Plus Jakarta Sans", color=fc, size=11),
                 showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
-                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
+                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
                 yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
-                           tickfont=dict(color="#4B5563")),
+                           tickfont=dict(color=fc if is_dark else "#4B5563")),
                 height=min(320, max(180, 36*len(lb.head(10)))))
             st.plotly_chart(fig, use_container_width=True)
 
     with right:
         st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
-            done_f["_date"] = done_f[COL_DATE].apply(
-                lambda s: parse_dt(s).date() if parse_dt(s) else None)
+            done_f["_date"] = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None)
             trend = done_f.dropna(subset=["_date"]).groupby("_date").size().reset_index(name="Records")
             trend.columns = ["Date", "Records"]
             if not trend.empty:
                 if len(trend) > 1:
-                    rng   = pd.date_range(trend["Date"].min(), trend["Date"].max())
+                    rng = pd.date_range(trend["Date"].min(), trend["Date"].max())
                     trend = trend.set_index("Date").reindex(rng.date, fill_value=0).reset_index()
                     trend.columns = ["Date", "Records"]
                 fig2 = go.Figure()
@@ -1600,11 +1646,12 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
                     template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
                     font=dict(family="Plus Jakarta Sans", color=fc, size=11),
                     showlegend=False, margin=dict(l=8,r=8,t=10,b=8),
-                    xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
-                    yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563")),
+                    xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
+                    yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
                     height=380, hovermode="x unified")
                 st.plotly_chart(fig2, use_container_width=True)
-            else: st.info(t("no_records"))
+            else:
+                st.info(t("no_records"))
 
     st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
 
@@ -1614,97 +1661,137 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
         def _classify(v: str) -> str:
             n = _normalise_eval(v)
-            if "Good" in n:                    return "good"
-            if "Bad" in n or "Incorrect" in n: return "bad"
-            if "Duplicate" in n:               return "dup"
+            if "Good" in n:
+                return "good"
+            if "Bad" in n or "Incorrect" in n:
+                return "bad"
+            if "Duplicate" in n:
+                return "dup"
             return "unrated"
 
         eval_df["_cls"] = eval_df[COL_EVAL].apply(_classify)
-        acc = (eval_df.groupby(col_agent_email)["_cls"]
-               .value_counts().unstack(fill_value=0).reset_index())
-        for cn in ("good", "bad", "dup", "unrated"):
-            if cn not in acc.columns: acc[cn] = 0
-        acc["Total"]    = acc["good"] + acc["bad"] + acc["dup"] + acc["unrated"]
-        acc["Accuracy"] = (acc["good"] / acc["Total"].replace(0, 1) * 100).round(1)
-        acc = acc.sort_values("Accuracy", ascending=False).reset_index(drop=True)
 
-        th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
-                  f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
-                  f"<th>{t('acc_rate')}</th></tr>")
-        td_rows = ""
-        for i, row in acc.iterrows():
-            pct = row["Accuracy"]
-            if pct >= 80:   rc = "acc-rate-high"; bc = "#16A34A"
-            elif pct >= 50: rc = "acc-rate-mid";  bc = "#B45309"
-            else:           rc = "acc-rate-low";  bc = "#DC2626"
-            bar = (f"<span class='acc-bar-wrap'>"
-                   f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
-                   f"</span>")
-            td_rows += (
-                f"<tr>"
-                f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
-                f"<td style='font-weight:600;'>{_html.escape(str(row[col_agent_email]))}</td>"
-                f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['Total'])}</td>"
-                f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
-                f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
-                f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
-                f"<td class='{rc}'>{pct}% {bar}</td>"
-                f"</tr>"
+        # Exclude unrated records from the accuracy calculation
+        rated_df = eval_df[eval_df["_cls"] != "unrated"]
+        if rated_df.empty:
+            st.info("No evaluated records found (all are unrated).")
+        else:
+            # Group by agent
+            grouped = rated_df.groupby(col_agent_email)["_cls"].value_counts().unstack(fill_value=0)
+            for col in ["good", "bad", "dup"]:
+                if col not in grouped.columns:
+                    grouped[col] = 0
+            grouped["Total_Evaluated"] = grouped["good"] + grouped["bad"] + grouped["dup"]
+            grouped["Accuracy"] = (grouped["good"] / grouped["Total_Evaluated"].replace(0, 1) * 100).round(1)
+
+            # Also include unrated count for display but not in accuracy
+            unrated_counts = eval_df[eval_df["_cls"] == "unrated"].groupby(col_agent_email).size()
+            grouped["Unrated"] = unrated_counts.reindex(grouped.index, fill_value=0)
+
+            # Sort by Accuracy DESC, then Total_Evaluated DESC
+            grouped = grouped.sort_values(["Accuracy", "Total_Evaluated"], ascending=[False, False]).reset_index()
+
+            # Build HTML table
+            th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
+                      f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
+                      f"<th>{t('acc_rate')}</th><th>Unrated</th></tr>")
+            td_rows = ""
+            for i, row in grouped.iterrows():
+                pct = row["Accuracy"]
+                if pct >= 80:
+                    rc = "acc-rate-high"
+                    bc = "#16A34A"
+                elif pct >= 50:
+                    rc = "acc-rate-mid"
+                    bc = "#B45309"
+                else:
+                    rc = "acc-rate-low"
+                    bc = "#DC2626"
+                bar = (f"<span class='acc-bar-wrap'>"
+                       f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
+                       f"</span>")
+                td_rows += (
+                    f"<tr>"
+                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
+                    f"<td style='font-weight:600;'>{_html.escape(str(row[col_agent_email]))}</td>"
+                    f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['Total_Evaluated'])}</td>"
+                    f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
+                    f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
+                    f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
+                    f"<td class='{rc}'>{pct}% {bar}</td>"
+                    f"<td style='color:var(--text-muted);'>{int(row['Unrated'])}</td>"
+                    f"</tr>"
+                )
+            st.markdown(
+                f"<div class='gov-table-wrap'><table class='acc-table'>"
+                f"<thead>{th_row}</thead><tbody>{td_rows}</tbody>"
+                f"</table></div>",
+                unsafe_allow_html=True
             )
-        st.markdown(
-            f"<div class='gov-table-wrap'><table class='acc-table'>"
-            f"<thead>{th_row}</thead><tbody>{td_rows}</tbody></table></div>",
-            unsafe_allow_html=True)
 
-        st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
-        st.caption(t("eval_breakdown_sub"))
-        if not acc.empty:
-            good_pct = (acc["good"]    / acc["Total"].replace(0,1) * 100).round(1)
-            bad_pct  = (acc["bad"]     / acc["Total"].replace(0,1) * 100).round(1)
-            dup_pct  = (acc["dup"]     / acc["Total"].replace(0,1) * 100).round(1)
-            unr_pct  = (acc["unrated"] / acc["Total"].replace(0,1) * 100).round(1)
-            fig3 = go.Figure()
-            fig3.add_trace(go.Bar(name="Good",          x=acc[col_agent_email], y=acc["good"],    marker_color="#16A34A", hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>", customdata=list(zip(good_pct, acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Bad/Incorrect", x=acc[col_agent_email], y=acc["bad"],     marker_color="#DC2626", hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(bad_pct,  acc["Total"]))))
-            fig3.add_trace(go.Bar(name="Duplicate",     x=acc[col_agent_email], y=acc["dup"],     marker_color="#F59E0B", hovertemplate="<b>%{x}</b><br>Dup: <b>%{y}</b> (%{customdata[0]}%)<br>Total: %{customdata[1]}<extra></extra>",  customdata=list(zip(dup_pct,  acc["Total"]))))
-            if acc["unrated"].sum() > 0:
-                fig3.add_trace(go.Bar(name="Unrated", x=acc[col_agent_email], y=acc["unrated"], marker_color="#9CA3AF", hovertemplate="<b>%{x}</b><br>Unrated: <b>%{y}</b> (%{customdata}%)<extra></extra>", customdata=unr_pct))
-            fig3.update_layout(
-                barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
-                font=dict(family="Plus Jakarta Sans", color=fc, size=11),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(size=11), bgcolor="rgba(255,255,255,0.8)",
-                            bordercolor="#E4E7F0", borderwidth=1),
-                margin=dict(l=8,r=8,t=40,b=60),
-                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
-                           tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
-                yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color="#4B5563"),
-                           title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
-                height=400, hovermode="x")
-            fig3.update_traces(marker_line_width=0)
-            st.plotly_chart(fig3, use_container_width=True)
+            # Plotly stacked bar chart (only for evaluated records)
+            st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
+            st.caption(t("eval_breakdown_sub"))
+            if not grouped.empty:
+                # Use only agents with at least one evaluated record
+                plot_df = grouped[grouped["Total_Evaluated"] > 0]
+                if not plot_df.empty:
+                    fig3 = go.Figure()
+                    fig3.add_trace(go.Bar(
+                        name="Good", x=plot_df[col_agent_email], y=plot_df["good"],
+                        marker_color="#16A34A",
+                        hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
+                        customdata=plot_df["Total_Evaluated"]
+                    ))
+                    fig3.add_trace(go.Bar(
+                        name="Bad/Incorrect", x=plot_df[col_agent_email], y=plot_df["bad"],
+                        marker_color="#DC2626",
+                        hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
+                        customdata=plot_df["Total_Evaluated"]
+                    ))
+                    fig3.add_trace(go.Bar(
+                        name="Duplicate", x=plot_df[col_agent_email], y=plot_df["dup"],
+                        marker_color="#F59E0B",
+                        hovertemplate="<b>%{x}</b><br>Duplicate: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
+                        customdata=plot_df["Total_Evaluated"]
+                    ))
+                    fig3.update_layout(
+                        barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
+                        font=dict(family="Plus Jakarta Sans", color=fc, size=11),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                    font=dict(size=11), bgcolor=pb if not is_dark else "#161B22",
+                                    bordercolor=pg, borderwidth=1),
+                        margin=dict(l=8, r=8, t=40, b=60),
+                        xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563"),
+                                   tickangle=-30, title=dict(text="Agent", font=dict(size=11, color=fc if is_dark else "#4B5563"))),
+                        yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563"),
+                                   title=dict(text="Records", font=dict(size=11, color=fc if is_dark else "#4B5563"))),
+                        height=400, hovermode="x"
+                    )
+                    fig3.update_traces(marker_line_width=0)
+                    st.plotly_chart(fig3, use_container_width=True)
     else:
         st.info(t("acc_no_data") +
                 ("" if col_agent_email else " (Agent Email column not detected - check sheet headers.)"))
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — [P2] Log Inspector (unchanged from v15.1)
+#  17 . AUDITOR LOGS  — UPDATED: dynamic agent dropdown in deep search
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
-    st.markdown(f"""
-    <div class="worklist-header">
-      <div>
-        <div class="worklist-title">{t('logs_title')}</div>
-        <div class="worklist-sub">{t('logs_sub')}</div>
-      </div>
-      <span class="chip chip-admin">Admin / Manager</span>
-    </div>""", unsafe_allow_html=True)
+    # Extract agent options for deep search dropdown
+    agent_opts = None
+    if col_agent_email and col_agent_email in df.columns:
+        agent_series = df[col_agent_email].astype(str).str.strip()
+        agent_series = agent_series[agent_series != ""]
+        agent_opts = sorted(agent_series.unique().tolist())
 
-    srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email)
+    srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email, agent_options=agent_opts)
 
     done_df = df[df[COL_STATUS] == VAL_DONE].copy()
-    if done_df.empty: st.info(t("logs_no_data")); return
+    if done_df.empty:
+        st.info(t("logs_no_data"))
+        return
 
     done_df = apply_deep_search(done_df, srch_binder, srch_agent, col_binder, col_agent_email)
 
@@ -1718,13 +1805,18 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
             f" &mdash; <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
 
-    if done_df.empty: st.info(t("logs_no_data")); return
+    if done_df.empty:
+        st.info(t("logs_no_data"))
+        return
 
     # Build display_cols (COL_LOG intentionally excluded from table — shown in inspector)
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
-    if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
-    if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
-    if col_agent_email and col_agent_email in done_df.columns: display_cols.insert(2, col_agent_email)
+    if col_company and col_company in done_df.columns:
+        display_cols.insert(1, col_company)
+    if col_binder and col_binder in done_df.columns:
+        display_cols.insert(1, col_binder)
+    if col_agent_email and col_agent_email in done_df.columns:
+        display_cols.insert(2, col_agent_email)
     seen_c: set = set()
     display_cols = [c for c in display_cols
                     if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
@@ -1739,10 +1831,10 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                if sel_aud != all_opt else done_df.copy())
 
     total_p = len(view_df)
-    uniq_a  = view_df[COL_AUDITOR].nunique()
-    pdates  = view_df[COL_DATE].apply(parse_dt).dropna()
-    dr_str  = (f"{pdates.min().strftime('%Y-%m-%d')} - {pdates.max().strftime('%Y-%m-%d')}"
-               if not pdates.empty else "-")
+    uniq_a = view_df[COL_AUDITOR].nunique()
+    pdates = view_df[COL_DATE].apply(parse_dt).dropna()
+    dr_str = (f"{pdates.min().strftime('%Y-%m-%d')} - {pdates.max().strftime('%Y-%m-%d')}"
+              if not pdates.empty else "-")
 
     st.markdown(f"""
     <div class="log-summary-card">
@@ -1771,9 +1863,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     render_paginated_table(table_df, page_key="page_logs")
 
-    # ── [P2] LOG INSPECTOR ────────────────────────────────────────────────────
-    # We need the full done_df rows (with COL_LOG + COL_FEEDBACK) matched to
-    # the sorted table_df order.  We rebuild a parallel full_view from done_df.
+    # [P2] LOG INSPECTOR
     full_view = view_df.copy()
     if COL_DATE in full_view.columns:
         full_view["_sort"] = full_view[COL_DATE].apply(parse_dt)
@@ -1789,14 +1879,13 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     )
     st.caption(t("inspector_hint"))
 
-    # Build selectbox labels — prefer binder or company for readability
     _label_col = (col_binder or col_company or
                   (display_cols[0] if display_cols else None))
 
     def _row_label(i: int, row: pd.Series) -> str:
         auditor_str = str(row.get(COL_AUDITOR, "")).strip() or "?"
-        date_str    = str(row.get(COL_DATE, "")).strip()[:10] or "?"
-        hint        = ""
+        date_str = str(row.get(COL_DATE, "")).strip()[:10] or "?"
+        hint = ""
         if _label_col and _label_col in row:
             hint = str(row[_label_col]).strip()[:40]
         if hint:
@@ -1815,7 +1904,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     )
 
     if sel_inspect != t("inspector_select"):
-        # Parse row index from the label prefix "#N  |"
         try:
             row_idx = int(sel_inspect.split("|")[0].replace("#", "").strip())
         except (ValueError, IndexError):
@@ -1824,11 +1912,10 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         if row_idx is not None and 0 <= row_idx < len(full_view):
             insp_row = full_view.iloc[row_idx]
 
-            # ── Meta-info strip ───────────────────────────────────────────────
             auditor_val = str(insp_row.get(COL_AUDITOR, "-")).strip() or "-"
-            date_val    = str(insp_row.get(COL_DATE,    "-")).strip() or "-"
-            eval_val    = str(insp_row.get(COL_EVAL,    "-")).strip() or "-"
-            binder_val  = str(insp_row.get(col_binder or "", "-")).strip() if col_binder else "-"
+            date_val = str(insp_row.get(COL_DATE, "-")).strip() or "-"
+            eval_val = str(insp_row.get(COL_EVAL, "-")).strip() or "-"
+            binder_val = str(insp_row.get(col_binder or "", "-")).strip() if col_binder else "-"
 
             st.markdown(
                 f"<div class='inspector-panel'>"
@@ -1841,9 +1928,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 unsafe_allow_html=True,
             )
 
-            # ── Audit Trail (COL_LOG) ─────────────────────────────────────────
-            # COL_LOG may not be in display_cols (it's hidden from the table) but
-            # it IS in full_view because full_view comes from done_df which has all cols.
             if COL_LOG in full_view.columns:
                 audit_trail = str(insp_row.get(COL_LOG, "")).strip()
                 with st.expander(f"📜  {t('inspector_audit_trail')}", expanded=True):
@@ -1854,7 +1938,6 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
             else:
                 st.info(t("inspector_no_log_col"))
 
-            # ── Correction Notes / Auto-Diff (COL_FEEDBACK) ──────────────────
             if COL_FEEDBACK in full_view.columns:
                 feedback_val_full = str(insp_row.get(COL_FEEDBACK, "")).strip()
                 with st.expander(f"🛠️  {t('inspector_feedback')}", expanded=True):
@@ -1862,14 +1945,13 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                         st.code(feedback_val_full, language="text")
                     else:
                         st.info(t("inspector_empty_feedback"))
-    # ── end [P2] LOG INSPECTOR ─────────────────────────────────────────────────
 
-    # Export (unchanged placement — after inspector)
+    # Export
     csv_buf = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
     dtag = datetime.now(TZ).strftime("%Y%m%d")
-    atag = sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors"
+    atag = sel_aud.replace("@", "_").replace(".", "_") if sel_aud != all_opt else "all_auditors"
     st.markdown(f"""
     <div class="export-strip">
       <div><div class="export-text">{t('logs_export_hdr')}</div>
@@ -1881,7 +1963,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN  (unchanged)
+#  18 . USER ADMIN
 # -----------------------------------------------------------------------------
 def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
@@ -1982,7 +2064,7 @@ def render_user_admin(spreadsheet_id):
                         tr += f"<td>{_html.escape(val[:40])}</td>"
                 td_html += f"<tr>{tr}</tr>"
             st.markdown(f"<div class='gov-table-wrap'><table class='gov-table'>"
-                        f"<thead><tr>{th_html}</thead><tbody>{td_html}</tbody>"
+                        f"<thead><tr>{th_html}</tr></thead><tbody>{td_html}</tbody>"
                         f"</table></div>", unsafe_allow_html=True)
 
             st.markdown(f"<div class='section-title'>{t('remove_user')}</div>", unsafe_allow_html=True)
@@ -2001,7 +2083,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER  (updated to pass col_binder to render_worklist)
+#  19 . MAIN CONTROLLER
 # -----------------------------------------------------------------------------
 def main():
     cookie_manager = stx.CookieManager(key="portal_cm")
@@ -2035,14 +2117,12 @@ def main():
                     st.session_state[f"{prefix}{suffix}"] = ""
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state[pk] = 1
-            # reset inspector selection too
             st.session_state["logs_inspector_sel"] = t("inspector_select") if "inspector_select" in _LANG["en"] else "-"
             st.session_state["local_cache_key"] = None
             st.session_state["local_df"]        = None
             st.session_state["local_headers"]   = None
             st.session_state["local_col_map"]   = None
             st.session_state["active_ws_key"]   = None
-            # Reset binder selection
             st.session_state.selected_binder_value = ""
 
         sid, all_titles = _fetch_sheet_metadata()
