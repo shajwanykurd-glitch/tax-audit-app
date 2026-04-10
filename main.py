@@ -417,7 +417,6 @@ div[data-testid="stForm"] {
 .acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
 </style>""", unsafe_allow_html=True)
 
-
 # -----------------------------------------------------------------------------
 #  5b. DARK MODE OVERRIDE  [1]
 #  Overrides CSS custom properties only — no layout, margin, padding, or
@@ -478,29 +477,45 @@ def inject_dark_mode() -> None:
 .acc-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .acc-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 
-/* ── [1] Dropdowns & listboxes — prevent blinding white ── */
-[data-baseweb="menu"],
-[data-baseweb="popover"] > div,
-div[role="listbox"],
-[data-baseweb="menu"] ul {
+/* ── [1] Dropdowns & listboxes — DEFINITIVE FIX ── */
+
+/* باکگراوندی بۆکسی دەرەوەی هەڵبژاردنەکە */
+div[data-baseweb="select"] > div {
   background-color: #21262D !important;
-  border: 1px solid rgba(240,246,252,0.16) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.60) !important;
+  border-color: rgba(240,246,252,0.16) !important;
 }
-[data-baseweb="menu"] li,
-[data-baseweb="menu"] [role="option"],
-div[role="listbox"] li,
-div[role="option"] {
-  background-color: #21262D !important;
+div[data-baseweb="select"] > div span {
   color: #E6EDF3 !important;
 }
-[data-baseweb="menu"] li:hover,
-[data-baseweb="menu"] [role="option"]:hover,
-[data-baseweb="menu"] [aria-selected="true"],
-div[role="listbox"] li:hover,
-div[role="option"]:hover {
-  background-color: rgba(99,102,241,0.22) !important;
-  color: #818CF8 !important;
+
+/* باکگراوندی لیستەکە کە دێتە خوارەوە */
+div[data-baseweb="popover"] > div,
+div[data-testid="stVirtualDropdown"],
+ul[data-baseweb="menu"],
+div[role="listbox"] {
+  background-color: #161B22 !important;
+  border: 1px solid rgba(99,102,241,0.5) !important;
+}
+
+/* ڕەنگی ئاسایی بژاردەکان پێش ئەوەی ماوس بڕواتە سەریان */
+li[role="option"],
+li[role="option"] span,
+ul[data-baseweb="menu"] li,
+div[role="listbox"] span {
+  background-color: #161B22 !important;
+  color: #E6EDF3 !important;
+}
+
+/* کاتێک ماوس دەڕواتە سەریان یان هەڵدەبژێردرێن */
+li[role="option"]:hover,
+li[role="option"]:hover span,
+li[role="option"][aria-selected="true"],
+li[role="option"][aria-selected="true"] span,
+ul[data-baseweb="menu"] li:hover,
+ul[data-baseweb="menu"] li[aria-selected="true"] {
+  background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
 }
 
 /* ── [1] Toasts — prevent blinding white ── */
@@ -567,7 +582,7 @@ div[role="option"]:hover {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
   border-color: rgba(63,185,80,0.35) !important;
 }
-
+</style>""", unsafe_allow_html=True)
 /* ════════════════════════════════════════════════════════════════════════════
    DROPDOWN DARK-MODE PATCH  (rules 1-4 per spec)
    ════════════════════════════════════════════════════════════════════════════ */
