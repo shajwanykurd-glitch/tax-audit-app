@@ -555,9 +555,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
 }
 </style>
 """, unsafe_allow_html=True)
-/* ════════════════════════════════════════════════════════════════════════════
-   DROPDOWN DARK-MODE PATCH  (rules 1-4 per spec)
-   ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Rule 1: Dropdown menu container — force dark ── */
 [data-testid="stVirtualDropdown"],
