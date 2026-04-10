@@ -51,7 +51,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-TZ = pytz.timezone("Asia/Baghdad")
+# ئەمە وا دەکات ستریملیت ڕاستەوخۆ لە ڕەگەوە تێمەکەی خۆی بکات بە دارک
+if "dark_mode" in st.session_state and st.session_state.dark_mode:
+    st.markdown(
+        """
+        <style>
+            [data-testid="stAppViewContainer"] {
+                color-scheme: dark;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # -----------------------------------------------------------------------------
 #  2 . SESSION STATE DEFAULTS
@@ -1149,11 +1160,14 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                 st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
                           disabled=True, use_container_width=True)
 
-            # Dark Mode toggle — admin only
+           # Dark Mode toggle — admin only
             if is_admin:
+                def toggle_theme():
+                    pass # تەنیا بۆ ئەوەی پەڕەکە ڕێفرێش ببێتەوە
                 st.toggle(
                     f"🌙 {t('dark_mode_label')}",
                     key="dark_mode",
+                    on_change=toggle_theme
                 )
 
         st.markdown(f"""
