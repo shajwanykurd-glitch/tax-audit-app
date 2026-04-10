@@ -1,13 +1,12 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.4
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.5
 #  Architecture: Optimistic UI / Local-First Mutation
 #  Changes:
-#    [UI] Fixed perfect vertical alignment in deep search strip (columns + CSS)
-#    [PERF] Optimized pandas operations (vectorized, reduced copies)
-#    [PERF] Cached column detection results, optimized filtering
-#    [PERF] Streamlined analytics and logs rendering
-#    [BUGFIX] Removed invalid st.session_state setter in deep search
-#    [CSS] Kept ironclad Material Symbols protection + dark mode intact
+#    [UI] Perfected vertical alignment in deep search strip.
+#    [PERF] Optimized pandas operations for speed and memory efficiency.
+#    [BUGFIX] Fixed st.session_state error in deep search strip.
+#    [CSS] Kept ironclad Material Symbols protection + dark mode intact.
+#    [FEATURE] Retained dynamic binder dropdown and strict analytics logic.
 # =============================================================================
 
 import html as _html
@@ -467,24 +466,6 @@ div[data-testid="stForm"] {
   margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
 }
 .inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
-/* Deep search perfect alignment fix */
-.deep-search-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.deep-search-item {
-  flex: 1;
-  min-width: 0;
-}
-.deep-search-button {
-  flex: 0 0 auto;
-  margin-bottom: 0px;
-}
-.deep-search-button button {
-  margin-top: 0px !important;
-}
 </style>""", unsafe_allow_html=True)
 
 
@@ -931,7 +912,7 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
     old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
     
-    # سەقفی سەلامەتی بۆ لیمیتی ٥٠،٠٠٠ پیتی گووگڵ شیت
+    # Safety truncation for Google Sheets cell limit (~50k chars)
     if len(new_log) > 49000:
         new_log = new_log[:48900] + "\n... [TRUNCATED - GOOGLE SHEETS 50K LIMIT REACHED]"
         
@@ -1302,7 +1283,14 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
     )
     
     # Use columns with CSS-based vertical alignment for perfect baseline matching
-    c1, c2, c3 = st.columns([1, 1, 0.32], gap="small")
+    # Streamlit 1.38+ supports vertical_alignment="bottom"
+    try:
+        c1, c2, c3 = st.columns([1, 1, 0.32], gap="small", vertical_alignment="bottom")
+        has_valign = True
+    except TypeError:
+        # Fallback for older Streamlit versions
+        c1, c2, c3 = st.columns([1, 1, 0.32], gap="small")
+        has_valign = False
     
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
@@ -1331,11 +1319,11 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
                           placeholder=ph_agent, disabled=(col_agent_email is None), label_visibility="collapsed")
     with c3:
-        # Add a wrapper div with custom class for proper vertical alignment
-        st.markdown('<div class="deep-search-button">', unsafe_allow_html=True)
+        # Apply margin hack ONLY if native vertical_alignment is not supported
+        if not has_valign:
+            st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr",
                   use_container_width=True, on_click=_clear)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     return (
         st.session_state.get(f"{key_prefix}_binder", ""),
@@ -1774,7 +1762,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
             st.markdown(
                 f"<div class='gov-table-wrap'><table class='acc-table'>"
                 f"<thead>{th_row}</thead><tbody>{td_rows}</tbody>"
-                f"<td></div>",
+                f"</table></div>",
                 unsafe_allow_html=True
             )
 
@@ -2097,7 +2085,7 @@ def render_user_admin(spreadsheet_id):
             show_cols = [c for c in ["email", "role", "created_at"] if c in staff.columns]
             tbl       = staff[show_cols].copy().reset_index()
             th_html   = ("<tr><th class='row-idx'>#</th>" +
-                         "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</table>")
+                         "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
             td_html   = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
