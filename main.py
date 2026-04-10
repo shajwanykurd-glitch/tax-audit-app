@@ -418,41 +418,28 @@ div[data-testid="stForm"] {
 </style>""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-#  5b. DARK MODE OVERRIDE  [1]
-#  Overrides CSS custom properties only — no layout, margin, padding, or
-#  font-size values are touched. Dropdowns, toasts, and alerts now fully dark.
+#  5b. DARK MODE OVERRIDE
 # -----------------------------------------------------------------------------
 def inject_dark_mode() -> None:
     st.markdown("""
 <style>
 :root {
-  /* ── Backgrounds ── */
   --bg:       #0D1117;
   --surface:  #161B22;
   --surface-2:#21262D;
-
-  /* ── Borders ── */
   --border:   rgba(240,246,252,0.10);
   --border-2: rgba(240,246,252,0.16);
-
-  /* ── Text ── */
   --text-primary:   #E6EDF3;
   --text-secondary: #8B949E;
   --text-muted:     #484F58;
-
-  /* ── Indigo accent ── */
   --indigo-50:  rgba(99,102,241,0.14);
   --indigo-100: rgba(99,102,241,0.22);
   --indigo-400: #818CF8;
   --indigo-500: #6366F1;
   --indigo-600: #818CF8;
   --indigo-700: #6366F1;
-
-  /* ── Blue accent ── */
   --blue-400: #93C5FD;
   --blue-500: #60A5FA;
-
-  /* ── Semantic ── */
   --green-50:  rgba(63,185,80,0.14);
   --green-200: rgba(63,185,80,0.35);
   --green-600: #3FB950;
@@ -463,23 +450,17 @@ def inject_dark_mode() -> None:
   --red-50:    rgba(248,81,73,0.14);
   --red-200:   rgba(248,81,73,0.35);
   --red-600:   #F85149;
-
-  /* ── Shadows ── */
   --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.55);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.65);
   --ring: 0 0 0 3px rgba(129,140,248,0.25);
 }
 
-/* ── Tables ── */
 .gov-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .gov-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 .acc-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .acc-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 
-/* ── [1] Dropdowns & listboxes — DEFINITIVE FIX ── */
-
-/* باکگراوندی بۆکسی دەرەوەی هەڵبژاردنەکە */
 div[data-baseweb="select"] > div {
   background-color: #21262D !important;
   border-color: rgba(240,246,252,0.16) !important;
@@ -488,7 +469,6 @@ div[data-baseweb="select"] > div span {
   color: #E6EDF3 !important;
 }
 
-/* باکگراوندی لیستەکە کە دێتە خوارەوە */
 div[data-baseweb="popover"] > div,
 div[data-testid="stVirtualDropdown"],
 ul[data-baseweb="menu"],
@@ -497,7 +477,6 @@ div[role="listbox"] {
   border: 1px solid rgba(99,102,241,0.5) !important;
 }
 
-/* ڕەنگی ئاسایی بژاردەکان پێش ئەوەی ماوس بڕواتە سەریان */
 li[role="option"],
 li[role="option"] span,
 ul[data-baseweb="menu"] li,
@@ -506,7 +485,6 @@ div[role="listbox"] span {
   color: #E6EDF3 !important;
 }
 
-/* کاتێک ماوس دەڕواتە سەریان یان هەڵدەبژێردرێن */
 li[role="option"]:hover,
 li[role="option"]:hover span,
 li[role="option"][aria-selected="true"],
@@ -518,7 +496,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   font-weight: 700 !important;
 }
 
-/* ── [1] Toasts — prevent blinding white ── */
 [data-testid="stToast"],
 [data-testid="stToast"] > div {
   background-color: #161B22 !important;
@@ -532,7 +509,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   color: #E6EDF3 !important;
 }
 
-/* ── [1] Alerts — prevent blinding white ── */
 [data-testid="stAlert"],
 [data-testid="stAlert"] > div {
   background-color: #161B22 !important;
@@ -545,7 +521,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   color: #E6EDF3 !important;
 }
 
-/* ── Submit & regular buttons ── */
 [data-testid="stFormSubmitButton"] > button {
   background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
   box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
@@ -563,26 +538,23 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
 }
 
-/* ── Login form card ── */
 [data-testid="stForm"] {
   background: rgba(22,27,34,0.96) !important;
   border-color: rgba(240,246,252,0.12) !important;
 }
 
-/* ── Expander ── */
 .streamlit-expanderContent {
   background: #161B22 !important;
 }
 
-/* ── Progress bar track ── */
 .prog-wrap { background: #21262D; }
 
-/* ── Export strip ── */
 .export-strip {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
   border-color: rgba(63,185,80,0.35) !important;
 }
-</style>""", unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 /* ════════════════════════════════════════════════════════════════════════════
    DROPDOWN DARK-MODE PATCH  (rules 1-4 per spec)
    ════════════════════════════════════════════════════════════════════════════ */
