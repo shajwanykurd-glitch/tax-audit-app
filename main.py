@@ -1,12 +1,16 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.5
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.0  (Light Mode / Optimized)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes:
-#    [UI] Perfected vertical alignment in deep search strip.
-#    [PERF] Optimized pandas operations for speed and memory efficiency.
-#    [BUGFIX] Fixed st.session_state error in deep search strip.
-#    [CSS] Kept ironclad Material Symbols protection + dark mode intact.
-#    [FEATURE] Retained dynamic binder dropdown and strict analytics logic.
+#  Changes v16.0:
+#    [REMOVE]  Dark mode fully eradicated (inject_dark_mode, toggle, CSS, state).
+#    [PERF]    Vectorized all pd.to_datetime / date filtering — no more .apply().
+#    [PERF]    Removed redundant .copy() calls; copy only when slice is mutated.
+#    [PERF]    Vectorized agent-email classification in analytics.
+#    [CLEAN]   Removed commented-out dead code and unused variables.
+#    [FIX]     render_auditor_logs expanders use plain st.code() (light mode safe).
+#    [KEEP]    Deep-search vertical alignment + agent dropdown.
+#    [KEEP]    Dynamic binder selectbox in worklist form.
+#    [KEEP]    Strict Good/Bad/Dup accuracy logic in analytics.
 # =============================================================================
 
 import html as _html
@@ -53,12 +57,6 @@ st.set_page_config(
 
 TZ = pytz.timezone("Asia/Baghdad")
 
-if "dark_mode" in st.session_state and st.session_state.dark_mode:
-    st.markdown(
-        """<style>[data-testid="stAppViewContainer"]{color-scheme:dark;}</style>""",
-        unsafe_allow_html=True,
-    )
-
 # -----------------------------------------------------------------------------
 #  2 . SESSION STATE DEFAULTS
 # -----------------------------------------------------------------------------
@@ -72,7 +70,6 @@ _DEFAULTS: dict = dict(
     local_col_map    = None,
     local_cache_key  = None,
     local_fetched_at = None,
-    dark_mode        = False,
 )
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -111,6 +108,14 @@ _ROW_SEP     = " \u007c "
 _PAGE_SIZE   = 10
 _COOKIE_NAME = "portal_auth"
 
+# Light-mode Plotly constants (hardcoded — no dark mode branch needed)
+_PT  = "plotly_white"
+_PBG = "#FFFFFF"
+_PGR = "#E4E7F0"
+_PFC = "#0D1117"
+_NVY = "#4F46E5"
+_BLU = "#60A5FA"
+
 # -----------------------------------------------------------------------------
 #  4 . EXPONENTIAL BACKOFF
 # -----------------------------------------------------------------------------
@@ -132,7 +137,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS  — FIXED: No global font-family override + Ironclad icon protection
+#  5 . CSS  — Light Mode Only
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -180,29 +185,25 @@ def inject_css() -> None:
   --mono: 'JetBrains Mono', 'Courier New', monospace;
 }
 
-/* FIXED: No font-family !important on universal selector */
-*, *::before, *::after { 
-  box-sizing: border-box !important; 
-}
+*, *::before, *::after { box-sizing: border-box !important; }
 
-/* Safe typography — can be overridden by icons */
 html, body, .stApp, [data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {
-  background-color: var(--bg) !important; 
+  background-color: var(--bg) !important;
   color: var(--text-primary) !important;
   font-family: var(--font);
 }
 
 p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] { 
-  color: var(--text-primary) !important; 
+.stMarkdown, [data-testid="stMarkdownContainer"] {
+  color: var(--text-primary) !important;
   font-family: var(--font);
 }
 
-/* IRONCLAD ICON PROTECTION — Never override Material Symbols */
-.material-symbols-rounded, 
-[data-testid="stIconMaterial"], 
-.stIcon, 
+/* Ironclad Material Symbols protection */
+.material-symbols-rounded,
+[data-testid="stIconMaterial"],
+.stIcon,
 .streamlit-expanderHeader svg,
 .streamlit-expanderHeader span,
 [data-testid="stIcon"] svg,
@@ -223,11 +224,6 @@ span[class*="material-symbols"] {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
 }
 
-/* Additional protection for Streamlit's internal icons */
-svg:not(.plotly) {
-    font-family: inherit !important;
-}
-
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] { display: none !important; }
@@ -238,6 +234,7 @@ svg:not(.plotly) {
   box-shadow: 4px 0 24px rgba(0,0,0,0.04) !important;
 }
 [data-testid="stSidebar"] * { color: var(--text-primary) !important; }
+
 .stTextInput > div > div > input, .stTextArea > div > div > textarea {
   background: var(--surface) !important; color: var(--text-primary) !important;
   border: 1.5px solid var(--border-2) !important; border-radius: var(--radius-md) !important;
@@ -450,7 +447,6 @@ div[data-testid="stForm"] {
 .acc-rate-low  { color:var(--red-600)!important;font-weight:800!important;font-family:var(--mono)!important; }
 .acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
 .acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
-/* [P2] Log Inspector panel */
 .inspector-panel {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -466,183 +462,6 @@ div[data-testid="stForm"] {
   margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
 }
 .inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
-</style>""", unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
-#  5b. DARK MODE OVERRIDE  (with icon protection)
-# -----------------------------------------------------------------------------
-def inject_dark_mode() -> None:
-    st.markdown("""
-<style>
-:root {
-  --bg:       #0D1117;
-  --surface:  #161B22;
-  --surface-2:#21262D;
-  --border:   rgba(240,246,252,0.10);
-  --border-2: rgba(240,246,252,0.16);
-  --text-primary:   #E6EDF3;
-  --text-secondary: #8B949E;
-  --text-muted:     #484F58;
-  --indigo-50:  rgba(99,102,241,0.14);
-  --indigo-100: rgba(99,102,241,0.22);
-  --indigo-400: #818CF8;
-  --indigo-500: #6366F1;
-  --indigo-600: #818CF8;
-  --indigo-700: #6366F1;
-  --blue-400: #93C5FD;
-  --blue-500: #60A5FA;
-  --green-50:  rgba(63,185,80,0.14);
-  --green-200: rgba(63,185,80,0.35);
-  --green-600: #3FB950;
-  --green-700: #3FB950;
-  --amber-50:  rgba(210,153,34,0.14);
-  --amber-200: rgba(210,153,34,0.35);
-  --amber-700: #D29922;
-  --red-50:    rgba(248,81,73,0.14);
-  --red-200:   rgba(248,81,73,0.35);
-  --red-600:   #F85149;
-  --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.55);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,0.65);
-  --ring: 0 0 0 3px rgba(129,140,248,0.25);
-}
-.gov-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
-.gov-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
-.acc-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
-.acc-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
-div[data-baseweb="select"] > div {
-  background-color: #21262D !important;
-  border-color: rgba(240,246,252,0.16) !important;
-}
-div[data-baseweb="select"] > div span { color: #E6EDF3 !important; }
-div[data-baseweb="popover"] > div,
-div[data-testid="stVirtualDropdown"],
-ul[data-baseweb="menu"],
-div[role="listbox"] {
-  background-color: #161B22 !important;
-  border: 1px solid rgba(99,102,241,0.5) !important;
-}
-li[role="option"],
-li[role="option"] span,
-ul[data-baseweb="menu"] li,
-div[role="listbox"] span {
-  background-color: #161B22 !important;
-  color: #E6EDF3 !important;
-}
-li[role="option"]:hover,
-li[role="option"]:hover span,
-li[role="option"][aria-selected="true"],
-li[role="option"][aria-selected="true"] span,
-ul[data-baseweb="menu"] li:hover,
-ul[data-baseweb="menu"] li[aria-selected="true"] {
-  background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-}
-[data-testid="stToast"],
-[data-testid="stToast"] > div {
-  background-color: #161B22 !important;
-  border: 1px solid rgba(129,140,248,0.40) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.60) !important;
-  color: #E6EDF3 !important;
-}
-[data-testid="stToast"] div,
-[data-testid="stToast"] span,
-[data-testid="stToast"] p { color: #E6EDF3 !important; }
-[data-testid="stAlert"],
-[data-testid="stAlert"] > div {
-  background-color: #161B22 !important;
-  border: 1px solid rgba(129,140,248,0.40) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.50) !important;
-}
-[data-testid="stAlert"] div,
-[data-testid="stAlert"] span,
-[data-testid="stAlert"] p { color: #E6EDF3 !important; }
-[data-testid="stFormSubmitButton"] > button {
-  background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
-}
-[data-testid="stFormSubmitButton"] > button:hover {
-  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
-  box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
-}
-.stButton > button {
-  background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
-}
-.stButton > button:hover {
-  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
-  box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
-}
-[data-testid="stForm"] {
-  background: rgba(22,27,34,0.96) !important;
-  border-color: rgba(240,246,252,0.12) !important;
-}
-
-/* ── فۆرمەکان و بۆکسی کۆدەکان (The Ultimate Dark Mode Fix) ── */
-[data-testid="stExpander"] details summary {
-  background-color: #21262D !important;
-  border-bottom: 1px solid rgba(240,246,252,0.10) !important;
-}
-[data-testid="stExpander"] details summary p {
-  color: #E6EDF3 !important;
-  font-weight: 600 !important;
-}
-.streamlit-expanderContent, 
-[data-testid="stExpanderDetails"],
-[data-testid="stExpanderDetails"] > div { 
-  background-color: #161B22 !important; 
-}
-
-/* کوشتنی تەواوەتی ڕەنگە سپییەکانی ستریملیت بۆ کۆدەکان */
-div[data-testid="stCodeBlock"], 
-div[data-testid="stCodeBlock"] > div,
-div[data-testid="stCodeBlock"] pre, 
-div[data-testid="stCodeBlock"] code {
-  background-color: #0D1117 !important;
-  border: 1px solid rgba(99,102,241,0.2) !important;
-  border-radius: 8px !important;
-}
-
-/* ئەم نیشانەی ئەستێرەیە (*) واتا بە زەبری هێز ڕەنگی هەموو پیتێک و بۆکسێک بگۆڕە */
-div[data-testid="stCodeBlock"] * {
-  background-color: transparent !important;
-  color: #60A5FA !important;
-  text-shadow: none !important;
-}
-.prog-wrap { background: #21262D; }
-.export-strip {
-  background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
-  border-color: rgba(63,185,80,0.35) !important;
-}
-.inspector-panel {
-  background: #21262D !important;
-  border-color: rgba(240,246,252,0.10) !important;
-}
-/* Icon protection in dark mode */
-.material-symbols-rounded, 
-[data-testid="stIconMaterial"], 
-.stIcon, 
-.streamlit-expanderHeader svg,
-.streamlit-expanderHeader span,
-[data-testid="stIcon"] svg,
-[data-testid="stIcon"] span,
-.stButton button svg,
-button svg.material-symbols-rounded,
-div[data-testid="stMarkdownContainer"] svg,
-span[class*="material-symbols"] {
-    font-family: 'Material Symbols Rounded' !important;
-    font-weight: normal !important;
-    font-style: normal !important;
-    letter-spacing: normal !important;
-    text-transform: none !important;
-    white-space: nowrap !important;
-    word-wrap: normal !important;
-    direction: ltr !important;
-    -webkit-font-smoothing: antialiased !important;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-}
 </style>""", unsafe_allow_html=True)
 
 
@@ -714,8 +533,6 @@ _LANG: dict[str, dict[str, str]] = {
         "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
         "arch_search_title":"Archive Quick Search",
-        "dark_mode_label":"Dark Mode",
-        # [P2] Log Inspector strings
         "inspector_title":"Inspect Full Record Details",
         "inspector_select":"Select a record to inspect",
         "inspector_hint":"Choose a row from the table above to read its full audit trail and feedback notes.",
@@ -723,11 +540,9 @@ _LANG: dict[str, dict[str, str]] = {
         "inspector_feedback":"Correction Notes / Auto-Diff (Full)",
         "inspector_empty_trail":"No audit trail recorded for this entry.",
         "inspector_empty_feedback":"No correction notes for this entry.",
-        "inspector_no_log_col":"Audit_Log column not present in this view — re-fetch from the full dataset to inspect.",
-        # Dynamic binder dropdown
+        "inspector_no_log_col":"Audit_Log column not present in this view.",
         "select_binder":"Select Binder Number (Optional)",
         "binder_hint":"Choose a binder to auto-fill or leave blank to edit manually",
-        "manual_entry":"Manual Entry Mode",
     },
 }
 
@@ -736,7 +551,7 @@ def t(key: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  7 . HELPERS (Optimized)
+#  7 . HELPERS
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_column_keywords():
@@ -762,14 +577,17 @@ def detect_column(headers, kind):
     keywords = _get_column_keywords().get(kind, [])
     skip_cols = set(SYSTEM_COLS) if kind == "agent_email" else set()
     for h in headers:
-        if h in skip_cols: continue
+        if h in skip_cols:
+            continue
         hl = h.lower().strip()
         for kw in keywords:
-            if kw.lower() in hl: return h
+            if kw.lower() in hl:
+                return h
     return None
 
 def hash_pw(pw):   return hashlib.sha256(pw.encode()).hexdigest()
 def now_str():     return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
+
 def parse_dt(s):
     try:    return datetime.strptime(str(s).strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=TZ)
     except: return None
@@ -810,20 +628,16 @@ def apply_period_filter(df, col, period):
     elif period == "this_week":  cutoff = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
-    
-    # گەڕاندنەوە بۆ شێوازە سەلامەتەکە کە کاتی بەغدا (TZ) دەناسێت
-    return df[df[col].apply(parse_dt) >= cutoff]
-    # Vectorized date parsing
-    parsed_dates = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-    return df[parsed_dates >= cutoff]
+    # Fully vectorized — no .apply()
+    parsed = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+    cutoff_ts = pd.Timestamp(cutoff)
+    return df[parsed >= cutoff_ts]
 
 def _n_active(fb: str, fl: str) -> int:
     return sum([bool(fb.strip()), bool(fl.strip())])
 
 def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_license):
-    if df.empty:
-        return df
-    # Start with a view (no copy unless needed)
+    if df.empty: return df
     mask = pd.Series(True, index=df.index)
     if f_binder.strip() and col_binder and col_binder in df.columns:
         mask &= df[col_binder].astype(str).str.contains(f_binder.strip(), case=False, na=False)
@@ -831,23 +645,14 @@ def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_lic
         mask &= df[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)
     return df[mask]
 
-# [P1] build_auto_diff — truncation completely removed
 def build_auto_diff(record: dict, new_vals: dict) -> str:
-    """
-    Compares original record values with submitted new_vals and returns a
-    full diff string.  No character-length truncation is applied — the entire
-    old and new value is always logged so auditors can reconstruct any change.
-    """
     lines = []
     for field, new_v in new_vals.items():
         old_v       = clean_cell(record.get(field, ""))
         new_v_clean = clean_cell(new_v)
         if old_v != new_v_clean:
-            # [P1] Full strings — no [:60] slicing
             lines.append(f"[{field}]:\n  WAS: {old_v!r}\n  NOW: {new_v_clean!r}")
-    if lines:
-        return "Auto-Log:\n" + "\n".join(lines)
-    return "Auto-Log: No field changes detected."
+    return ("Auto-Log:\n" + "\n".join(lines)) if lines else "Auto-Log: No field changes detected."
 
 
 # -----------------------------------------------------------------------------
@@ -945,12 +750,9 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
             return False
     old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
-    
-    # Safety truncation for Google Sheets cell limit (~50k chars)
     if len(new_log) > 49000:
         new_log = new_log[:48900] + "\n... [TRUNCATED - GOOGLE SHEETS 50K LIMIT REACHED]"
-        
-    batch   = []
+    batch = []
     for f, v in new_vals.items():
         if f in col_map and clean_cell(record.get(f, "")) != v:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[f]), "values": [[v]]})
@@ -1110,16 +912,6 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
     }
     </style>""", unsafe_allow_html=True)
 
-    st.markdown("""<script>
-    (function(){function a(){try{var d=window.parent.document;
-    var t=d.querySelectorAll('input[type="text"]');
-    if(t.length>0){t[0].setAttribute('autocomplete','username');t[0].setAttribute('name','username');}
-    var p=d.querySelectorAll('input[type="password"]');
-    if(p.length>0){p[0].setAttribute('autocomplete','current-password');p[0].setAttribute('name','password');}
-    }catch(e){}}
-    [150,400,800,1500].forEach(function(ms){setTimeout(a,ms);});})();
-    </script>""", unsafe_allow_html=True)
-
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
         <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
@@ -1190,9 +982,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cooki
             current_time = time.time()
             time_passed  = current_time - st.session_state.last_refresh_time
             time_left    = int((COOLDOWN - time_passed) / 60)
-            can_refresh  = True
-            if st.session_state.user_role == "manager" and time_passed < COOLDOWN:
-                can_refresh = False
+            can_refresh  = not (st.session_state.user_role == "manager" and time_passed < COOLDOWN)
 
             def _do_refresh():
                 _fetch_raw_sheet_cached.clear()
@@ -1208,10 +998,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cooki
             else:
                 st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
                           disabled=True, use_container_width=True)
-
-            if is_admin:
-                def toggle_theme(): pass
-                st.toggle(f"🌙 {t('dark_mode_label')}", key="dark_mode", on_change=toggle_theme)
 
         st.markdown(f"""
         <div class="cache-strip">
@@ -1255,8 +1041,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cooki
                             uws  = spr.worksheet(USERS_SHEET)
                             cell = _gsheets_call(uws.find, st.session_state.user_email)
                             if cell:
-                                _gsheets_call(uws.update_cell, cell.row, 2,
-                                              hash_pw(new_pw.strip()))
+                                _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
                                 _fetch_users_cached.clear()
                                 st.success("Password updated successfully! 🔒")
                                 time.sleep(1.5); st.rerun()
@@ -1296,7 +1081,7 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (UPDATED: Perfect alignment + fixed session state bug)
+#  DEEP SEARCH WIDGET
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
     def _clear():
@@ -1315,45 +1100,32 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
         f"</div>",
         unsafe_allow_html=True,
     )
-    
-    # Use columns with CSS-based vertical alignment for perfect baseline matching
-    # Streamlit 1.38+ supports vertical_alignment="bottom"
+
     try:
         c1, c2, c3 = st.columns([1, 1, 0.32], gap="small", vertical_alignment="bottom")
         has_valign = True
     except TypeError:
-        # Fallback for older Streamlit versions
         c1, c2, c3 = st.columns([1, 1, 0.32], gap="small")
         has_valign = False
-    
+
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
                       placeholder=ph_binder, disabled=(col_binder is None), label_visibility="collapsed")
     with c2:
-        # Dynamic dropdown for agent if options provided, else fallback to text input
         if agent_options is not None and len(agent_options) > 0:
-            # Create a list with empty string as first option (All Agents)
             opts = [""] + agent_options
-            # Get current value from session state (do NOT modify it here)
             current_val = st.session_state.get(f"{key_prefix}_agent", "")
-            # Ensure index is valid
             try:
                 idx = opts.index(current_val) if current_val in opts else 0
             except ValueError:
                 idx = 0
             st.selectbox(
-                t("ds_agent"),
-                options=opts,
-                key=f"{key_prefix}_agent",
-                index=idx,
-                disabled=(col_agent_email is None),
-                label_visibility="collapsed"
-            )
+                t("ds_agent"), options=opts, key=f"{key_prefix}_agent",
+                index=idx, disabled=(col_agent_email is None), label_visibility="collapsed")
         else:
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
                           placeholder=ph_agent, disabled=(col_agent_email is None), label_visibility="collapsed")
     with c3:
-        # Apply margin hack ONLY if native vertical_alignment is not supported
         if not has_valign:
             st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr",
@@ -1366,15 +1138,13 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
 
 
 def apply_deep_search(df, srch_binder: str, srch_agent: str, col_binder, col_agent_email):
-    if df.empty:
-        return df
+    if df.empty: return df
     mask = pd.Series(True, index=df.index)
     if srch_binder.strip() and col_binder and col_binder in df.columns:
         mask &= df[col_binder].astype(str).str.contains(srch_binder.strip(), case=False, na=False)
     if srch_agent.strip() and col_agent_email and col_agent_email in df.columns:
         mask &= df[col_agent_email].astype(str).str.contains(srch_agent.strip(), case=False, na=False)
     return df[mask]
-
 
 def _deep_search_active(b: str, a: str) -> bool:
     return any(x.strip() for x in (b, a))
@@ -1426,16 +1196,13 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    # [NEW] Dynamic binder dropdown
+    # Dynamic binder dropdown
     binder_options = []
     if col_binder and col_binder in df.columns:
-        # Get unique non-empty binder values from the entire dataset (not just pending)
         binder_series = df[col_binder].astype(str).str.strip()
-        binder_series = binder_series[binder_series != ""]
-        binder_options = sorted(binder_series.unique().tolist())
+        binder_options = sorted(binder_series[binder_series != ""].unique().tolist())
         binder_options = ["-- Select Binder (Optional) --"] + binder_options
 
-    # Store selected binder in session state to persist across reruns
     if "selected_binder_value" not in st.session_state:
         st.session_state.selected_binder_value = ""
 
@@ -1443,32 +1210,23 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
         st.markdown(f"<small class='sb-label'>{t('select_binder')}</small>", unsafe_allow_html=True)
         st.caption(t("binder_hint"))
 
-        # Show binder dropdown if column exists and has values
-        if col_binder and binder_options and len(binder_options) > 1:
+        if col_binder and len(binder_options) > 1:
             selected_binder = st.selectbox(
-                "",
-                options=binder_options,
-                key="binder_dropdown",
-                label_visibility="collapsed",
-                index=0
-            )
-            if selected_binder and selected_binder != "-- Select Binder (Optional) --":
-                st.session_state.selected_binder_value = selected_binder
-            elif selected_binder == "-- Select Binder (Optional) --":
-                st.session_state.selected_binder_value = ""
+                "", options=binder_options, key="binder_dropdown",
+                label_visibility="collapsed", index=0)
+            st.session_state.selected_binder_value = (
+                selected_binder if selected_binder != "-- Select Binder (Optional) --" else "")
         else:
             st.info("Binder column not detected or no values available. Using manual entry mode.")
             st.session_state.selected_binder_value = ""
 
-        # Render form fields
         new_vals = {}
         for fname, fval in fields.items():
-            # Pre-populate with selected binder if this is the binder field
-            if col_binder and fname == col_binder and st.session_state.selected_binder_value:
-                default_val = st.session_state.selected_binder_value
-            else:
-                default_val = clean_cell(fval)
-
+            default_val = (
+                st.session_state.selected_binder_value
+                if (col_binder and fname == col_binder and st.session_state.selected_binder_value)
+                else clean_cell(fval)
+            )
             new_vals[fname] = st.text_input(fname, value=default_val, key=f"field_{fname}")
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
@@ -1479,8 +1237,8 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
-        ts_now    = now_str()
-        auditor   = st.session_state.user_email
+        ts_now     = now_str()
+        auditor    = st.session_state.user_email
         log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
@@ -1499,7 +1257,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
                 st.error(f"Write failed: {e}"); return
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
-        # Clear the selected binder after successful submission
         st.session_state.selected_binder_value = ""
         st.toast(t("saved_ok"), icon="✅")
         time.sleep(0.6); st.rerun()
@@ -1526,9 +1283,8 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     st.markdown(
         f"<div style='margin-bottom:8px;font-size:.62rem;font-weight:800;"
         f"letter-spacing:.10em;text-transform:uppercase;color:var(--indigo-600);'>"
-        f"{t('arch_search_title')}</div>",
-        unsafe_allow_html=True,
-    )
+        f"{t('arch_search_title')}</div>", unsafe_allow_html=True)
+
     c1, c2, c3, c4 = st.columns([1, 1, 1, 0.28])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
@@ -1545,7 +1301,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
 
-    filtered_view = done_view.copy()
+    filtered_view = done_view
     if s_binder.strip()  and col_binder  and col_binder  in filtered_view.columns:
         filtered_view = filtered_view[filtered_view[col_binder].astype(str).str.contains(
             s_binder.strip(), case=False, na=False)]
@@ -1589,32 +1345,15 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS  (Optimized: vectorized operations, minimal copies)
+#  16 . ANALYTICS  — Light mode only, fully vectorized
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
-    # Dark mode detection for plotly
-    is_dark = st.session_state.get("dark_mode", False)
-    if is_dark:
-        pt = "plotly_dark"
-        pb = "#161B22"
-        pg = "#21262D"
-        fc = "#E6EDF3"
-    else:
-        pt = "plotly_white"
-        pb = "#FFFFFF"
-        pg = "#E4E7F0"
-        fc = "#0D1117"
-    nvy = "#4F46E5"
-    blu = "#60A5FA"
-
-    # Extract agent options for dropdown (unique, non-empty agent emails)
+    # Extract agent options for dropdown
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
-        agent_series = agent_series[agent_series != ""]
-        agent_opts = sorted(agent_series.unique().tolist())
+        agent_opts = sorted(agent_series[agent_series != ""].unique().tolist())
 
-    # Render deep search with agent dropdown
     srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email, agent_options=agent_opts)
     work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
@@ -1634,22 +1373,18 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     for cw, (pk, pl) in zip(st.columns(len(periods)), periods):
         lbl = f"[{pl}]" if st.session_state.date_filter == pk else pl
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
-            st.session_state.date_filter = pk
-            st.rerun()
+            st.session_state.date_filter = pk; st.rerun()
 
-    # Vectorized filtering
     done_base = work_df[work_df[COL_STATUS] == VAL_DONE]
-    done_f = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
+    done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
     if done_f.empty:
-        st.info(t("no_records"))
-        return
+        st.info(t("no_records")); return
 
-    # Metrics
     col1, col2, col3 = st.columns(3)
     col1.metric(t("records_period"), len(done_f))
     if COL_DATE in done_f.columns:
-        # Vectorized unique date count
-        active = done_f[COL_DATE].apply(lambda s: parse_dt(s).date() if parse_dt(s) else None).nunique()
+        active = (pd.to_datetime(done_f[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+                    .dt.date.nunique())
     else:
         active = 0
     col2.metric(t("active_days"), active)
@@ -1660,10 +1395,8 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     with left:
         st.markdown(f"<div class='section-title'>{t('leaderboard')}</div>", unsafe_allow_html=True)
         if COL_AUDITOR in done_f.columns:
-            # Vectorized value_counts
             lb = done_f[COL_AUDITOR].replace("", "-").value_counts().reset_index()
             lb.columns = ["Auditor", "Count"]
-            # Display top 10 as HTML (more performant than Plotly for small datasets)
             for i, r in lb.head(10).iterrows():
                 st.markdown(
                     f'<div class="lb-row">'
@@ -1671,49 +1404,49 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
                     f'<span class="lb-name">{_html.escape(str(r["Auditor"]))}</span>'
                     f'<span class="lb-count">{r["Count"]}</span>'
                     f'</div>', unsafe_allow_html=True)
-            # Plotly bar chart for visual representation
             fig = px.bar(lb.head(10), x="Count", y="Auditor", orientation="h",
-                         color="Count", color_continuous_scale=[blu, nvy], template=pt)
+                         color="Count", color_continuous_scale=[_BLU, _NVY], template=_PT)
             fig.update_traces(marker_line_width=0,
                 hovertemplate="<b>%{y}</b><br>Records: <b>%{x}</b><extra></extra>")
             fig.update_layout(
-                paper_bgcolor=pb, plot_bgcolor=pb,
-                font=dict(family="Plus Jakarta Sans", color=fc, size=11),
+                paper_bgcolor=_PBG, plot_bgcolor=_PBG,
+                font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                 showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
-                xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
+                xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
                 yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
-                           tickfont=dict(color=fc if is_dark else "#4B5563")),
+                           tickfont=dict(color="#4B5563")),
                 height=min(320, max(180, 36*len(lb.head(10)))))
             st.plotly_chart(fig, use_container_width=True)
 
     with right:
         st.markdown(f"<div class='section-title'>{t('daily_trend')}</div>", unsafe_allow_html=True)
         if COL_DATE in done_f.columns:
-            # Vectorized date parsing and grouping
             parsed_dates = pd.to_datetime(done_f[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-            valid_mask = parsed_dates.notna()
+            valid_mask   = parsed_dates.notna()
             if valid_mask.any():
                 dates = parsed_dates[valid_mask].dt.date
                 trend = dates.value_counts().sort_index().reset_index()
                 trend.columns = ["Date", "Records"]
                 if len(trend) > 1:
-                    rng = pd.date_range(trend["Date"].min(), trend["Date"].max())
-                    trend = trend.set_index("Date").reindex(rng.date, fill_value=0).reset_index()
-                    trend.columns = ["Date", "Records"]
+                    rng   = pd.date_range(trend["Date"].min(), trend["Date"].max())
+                    trend = (trend.set_index("Date")
+                                  .reindex(rng.date, fill_value=0)
+                                  .reset_index()
+                                  .rename(columns={"index": "Date"}))
                 fig2 = go.Figure()
                 fig2.add_trace(go.Scatter(x=trend["Date"], y=trend["Records"], mode="none",
                     fill="tozeroy", fillcolor="rgba(99,102,241,0.07)", showlegend=False))
                 fig2.add_trace(go.Scatter(
                     x=trend["Date"], y=trend["Records"], mode="lines+markers",
-                    line=dict(color=nvy, width=2.5),
-                    marker=dict(color=blu, size=7, line=dict(color="#FFFFFF", width=2)),
+                    line=dict(color=_NVY, width=2.5),
+                    marker=dict(color=_BLU, size=7, line=dict(color="#FFFFFF", width=2)),
                     hovertemplate="<b>%{x}</b><br>Records: <b>%{y}</b><extra></extra>"))
                 fig2.update_layout(
-                    template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
-                    font=dict(family="Plus Jakarta Sans", color=fc, size=11),
+                    template=_PT, paper_bgcolor=_PBG, plot_bgcolor=_PBG,
+                    font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                     showlegend=False, margin=dict(l=8,r=8,t=10,b=8),
-                    xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
-                    yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563")),
+                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
+                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
                     height=380, hovermode="x unified")
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -1722,70 +1455,47 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     st.markdown(f"<div class='section-title'>{t('acc_ranking_title')}</div>", unsafe_allow_html=True)
 
     if col_agent_email and col_agent_email in done_f.columns and COL_EVAL in done_f.columns:
-        # Vectorized classification
-        eval_series = done_f[COL_EVAL].fillna("")
-        classified = eval_series.apply(_normalise_eval)
-        
-        def classify_vectorized(vals):
-            good_mask = vals.str.contains("Good", na=False)
-            bad_mask = vals.str.contains("Bad|Incorrect", na=False, regex=True)
-            dup_mask = vals.str.contains("Duplicate", na=False)
-            return good_mask, bad_mask, dup_mask
-        
-        good_mask, bad_mask, dup_mask = classify_vectorized(classified)
-        
-        # Create a DataFrame with classifications
-        agent_col = done_f[col_agent_email].fillna("").astype(str).str.strip()
-        agent_col = agent_col.replace("", "-")
-        
-        # Build results using vectorized groupby
-        results = []
-        for agent in agent_col.unique():
-            agent_mask = agent_col == agent
-            total_good = good_mask[agent_mask].sum()
-            total_bad = bad_mask[agent_mask].sum()
-            total_dup = dup_mask[agent_mask].sum()
-            total_eval = total_good + total_bad + total_dup
-            unrated = (~(good_mask | bad_mask | dup_mask))[agent_mask].sum()
-            accuracy = (total_good / total_eval * 100) if total_eval > 0 else 0
-            results.append({
-                "agent": agent,
-                "total": total_eval,
-                "good": total_good,
-                "bad": total_bad,
-                "dup": total_dup,
-                "unrated": unrated,
-                "accuracy": accuracy
-            })
-        
-        if results:
-            df_results = pd.DataFrame(results)
-            df_results = df_results.sort_values(["accuracy", "total"], ascending=[False, False])
-            
-            # Build HTML table
+        # Fully vectorized classification
+        normalised  = done_f[COL_EVAL].fillna("").map(_normalise_eval)
+        good_mask   = normalised.str.contains("Good", na=False)
+        bad_mask    = normalised.str.contains(r"Bad|Incorrect", na=False, regex=True)
+        dup_mask    = normalised.str.contains("Duplicate", na=False)
+        rated_mask  = good_mask | bad_mask | dup_mask
+
+        agent_col   = done_f[col_agent_email].fillna("").astype(str).str.strip().replace("", "-")
+
+        # Single groupby pass for all counts
+        tmp = pd.DataFrame({
+            "agent":  agent_col,
+            "good":   good_mask.astype(int),
+            "bad":    bad_mask.astype(int),
+            "dup":    dup_mask.astype(int),
+            "rated":  rated_mask.astype(int),
+            "unrated":(~rated_mask).astype(int),
+        })
+        grp = tmp.groupby("agent", sort=False).sum().reset_index()
+        grp["accuracy"] = grp.apply(
+            lambda r: (r["good"] / r["rated"] * 100) if r["rated"] > 0 else 0.0, axis=1)
+        grp = grp.sort_values(["accuracy", "rated"], ascending=[False, False]).reset_index(drop=True)
+
+        if not grp.empty:
             th_row = (f"<tr><th>#</th><th>{t('acc_agent')}</th><th>{t('acc_total')}</th>"
                       f"<th>{t('acc_good')}</th><th>{t('acc_bad')}</th><th>{t('acc_dup')}</th>"
                       f"<th>{t('acc_rate')}</th><th>Unrated</th></tr>")
             td_rows = ""
-            for i, row in df_results.iterrows():
+            for pos, row in grp.iterrows():
                 pct = row["accuracy"]
-                if pct >= 80:
-                    rc = "acc-rate-high"
-                    bc = "#16A34A"
-                elif pct >= 50:
-                    rc = "acc-rate-mid"
-                    bc = "#B45309"
-                else:
-                    rc = "acc-rate-low"
-                    bc = "#DC2626"
+                if pct >= 80:   rc, bc = "acc-rate-high", "#16A34A"
+                elif pct >= 50: rc, bc = "acc-rate-mid",  "#B45309"
+                else:           rc, bc = "acc-rate-low",  "#DC2626"
                 bar = (f"<span class='acc-bar-wrap'>"
                        f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
                        f"</span>")
                 td_rows += (
                     f"<tr>"
-                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{i+1}</td>"
+                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
                     f"<td style='font-weight:600;'>{_html.escape(str(row['agent']))}</td>"
-                    f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['total'])}</td>"
+                    f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['rated'])}</td>"
                     f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
                     f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
                     f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
@@ -1796,73 +1506,63 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
             st.markdown(
                 f"<div class='gov-table-wrap'><table class='acc-table'>"
                 f"<thead>{th_row}</thead><tbody>{td_rows}</tbody>"
-                f"</table></div>",
-                unsafe_allow_html=True
-            )
+                f"</table></div>", unsafe_allow_html=True)
 
-            # Plotly stacked bar chart (only for evaluated records)
             st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
             st.caption(t("eval_breakdown_sub"))
-            plot_df = df_results[df_results["total"] > 0]
+            plot_df = grp[grp["rated"] > 0]
             if not plot_df.empty:
                 fig3 = go.Figure()
                 fig3.add_trace(go.Bar(
                     name="Good", x=plot_df["agent"], y=plot_df["good"],
                     marker_color="#16A34A",
                     hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
-                    customdata=plot_df["total"]
-                ))
+                    customdata=plot_df["rated"]))
                 fig3.add_trace(go.Bar(
                     name="Bad/Incorrect", x=plot_df["agent"], y=plot_df["bad"],
                     marker_color="#DC2626",
                     hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
-                    customdata=plot_df["total"]
-                ))
+                    customdata=plot_df["rated"]))
                 fig3.add_trace(go.Bar(
                     name="Duplicate", x=plot_df["agent"], y=plot_df["dup"],
                     marker_color="#F59E0B",
                     hovertemplate="<b>%{x}</b><br>Duplicate: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
-                    customdata=plot_df["total"]
-                ))
+                    customdata=plot_df["rated"]))
                 fig3.update_layout(
-                    barmode="stack", template=pt, paper_bgcolor=pb, plot_bgcolor=pb,
-                    font=dict(family="Plus Jakarta Sans", color=fc, size=11),
+                    barmode="stack", template=_PT, paper_bgcolor=_PBG, plot_bgcolor=_PBG,
+                    font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                                font=dict(size=11), bgcolor=pb if not is_dark else "#161B22",
-                                bordercolor=pg, borderwidth=1),
+                                font=dict(size=11), bgcolor=_PBG,
+                                bordercolor=_PGR, borderwidth=1),
                     margin=dict(l=8, r=8, t=40, b=60),
-                    xaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563"),
-                               tickangle=-30, title=dict(text="Agent", font=dict(size=11, color=fc if is_dark else "#4B5563"))),
-                    yaxis=dict(gridcolor=pg, zeroline=False, tickfont=dict(color=fc if is_dark else "#4B5563"),
-                               title=dict(text="Records", font=dict(size=11, color=fc if is_dark else "#4B5563"))),
-                    height=400, hovermode="x"
-                )
+                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
+                               tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
+                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
+                               title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
+                    height=400, hovermode="x")
                 fig3.update_traces(marker_line_width=0)
                 st.plotly_chart(fig3, use_container_width=True)
         else:
             st.info(t("acc_no_data"))
     else:
         st.info(t("acc_no_data") +
-                ("" if col_agent_email else " (Agent Email column not detected - check sheet headers.)"))
+                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — Optimized with vectorized operations
+#  17 . AUDITOR LOGS  — fully vectorized + plain st.code() in light mode
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
-    # Extract agent options for deep search dropdown
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
-        agent_series = agent_series[agent_series != ""]
-        agent_opts = sorted(agent_series.unique().tolist())
+        agent_opts = sorted(agent_series[agent_series != ""].unique().tolist())
 
     srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email, agent_options=agent_opts)
 
     done_df = df[df[COL_STATUS] == VAL_DONE]
     if done_df.empty:
-        st.info(t("logs_no_data"))
-        return
+        st.info(t("logs_no_data")); return
 
     done_df = apply_deep_search(done_df, srch_binder, srch_agent, col_binder, col_agent_email)
 
@@ -1877,10 +1577,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
             unsafe_allow_html=True)
 
     if done_df.empty:
-        st.info(t("logs_no_data"))
-        return
+        st.info(t("logs_no_data")); return
 
-    # Build display_cols (COL_LOG intentionally excluded from table — shown in inspector)
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company and col_company in done_df.columns:
         display_cols.insert(1, col_company)
@@ -1898,13 +1596,12 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     all_opt = t("logs_filter_all")
     sel_aud = st.selectbox(t("logs_auditor_sel"), options=[all_opt] + auditor_list,
                            key="logs_auditor_sel")
-    view_df = (done_df[done_df[COL_AUDITOR] == sel_aud] if sel_aud != all_opt else done_df)
+    view_df = done_df[done_df[COL_AUDITOR] == sel_aud] if sel_aud != all_opt else done_df
 
-    total_p = len(view_df)
-    uniq_a = view_df[COL_AUDITOR].nunique()
-    # Vectorized date parsing for range display
-    parsed_dates = pd.to_datetime(view_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-    valid_dates = parsed_dates.dropna()
+    total_p  = len(view_df)
+    uniq_a   = view_df[COL_AUDITOR].nunique()
+    # Vectorized date range
+    valid_dates = pd.to_datetime(view_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce").dropna()
     dr_str = (f"{valid_dates.min().strftime('%Y-%m-%d')} - {valid_dates.max().strftime('%Y-%m-%d')}"
               if not valid_dates.empty else "-")
 
@@ -1924,52 +1621,43 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>"
                 f"{_html.escape(shown)}</span></div>", unsafe_allow_html=True)
 
-   # Sort by date descending using vectorized operations (FIXED)
+    # Sort descending by date — fully vectorized
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = pd.to_datetime(table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-        table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
-    table_df = table_df.reset_index(drop=True)
+        table_df = (table_df.sort_values("_sort", ascending=False, na_position="last")
+                             .drop(columns=["_sort"])
+                             .reset_index(drop=True))
 
     render_paginated_table(table_df, page_key="page_logs")
 
-    # [P2] LOG INSPECTOR
+    # Log Inspector
     full_view = view_df.copy()
     if COL_DATE in full_view.columns:
         full_view["_sort"] = pd.to_datetime(full_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-        full_view = full_view.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
-    full_view = full_view.reset_index(drop=True)
+        full_view = (full_view.sort_values("_sort", ascending=False, na_position="last")
+                              .drop(columns=["_sort"])
+                              .reset_index(drop=True))
 
     st.markdown(
         f"<hr class='divider'/>"
         f"<div class='section-title'>🔍 {t('inspector_title')}</div>",
-        unsafe_allow_html=True,
-    )
+        unsafe_allow_html=True)
     st.caption(t("inspector_hint"))
 
-    _label_col = (col_binder or col_company or
-                  (display_cols[0] if display_cols else None))
+    _label_col = col_binder or col_company or (display_cols[0] if display_cols else None)
 
     def _row_label(i: int, row: pd.Series) -> str:
         auditor_str = str(row.get(COL_AUDITOR, "")).strip() or "?"
-        date_str = str(row.get(COL_DATE, "")).strip()[:10] or "?"
-        hint = ""
-        if _label_col and _label_col in row:
-            hint = str(row[_label_col]).strip()[:40]
-        if hint:
-            return f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}"
-        return f"#{i}  |  {auditor_str}  |  {date_str}"
+        date_str    = str(row.get(COL_DATE, "")).strip()[:10] or "?"
+        hint        = str(row[_label_col]).strip()[:40] if (_label_col and _label_col in row) else ""
+        return f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}" if hint else f"#{i}  |  {auditor_str}  |  {date_str}"
 
     inspector_opts = [t("inspector_select")] + [
-        _row_label(i, row) for i, row in full_view.iterrows()
-    ]
+        _row_label(i, row) for i, row in full_view.iterrows()]
 
-    sel_inspect = st.selectbox(
-        "",
-        inspector_opts,
-        key="logs_inspector_sel",
-        label_visibility="collapsed",
-    )
+    sel_inspect = st.selectbox("", inspector_opts, key="logs_inspector_sel",
+                               label_visibility="collapsed")
 
     if sel_inspect != t("inspector_select"):
         try:
@@ -1978,12 +1666,11 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
             row_idx = None
 
         if row_idx is not None and 0 <= row_idx < len(full_view):
-            insp_row = full_view.iloc[row_idx]
-
+            insp_row    = full_view.iloc[row_idx]
             auditor_val = str(insp_row.get(COL_AUDITOR, "-")).strip() or "-"
-            date_val = str(insp_row.get(COL_DATE, "-")).strip() or "-"
-            eval_val = str(insp_row.get(COL_EVAL, "-")).strip() or "-"
-            binder_val = str(insp_row.get(col_binder or "", "-")).strip() if col_binder else "-"
+            date_val    = str(insp_row.get(COL_DATE,    "-")).strip() or "-"
+            eval_val    = str(insp_row.get(COL_EVAL,    "-")).strip() or "-"
+            binder_val  = str(insp_row.get(col_binder or "", "-")).strip() if col_binder else "-"
 
             st.markdown(
                 f"<div class='inspector-panel'>"
@@ -1992,9 +1679,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"<div>Date&nbsp;&nbsp;<span>{_html.escape(date_val)}</span></div>"
                 f"<div>Evaluation&nbsp;&nbsp;<span>{_html.escape(eval_val)}</span></div>"
                 f"{'<div>Binder&nbsp;&nbsp;<span>' + _html.escape(binder_val) + '</span></div>' if col_binder else ''}"
-                f"</div></div>",
-                unsafe_allow_html=True,
-            )
+                f"</div></div>", unsafe_allow_html=True)
 
             if COL_LOG in full_view.columns:
                 audit_trail = str(insp_row.get(COL_LOG, "")).strip()
@@ -2007,15 +1692,15 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 st.info(t("inspector_no_log_col"))
 
             if COL_FEEDBACK in full_view.columns:
-                feedback_val_full = str(insp_row.get(COL_FEEDBACK, "")).strip()
+                feedback_full = str(insp_row.get(COL_FEEDBACK, "")).strip()
                 with st.expander(f"🛠️  {t('inspector_feedback')}", expanded=True):
-                    if feedback_val_full:
-                        st.code(feedback_val_full, language="text")
+                    if feedback_full:
+                        st.code(feedback_full, language="text")
                     else:
                         st.info(t("inspector_empty_feedback"))
 
     # Export
-    csv_buf = io.StringIO()
+    csv_buf   = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
     dtag = datetime.now(TZ).strftime("%Y%m%d")
@@ -2042,7 +1727,8 @@ def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
             for i in range(2, len(df_u) + 2):
                 _gsheets_call(uws.update_cell, i, col_idx, "auditor")
             _fetch_users_cached.clear()
-        except Exception: pass
+        except Exception:
+            pass
     return df_u
 
 def render_user_admin(spreadsheet_id):
@@ -2096,7 +1782,7 @@ def render_user_admin(spreadsheet_id):
                                         format_func=lambda r: r.title(), key="cr_role_sel")
                 if st.form_submit_button("Update Role", use_container_width=True):
                     try:
-                        spr = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
+                        spr          = get_spreadsheet(); uws = spr.worksheet(USERS_SHEET)
                         header_row   = _gsheets_call(uws.row_values, 1)
                         role_col_idx = (header_row.index("role") + 1) if "role" in header_row \
                                        else len(header_row) + 1
@@ -2172,29 +1858,21 @@ def main():
 
     try:
         inject_css()
-        if st.session_state.get("dark_mode"):
-            inject_dark_mode()
 
         def _on_ws_change():
-            for k in ("f_binder", "f_license"):
-                st.session_state[k] = ""
-            for k in ("arch_binder", "arch_license", "arch_auditor"):
+            for k in ("f_binder", "f_license", "arch_binder", "arch_license", "arch_auditor"):
                 st.session_state[k] = ""
             for prefix in ("anal", "logs"):
                 for suffix in ("_binder", "_agent"):
                     st.session_state[f"{prefix}{suffix}"] = ""
             for pk in ("page_worklist", "page_archive", "page_logs"):
-                if pk in st.session_state:
-                    st.session_state[pk] = 1
-            # Reset inspector selection safely
-            if "inspector_select" in _LANG["en"]:
-                st.session_state["logs_inspector_sel"] = _LANG["en"]["inspector_select"]
-            st.session_state["local_cache_key"] = None
-            st.session_state["local_df"]        = None
-            st.session_state["local_headers"]   = None
-            st.session_state["local_col_map"]   = None
-            st.session_state["active_ws_key"]   = None
-            st.session_state.selected_binder_value = ""
+                st.session_state.pop(pk, None)
+            st.session_state["logs_inspector_sel"]  = t("inspector_select")
+            st.session_state["local_cache_key"]     = None
+            st.session_state["local_df"]            = None
+            st.session_state["local_headers"]       = None
+            st.session_state["local_col_map"]       = None
+            st.session_state["selected_binder_value"] = ""
 
         sid, all_titles = _fetch_sheet_metadata()
 
@@ -2234,8 +1912,7 @@ def main():
         if not available:
             st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
         else:
-            ws_title = st.selectbox(
-                t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
+            ws_title = st.selectbox(t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
             try:
                 df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
             except gspread.exceptions.WorksheetNotFound:
@@ -2265,7 +1942,7 @@ def main():
             st.markdown(f"""
             <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
             <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
-            unsafe_allow_html=True)
+                        unsafe_allow_html=True)
             filtered_df = apply_filters_locally(df, f_binder, f_license, col_binder, col_license)
             render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
@@ -2289,7 +1966,7 @@ def main():
 
         with t_work:
             if not df.empty and ws_title:
-                pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
+                pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE]
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
                 render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license, col_binder)
 
