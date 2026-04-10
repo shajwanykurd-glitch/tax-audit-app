@@ -1,12 +1,12 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v14.9
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.0
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes from v14.8:
-#    [1] Added dark_mode to _DEFAULTS; inject_dark_mode() CSS-variables only
-#    [2] Dark Mode toggle shown to admins only in sidebar
-#    [3] Language buttons restricted to admin/manager only
-#    [4] Auditors see ONLY the Worklist tab (t_arch = None for auditors)
-#    All cookie auth, sheets backend, pagination, optimistic UI unchanged.
+#  Changes from v14.9:
+#    [1] inject_dark_mode() patched: dropdowns, toasts, alerts fully dark
+#    [2] Kurdish language removed; English-only; t() hardcoded to "en"
+#    [3] lang removed from _DEFAULTS; EN/KU buttons removed from login & sidebar
+#    [4] Unused lang-related variables cleaned up
+#    All cookie auth, sheets backend, pagination, optimistic UI, RBAC unchanged.
 # =============================================================================
 
 import html as _html
@@ -55,19 +55,19 @@ TZ = pytz.timezone("Asia/Baghdad")
 
 # -----------------------------------------------------------------------------
 #  2 . SESSION STATE DEFAULTS
+#  [3] "lang" key removed — English only
 # -----------------------------------------------------------------------------
 _DEFAULTS: dict = dict(
     logged_in        = False,
     user_email       = "",
     user_role        = "",
-    lang             = "en",
     date_filter      = "all",
     local_df         = None,
     local_headers    = None,
     local_col_map    = None,
     local_cache_key  = None,
     local_fetched_at = None,
-    dark_mode        = False,   # [1] NEW
+    dark_mode        = False,
 )
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -109,7 +109,7 @@ _PAGE_SIZE  = 10
 _COOKIE_NAME = "portal_auth"
 
 # -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF  (unchanged)
+#  4 . EXPONENTIAL BACKOFF
 # -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -129,7 +129,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS  (unchanged from v14.8)
+#  5 . CSS
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -407,9 +407,8 @@ div[data-testid="stForm"] {
 
 # -----------------------------------------------------------------------------
 #  5b. DARK MODE OVERRIDE  [1]
-#  Only overrides CSS custom properties — no layout, margin, padding, or
-#  font-size values are touched. Tables, dropdowns, and submit button retain
-#  their exact sizes and gradient styles; colours adapt to dark backgrounds.
+#  Overrides CSS custom properties only — no layout, margin, padding, or
+#  font-size values are touched. Dropdowns, toasts, and alerts now fully dark.
 # -----------------------------------------------------------------------------
 def inject_dark_mode() -> None:
     st.markdown("""
@@ -424,12 +423,12 @@ def inject_dark_mode() -> None:
   --border:   rgba(240,246,252,0.10);
   --border-2: rgba(240,246,252,0.16);
 
-  /* ── Text — high-contrast for all table cells, labels, metrics ── */
+  /* ── Text ── */
   --text-primary:   #E6EDF3;
   --text-secondary: #8B949E;
   --text-muted:     #484F58;
 
-  /* ── Indigo accent shades — kept visible on dark backgrounds ── */
+  /* ── Indigo accent ── */
   --indigo-50:  rgba(99,102,241,0.14);
   --indigo-100: rgba(99,102,241,0.22);
   --indigo-400: #818CF8;
@@ -453,26 +452,72 @@ def inject_dark_mode() -> None:
   --red-200:   rgba(248,81,73,0.35);
   --red-600:   #F85149;
 
-  /* ── Shadows — deeper on dark ── */
+  /* ── Shadows ── */
   --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.55);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.65);
   --ring: 0 0 0 3px rgba(129,140,248,0.25);
 }
 
-/* ── Make sure table even-rows use the dark surface ── */
+/* ── Tables ── */
 .gov-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .gov-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 .acc-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .acc-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 
-/* ── Selectbox dropdown menu background ── */
-[data-baseweb="menu"], [data-baseweb="popover"] > div {
-  background: #21262D !important;
+/* ── [1] Dropdowns & listboxes — prevent blinding white ── */
+[data-baseweb="menu"],
+[data-baseweb="popover"] > div,
+div[role="listbox"],
+[data-baseweb="menu"] ul {
+  background-color: #21262D !important;
   border: 1px solid rgba(240,246,252,0.16) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.60) !important;
+}
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"],
+div[role="listbox"] li,
+div[role="option"] {
+  background-color: #21262D !important;
+  color: #E6EDF3 !important;
+}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [role="option"]:hover,
+[data-baseweb="menu"] [aria-selected="true"],
+div[role="listbox"] li:hover,
+div[role="option"]:hover {
+  background-color: rgba(99,102,241,0.22) !important;
+  color: #818CF8 !important;
 }
 
-/* ── Submit button: keep the same gradient, just use the dark-adjusted indigo ── */
+/* ── [1] Toasts — prevent blinding white ── */
+[data-testid="stToast"],
+[data-testid="stToast"] > div {
+  background-color: #161B22 !important;
+  border: 1px solid rgba(129,140,248,0.40) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.60) !important;
+  color: #E6EDF3 !important;
+}
+[data-testid="stToast"] div,
+[data-testid="stToast"] span,
+[data-testid="stToast"] p {
+  color: #E6EDF3 !important;
+}
+
+/* ── [1] Alerts — prevent blinding white ── */
+[data-testid="stAlert"],
+[data-testid="stAlert"] > div {
+  background-color: #161B22 !important;
+  border: 1px solid rgba(129,140,248,0.40) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.50) !important;
+}
+[data-testid="stAlert"] div,
+[data-testid="stAlert"] span,
+[data-testid="stAlert"] p {
+  color: #E6EDF3 !important;
+}
+
+/* ── Submit & regular buttons ── */
 [data-testid="stFormSubmitButton"] > button {
   background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
   box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
@@ -481,8 +526,6 @@ def inject_dark_mode() -> None:
   background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
   box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
 }
-
-/* ── Regular buttons: same treatment ── */
 .stButton > button {
   background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
   box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
@@ -492,7 +535,7 @@ def inject_dark_mode() -> None:
   box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
 }
 
-/* ── Login page form card ── */
+/* ── Login form card ── */
 [data-testid="stForm"] {
   background: rgba(22,27,34,0.96) !important;
   border-color: rgba(240,246,252,0.12) !important;
@@ -515,7 +558,7 @@ def inject_dark_mode() -> None:
 
 
 # -----------------------------------------------------------------------------
-#  6 . TRANSLATIONS  (unchanged from v14.8)
+#  6 . TRANSLATIONS  [2] Kurdish removed — English only
 # -----------------------------------------------------------------------------
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -527,7 +570,6 @@ _LANG: dict[str, dict[str, str]] = {
         "email_field":"Official Email / User ID","password_field":"Password",
         "sign_in":"Sign in","sign_out":"Sign Out",
         "bad_creds":"Authentication failed. Verify your credentials and try again.",
-        "language":"Interface Language",
         "workspace":"Active Case Register","overview":"Case Overview",
         "total":"Total Cases","processed":"Processed","outstanding":"Outstanding",
         "worklist_title":"Audit Worklist","worklist_sub":"Active cases pending review",
@@ -585,79 +627,15 @@ _LANG: dict[str, dict[str, str]] = {
         "arch_search_title":"Archive Quick Search",
         "dark_mode_label":"Dark Mode",
     },
-    "ku": {
-        "ministry":"وەزارەتی دارایی و گومرگ",
-        "portal_title":"پۆرتەلی فەرمی وردبینی باج و پابەندبوون",
-        "portal_sub":"تەنها دەستپێگەیشتنی مەرجدارکراو",
-        "classified":"نهێنی - تەنها بەکارهێنانی حکومی",
-        "login_prompt":"زانیارییە مەرجەکانت بنووسە بۆ چوونەژوورەوە",
-        "email_field":"ئیمەیڵی فەرمی / ناساندن","password_field":"پاسۆرد",
-        "sign_in":"چوونەژوورەوە","sign_out":"چوونەدەرەوە",
-        "bad_creds":"ناسناوەکان هەڵەن. تکایە دووبارە هەوڵبدە.",
-        "language":"زمانی ڕووکار",
-        "workspace":"تۆماری کەیسە چالاکەکان","overview":"کورتەی کەیسەکان",
-        "total":"کۆی کەیسەکان","processed":"کارکراوە","outstanding":"ماوە",
-        "worklist_title":"لیستی کاری وردبینی","worklist_sub":"کیسە چالاکەکانی چاوەڕوان",
-        "tab_worklist":"لیستی کاری","tab_archive":"ئەرشیف",
-        "tab_analytics":"ئەنالیتیکس","tab_logs":"لۆگی ئۆدیتۆر","tab_users":"بەکارهێنەر",
-        "select_case":"کیسێک هەڵبژێرە بۆ پشکنین","audit_trail":"مێژووی گۆڕانکاری",
-        "approve_save":"پەسەندکردن و پاشەکەوتکردن","reopen":"( دووبارە کردنەوەی کەیسەکان ( گەراندنەوەی کەیسەکان",
-        "leaderboard":"تەختەی بەرهەمهێنانی ئۆدیتۆر","daily_trend":"ترەندی ڕۆژانە",
-        "period":"ماوەی کات","today":"ئەمڕۆ","this_week":"ئەم هەفتەیە",
-        "this_month":"ئەم مانگەیە","all_time":"هەموو کات",
-        "add_auditor":"تۆمارکردنی بەکارهێنەری نوێ","update_pw":"نوێکردنەوەی پاسۆرد",
-        "remove_user":"هەڵوەشاندنەوەی دەستپێگەیشتن","staff_dir":"کارمەندە مەرجداركراوەکان",
-        "no_records":"هیچ تۆماری نییە بۆ ئەم ماوەیە.",
-        "empty_sheet":"ئەم تۆمارخانە داتای تێدا نییە.",
-        "saved_ok":"کیسەکە پەسەندکرا. دیمەن نوێکرایەوە.",
-        "dup_email":"ئەم ئیمەیڵە پێشتر تۆمارکراوە.",
-        "fill_fields":"هەموو خانەکان پەیوەندییانە.",
-        "signed_as":"چووییتە ژوورەوە بەناوی","role_admin":"بەڕێوەبەری سیستەم",
-        "role_auditor":"ئۆدیتۆری باج","role_manager":"بەڕێوەبەر",
-        "processing":"پشکنینی کیسی","no_history":"هیچ مێژوویەک بۆ ئەم تۆمارە نییە.",
-        "records_period":"تۆمارەکان (ماوە)","active_days":"ڕۆژی چالاک","avg_per_day":"تێکڕای ڕۆژانە",
-        "adv_filters":"فلتەرە پێشکەوتووەکان",
-        "f_binder":"ژمارەی بایندەری کۆمپانیا","f_license":"ژمارەی مۆڵەتی",
-        "clear_filters":"سڕینەوەی فلتەرەکان",
-        "active_filters":"فلتەرە چالاکەکان","results_shown":"ئەنجامی پیشاندراو",
-        "no_match":"هیچ تۆماریک لەگەڵ فلتەرەکان دەگونجێ.",
-        "retry_warning":"کووتای گووگڵ شیت گەیشت - دووبارە هەوڵدەدرێت...",
-        "local_mode":"Optimistic UI چالاکە","cache_age":"Cache TTL",
-        "rbac_notice":"ڕۆڵەکەت تەنها دەستپێگەیشتن بە لیستی کاری هەیە.",
-        "logs_title":"لۆگی چالاکی ئۆدیتۆرەکان","logs_sub":"مێژووی تەواوی پرۆسەکردن",
-        "logs_filter_all":"هەموو ئۆدیتۆرەکان","logs_auditor_sel":"فلتەر بە ئۆدیتۆر",
-        "logs_total":"کۆی گشتی کارکراو","logs_auditors":"ژمارەی ئۆدیتۆرەکان",
-        "logs_date_range":"ماوەی بەروار","logs_no_data":"هیچ تۆماری کارکراوی نییە.",
-        "logs_export_hdr":"هەناردەکردنی ڕاپۆرتی تەواو",
-        "logs_export_sub":"ئەم لۆگە وەک فایلی CSV داگرە.",
-        "logs_export_btn":"داگرتنی ڕاپۆرتی CSV",
-        "logs_filename":"audit_log_report.csv","logs_cols_shown":"ستوونەکانی پیشاندراو",
-        "eval_label":"کوالێتی داتا (Data Entry Quality)",
-        "feedback_label":"تێبینی ئۆدیتۆر / تێبینی بۆ ئەجنت",
-        "feedback_placeholder":"تێبینی ئارەزوومەندانە، کێشەکان، سەرەستکردنەکان...",
-        "acc_ranking_title":"رێزبەندی شیازی داخلکردنی داتا",
-        "acc_agent":"ئیمەیڵی ئەجنت","acc_total":"کۆی گشتی",
-        "acc_good":"باش","acc_bad":"خراپ","acc_dup":"دووبارە","acc_rate":"ڕێژەی شیازی %",
-        "acc_no_data":"هیچ داتای هەڵسەنگاندنی بەردەست نییە.",
-        "archive_quality_note":"تێبینی: ستوونەکانی Data_Evaluation و Correction_Notes نیشاندراون.",
-        "role_label":"ڕۆڵ","change_role":"گۆڕینی ڕۆڵی بەکارهێنەر",
-        "change_role_sub":"بەرزکردنەوە یان دابەزاندنی ئاستی دەستپێگەیشتن",
-        "role_updated":"ڕۆڵەکە بە سەرکەوتوویی نوێکرایەوە.",
-        "deep_search":"گەڕانی قووڵ","ds_binder":"ژمارەی بایندەر","ds_agent":"ئیمەیڵی ئەجنت",
-        "ds_clear":"سڕینەوە","ds_showing":"پیشاندانی ئەنجام بۆ",
-        "eval_breakdown":"داڕشتنی هەڵسەنگاندن بەپێی ئەجنت",
-        "eval_breakdown_sub":"دیمەنی خورەکی باش / خراپ / دووبارە بەپێی ئەجنتی داخلکردنی داتا",
-        "arch_search_title":"گەڕانی خێرای ئەرشیف",
-        "dark_mode_label":"دیمەنی تاریک",
-    },
 }
 
+# [2] t() hardcoded to English — no lang switching
 def t(key: str) -> str:
-    return _LANG[st.session_state.lang].get(key, key)
+    return _LANG["en"].get(key, key)
 
 
 # -----------------------------------------------------------------------------
-#  7 . HELPERS  (unchanged from v14.8)
+#  7 . HELPERS
 # -----------------------------------------------------------------------------
 _COL_KEYWORDS: dict[str, list[str]] = {
     "binder":  ["رقم ملف الشركة","رقم_ملف_الشركة","رقم ملف","ملف الشركة",
@@ -756,7 +734,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS  (unchanged from v14.8)
+#  8 . GOOGLE SHEETS
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -802,7 +780,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS  (unchanged from v14.8)
+#  9 . OPTIMISTIC MUTATIONS
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -827,7 +805,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS  (unchanged from v14.8)
+#  10 . WRITE HELPERS
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -890,7 +868,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION  (unchanged from v14.8)
+#  11 . HTML TABLE & PAGINATION
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -972,7 +950,7 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN  (unchanged from v14.8 — cookie logic intact)
+#  12 . LOGIN  [3] EN/KU language buttons removed — clean centered form only
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str, cookie_manager) -> None:
     st.markdown("""
@@ -1034,12 +1012,7 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
     </script>
     """, unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns([8, 1, 1])
-    with c2:
-        if st.button("EN", key="lg_en"): st.session_state.lang = "en"; st.rerun()
-    with c3:
-        if st.button("KU", key="lg_ku"): st.session_state.lang = "ku"; st.rerun()
-
+    # [3] Language toggle buttons removed — English only
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
         <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
@@ -1083,7 +1056,7 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR  [2][3] dark mode toggle (admin only), language (admin/manager only)
+#  13 . SIDEBAR  [3] Language buttons removed; dark mode toggle admin-only
 # -----------------------------------------------------------------------------
 def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                    cookie_manager):
@@ -1108,7 +1081,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
 
-        # ── Refresh button — admin/manager only (unchanged) ──────────────────
+        # ── Refresh button — admin/manager only ──────────────────────────────
         if st.session_state.get("user_role") in ("admin", "manager"):
             COOLDOWN = 600
             if "last_refresh_time" not in st.session_state:
@@ -1135,7 +1108,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                 st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
                           disabled=True, use_container_width=True)
 
-            # [2] Dark Mode toggle — admin only
+            # Dark Mode toggle — admin only
             if is_admin:
                 st.toggle(
                     f"🌙 {t('dark_mode_label')}",
@@ -1150,14 +1123,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-        # [3] Language buttons — admin and manager only (auditors default to English)
-        if st.session_state.user_role in ("admin", "manager"):
-            st.markdown(f"<div class='sb-label'>{t('language')}</div>", unsafe_allow_html=True)
-            lc1, lc2 = st.columns(2)
-            if lc1.button("EN", use_container_width=True, key="sb_en"):
-                st.session_state.lang = "en"; st.rerun()
-            if lc2.button("KU", use_container_width=True, key="sb_ku"):
-                st.session_state.lang = "ku"; st.rerun()
+        # [3] Language buttons removed entirely
 
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>",
@@ -1183,7 +1149,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
 
-        # Self-service password change (unchanged)
+        # Self-service password change (intact)
         st.markdown("<hr class='divider' style='margin: 8px 0;'/>", unsafe_allow_html=True)
         if st.toggle(f"🔒 {t('update_pw')}", key="toggle_pw"):
             with st.form("change_my_pw_form_sidebar"):
@@ -1197,18 +1163,18 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                             if cell:
                                 _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
                                 _fetch_users_cached.clear()
-                                st.success("بە سەرکەوتوویی گۆڕدرا! 🔒")
+                                st.success("Password updated successfully! 🔒")
                                 time.sleep(1.5); st.rerun()
                             else:
-                                st.error("ئەکاونتەکەت نەدۆزرایەوە.")
+                                st.error("Account not found.")
                         except Exception as e:
-                            st.error(f"هەڵەیەک ڕوویدا: {e}")
+                            st.error(f"Error: {e}")
                     else:
-                        st.warning("تکایە پاسۆردی نوێ بنووسە.")
+                        st.warning("Please enter a new password.")
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-        # Sign-out — cookie delete (unchanged)
+        # Sign-out — cookie delete
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
             try:
                 cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
@@ -1236,7 +1202,7 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (unchanged from v14.8)
+#  DEEP SEARCH WIDGET
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
     def _clear():
@@ -1287,7 +1253,7 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST  (unchanged from v14.8)
+#  14 . WORKLIST
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license):
     p_count = len(pending_display)
@@ -1369,7 +1335,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE  (unchanged from v14.8)
+#  15 . ARCHIVE
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_license=None):
@@ -1452,7 +1418,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS  (unchanged from v14.8)
+#  16 . ANALYTICS
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
@@ -1633,7 +1599,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  (unchanged from v14.8)
+#  17 . AUDITOR LOGS
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
@@ -1727,7 +1693,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN  (unchanged from v14.8)
+#  18 . USER ADMIN
 # -----------------------------------------------------------------------------
 def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
@@ -1847,7 +1813,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER  [1][4] dark mode call + auditor sees Worklist only
+#  19 . MAIN CONTROLLER
 # -----------------------------------------------------------------------------
 def main():
     cookie_manager = stx.CookieManager(key="portal_cm")
@@ -1867,7 +1833,6 @@ def main():
             pass
 
     try:
-        # [1] Apply base CSS first, then dark mode override if toggled
         inject_css()
         if st.session_state.get("dark_mode"):
             inject_dark_mode()
@@ -1964,7 +1929,7 @@ def main():
         else:
             filtered_df = pd.DataFrame()
 
-        # ── RBAC tab construction [4] ─────────────────────────────────────────
+        # ── RBAC tab construction ─────────────────────────────────────────────
         if is_admin:
             tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
                             t("tab_analytics"), t("tab_logs"), t("tab_users")])
@@ -1977,12 +1942,12 @@ def main():
             t_uadm = None
 
         else:
-            # [4] Auditors: Worklist ONLY — no Archive, no Analytics
+            # Auditors: Worklist ONLY
             st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>",
                         unsafe_allow_html=True)
             tabs   = st.tabs([t("tab_worklist")])
             t_work = tabs[0]
-            t_arch = None   # [4] explicitly None — guard below prevents errors
+            t_arch = None
             t_anal = None
             t_logs = None
             t_uadm = None
@@ -1994,7 +1959,6 @@ def main():
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
                 render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license)
 
-        # [4] Guard: only render Archive if the tab exists (admin / manager)
         if t_arch is not None:
             with t_arch:
                 if not df.empty and ws_title:
