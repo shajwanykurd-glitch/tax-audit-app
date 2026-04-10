@@ -1890,11 +1890,11 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>"
                 f"{_html.escape(shown)}</span></div>", unsafe_allow_html=True)
 
-    # Sort by date descending using vectorized operations
+   # Sort by date descending using vectorized operations (FIXED)
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
-        parsed = pd.to_datetime(table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-        table_df = table_df.iloc[parsed.argsort(ascending=False)]
+        table_df["_sort"] = pd.to_datetime(table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
     table_df = table_df.reset_index(drop=True)
 
     render_paginated_table(table_df, page_key="page_logs")
@@ -1902,8 +1902,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     # [P2] LOG INSPECTOR
     full_view = view_df.copy()
     if COL_DATE in full_view.columns:
-        parsed = pd.to_datetime(full_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-        full_view = full_view.iloc[parsed.argsort(ascending=False)]
+        full_view["_sort"] = pd.to_datetime(full_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        full_view = full_view.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
     full_view = full_view.reset_index(drop=True)
 
     st.markdown(
