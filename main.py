@@ -1255,7 +1255,7 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (UPDATED: dynamic agent dropdown)
+#  DEEP SEARCH WIDGET  (UPDATED: dynamic agent dropdown fixed)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
     def _clear():
@@ -1286,7 +1286,7 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
             # Ensure current_val is in opts (if not, default to "")
             if current_val not in opts:
                 current_val = ""
-            selected = st.selectbox(
+            st.selectbox(
                 t("ds_agent"),
                 options=opts,
                 key=f"{key_prefix}_agent",
@@ -1294,8 +1294,7 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
                 disabled=(col_agent_email is None),
                 label_visibility="collapsed"
             )
-            # Store the selected value (empty string means no filter)
-            st.session_state[f"{key_prefix}_agent"] = selected
+            # تێبینی: ئەو دێڕە زیادەیەم سڕییەوە کە دەبووە هۆی کێشەکە
         else:
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
                           placeholder=ph_agent, disabled=(col_agent_email is None), label_visibility="collapsed")
