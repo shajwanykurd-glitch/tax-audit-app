@@ -1,12 +1,12 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.0
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v15.1
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes from v14.9:
-#    [1] inject_dark_mode() patched: dropdowns, toasts, alerts fully dark
-#    [2] Kurdish language removed; English-only; t() hardcoded to "en"
-#    [3] lang removed from _DEFAULTS; EN/KU buttons removed from login & sidebar
-#    [4] Unused lang-related variables cleaned up
-#    All cookie auth, sheets backend, pagination, optimistic UI, RBAC unchanged.
+#  Changes from v15.0:
+#    [P1] build_auto_diff: truncation removed — full strings logged always
+#    [P2] render_auditor_logs: Log Inspector added after paginated table —
+#         selectbox picks any row; COL_LOG + COL_FEEDBACK shown in st.code
+#         with a clean expandable container for scrollable reading
+#    All Dark Mode CSS, RBAC, cookie auth, Google Sheets logic, forms unchanged.
 # =============================================================================
 
 import html as _html
@@ -51,24 +51,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-TZ = pytz.timezone("Asia/Baghdad")  # <--- ئەمە ئەو دێڕەیە کە بیرم چوو بوو!
+TZ = pytz.timezone("Asia/Baghdad")
 
-# ئەمە وا دەکات ستریملیت ڕاستەوخۆ لە ڕەگەوە تێمەکەی خۆی بکات بە دارک
 if "dark_mode" in st.session_state and st.session_state.dark_mode:
     st.markdown(
-        """
-        <style>
-            [data-testid="stAppViewContainer"] {
-                color-scheme: dark;
-            }
-        </style>
-        """,
+        """<style>[data-testid="stAppViewContainer"]{color-scheme:dark;}</style>""",
         unsafe_allow_html=True,
     )
 
 # -----------------------------------------------------------------------------
 #  2 . SESSION STATE DEFAULTS
-#  [3] "lang" key removed — English only
 # -----------------------------------------------------------------------------
 _DEFAULTS: dict = dict(
     logged_in        = False,
@@ -111,18 +103,16 @@ EVAL_OPTIONS = [
     "Duplicate (دووبارە)",
 ]
 
-VALID_ROLES = ["auditor", "manager", "admin"]
+VALID_ROLES  = ["auditor", "manager", "admin"]
 
-READ_TTL    = 600
-BACKOFF_MAX = 5
-_ROW_SEP    = " \u007c "
-
-_PAGE_SIZE  = 10
-
+READ_TTL     = 600
+BACKOFF_MAX  = 5
+_ROW_SEP     = " \u007c "
+_PAGE_SIZE   = 10
 _COOKIE_NAME = "portal_auth"
 
 # -----------------------------------------------------------------------------
-#  4 . EXPONENTIAL BACKOFF
+#  4 . EXPONENTIAL BACKOFF  (unchanged)
 # -----------------------------------------------------------------------------
 _retry_policy = retry(
     retry        = retry_if_exception_type(
@@ -142,7 +132,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS
+#  5 . CSS  (unchanged from v15.0)
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -415,10 +405,27 @@ div[data-testid="stForm"] {
 .acc-rate-low  { color:var(--red-600)!important;font-weight:800!important;font-family:var(--mono)!important; }
 .acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
 .acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
+/* [P2] Log Inspector panel */
+.inspector-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--indigo-500);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-top: 8px;
+  box-shadow: var(--shadow-sm);
+}
+.inspector-meta {
+  font-size: .72rem; font-weight: 700; color: var(--text-muted) !important;
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
+}
+.inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
 </style>""", unsafe_allow_html=True)
 
+
 # -----------------------------------------------------------------------------
-#  5b. DARK MODE OVERRIDE
+#  5b. DARK MODE OVERRIDE  (unchanged from v15.0)
 # -----------------------------------------------------------------------------
 def inject_dark_mode() -> None:
     st.markdown("""
@@ -455,20 +462,15 @@ def inject_dark_mode() -> None:
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.65);
   --ring: 0 0 0 3px rgba(129,140,248,0.25);
 }
-
 .gov-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .gov-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
 .acc-table tbody tr:nth-child(even) td { background: #1C2128 !important; }
 .acc-table tbody tr:hover td { background: rgba(99,102,241,0.12) !important; }
-
 div[data-baseweb="select"] > div {
   background-color: #21262D !important;
   border-color: rgba(240,246,252,0.16) !important;
 }
-div[data-baseweb="select"] > div span {
-  color: #E6EDF3 !important;
-}
-
+div[data-baseweb="select"] > div span { color: #E6EDF3 !important; }
 div[data-baseweb="popover"] > div,
 div[data-testid="stVirtualDropdown"],
 ul[data-baseweb="menu"],
@@ -476,7 +478,6 @@ div[role="listbox"] {
   background-color: #161B22 !important;
   border: 1px solid rgba(99,102,241,0.5) !important;
 }
-
 li[role="option"],
 li[role="option"] span,
 ul[data-baseweb="menu"] li,
@@ -484,7 +485,6 @@ div[role="listbox"] span {
   background-color: #161B22 !important;
   color: #E6EDF3 !important;
 }
-
 li[role="option"]:hover,
 li[role="option"]:hover span,
 li[role="option"][aria-selected="true"],
@@ -495,7 +495,6 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   color: #FFFFFF !important;
   font-weight: 700 !important;
 }
-
 [data-testid="stToast"],
 [data-testid="stToast"] > div {
   background-color: #161B22 !important;
@@ -505,10 +504,7 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
 }
 [data-testid="stToast"] div,
 [data-testid="stToast"] span,
-[data-testid="stToast"] p {
-  color: #E6EDF3 !important;
-}
-
+[data-testid="stToast"] p { color: #E6EDF3 !important; }
 [data-testid="stAlert"],
 [data-testid="stAlert"] > div {
   background-color: #161B22 !important;
@@ -517,10 +513,7 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
 }
 [data-testid="stAlert"] div,
 [data-testid="stAlert"] span,
-[data-testid="stAlert"] p {
-  color: #E6EDF3 !important;
-}
-
+[data-testid="stAlert"] p { color: #E6EDF3 !important; }
 [data-testid="stFormSubmitButton"] > button {
   background: linear-gradient(135deg, #6366F1 0%, #3B82F6 100%) !important;
   box-shadow: 0 2px 8px rgba(99,102,241,0.50) !important;
@@ -537,26 +530,25 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
   box-shadow: 0 8px 24px rgba(99,102,241,0.60) !important;
 }
-
 [data-testid="stForm"] {
   background: rgba(22,27,34,0.96) !important;
   border-color: rgba(240,246,252,0.12) !important;
 }
-
-.streamlit-expanderContent {
-  background: #161B22 !important;
-}
-
+.streamlit-expanderContent { background: #161B22 !important; }
 .prog-wrap { background: #21262D; }
-
 .export-strip {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
   border-color: rgba(63,185,80,0.35) !important;
 }
-</style>
-""", unsafe_allow_html=True)
+.inspector-panel {
+  background: #21262D !important;
+  border-color: rgba(240,246,252,0.10) !important;
+}
+</style>""", unsafe_allow_html=True)
+
+
 # -----------------------------------------------------------------------------
-#  6 . TRANSLATIONS  [2] Kurdish removed — English only
+#  6 . TRANSLATIONS — English only
 # -----------------------------------------------------------------------------
 _LANG: dict[str, dict[str, str]] = {
     "en": {
@@ -624,10 +616,18 @@ _LANG: dict[str, dict[str, str]] = {
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
         "arch_search_title":"Archive Quick Search",
         "dark_mode_label":"Dark Mode",
+        # [P2] Log Inspector strings
+        "inspector_title":"Inspect Full Record Details",
+        "inspector_select":"Select a record to inspect",
+        "inspector_hint":"Choose a row from the table above to read its full audit trail and feedback notes.",
+        "inspector_audit_trail":"Audit Trail (Full)",
+        "inspector_feedback":"Correction Notes / Auto-Diff (Full)",
+        "inspector_empty_trail":"No audit trail recorded for this entry.",
+        "inspector_empty_feedback":"No correction notes for this entry.",
+        "inspector_no_log_col":"Audit_Log column not present in this view — re-fetch from the full dataset to inspect.",
     },
 }
 
-# [2] t() hardcoded to English — no lang switching
 def t(key: str) -> str:
     return _LANG["en"].get(key, key)
 
@@ -718,21 +718,28 @@ def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_lic
         r = r[r[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)]
     return r
 
+
+# [P1] build_auto_diff — truncation completely removed
 def build_auto_diff(record: dict, new_vals: dict) -> str:
+    """
+    Compares original record values with submitted new_vals and returns a
+    full diff string.  No character-length truncation is applied — the entire
+    old and new value is always logged so auditors can reconstruct any change.
+    """
     lines = []
     for field, new_v in new_vals.items():
-        old_v = clean_cell(record.get(field, ""))
+        old_v       = clean_cell(record.get(field, ""))
         new_v_clean = clean_cell(new_v)
         if old_v != new_v_clean:
-            ov = old_v[:60] + "..." if len(old_v) > 60 else old_v
-            nv = new_v_clean[:60] + "..." if len(new_v_clean) > 60 else new_v_clean
-            lines.append(f"[{field}]: '{ov}' -> '{nv}'")
-    if lines: return "Auto-Log:\n" + "\n".join(lines)
+            # [P1] Full strings — no [:60] slicing
+            lines.append(f"[{field}]:\n  WAS: {old_v!r}\n  NOW: {new_v_clean!r}")
+    if lines:
+        return "Auto-Log:\n" + "\n".join(lines)
     return "Auto-Log: No field changes detected."
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS
+#  8 . GOOGLE SHEETS  (unchanged)
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -778,7 +785,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS
+#  9 . OPTIMISTIC MUTATIONS  (unchanged)
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -803,7 +810,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS
+#  10 . WRITE HELPERS  (unchanged)
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -820,13 +827,13 @@ def write_approval_to_sheet(ws_title, sheet_row, col_map, headers, new_vals, rec
     ws = get_spreadsheet().worksheet(ws_title)
     headers, col_map = ensure_system_cols_in_sheet(ws, headers, col_map)
     if COL_STATUS in col_map:
-        status_a1 = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
+        status_a1   = rowcol_to_a1(sheet_row, col_map[COL_STATUS])
         live_status = _gsheets_call(ws.acell, status_a1).value
         if live_status == VAL_DONE:
             return False
-    old = str(record.get(COL_LOG, "")).strip()
+    old     = str(record.get(COL_LOG, "")).strip()
     new_log = f"{log_prefix}\n{old}".strip()
-    batch = []
+    batch   = []
     for f, v in new_vals.items():
         if f in col_map and clean_cell(record.get(f, "")) != v:
             batch.append({"range": rowcol_to_a1(sheet_row, col_map[f]), "values": [[v]]})
@@ -851,7 +858,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
         return "admin"
     try:
         records = _fetch_users_cached(spreadsheet_id)
-        df_u = pd.DataFrame(records)
+        df_u    = pd.DataFrame(records)
         if df_u.empty or "email" not in df_u.columns: return None
         row = df_u[df_u["email"] == email]
         if row.empty: return None
@@ -866,7 +873,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION
+#  11 . HTML TABLE & PAGINATION  (unchanged)
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -933,84 +940,69 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
     if total_pages > 1:
         col_prev, col_info, col_next = st.columns([1, 3, 1])
         with col_prev:
-            if st.button("Prev", key=f"{page_key}_prev", disabled=(current <= 1), use_container_width=True):
+            if st.button("Prev", key=f"{page_key}_prev", disabled=(current <= 1),
+                         use_container_width=True):
                 st.session_state[page_key] -= 1; st.rerun()
         with col_info:
             st.markdown(
                 f"<div style='text-align:center;padding:8px 0;font-size:.75rem;font-weight:700;"
                 f"color:var(--text-muted);font-family:var(--mono);'>"
                 f"Page {current} of {total_pages} "
-                f"<span style='font-weight:400;margin-left:8px;'>({start+1}-{end} of {total_rows} rows)</span>"
-                f"</div>", unsafe_allow_html=True)
+                f"<span style='font-weight:400;margin-left:8px;'>"
+                f"({start+1}-{end} of {total_rows} rows)</span></div>",
+                unsafe_allow_html=True)
         with col_next:
-            if st.button("Next", key=f"{page_key}_next", disabled=(current >= total_pages), use_container_width=True):
+            if st.button("Next", key=f"{page_key}_next", disabled=(current >= total_pages),
+                         use_container_width=True):
                 st.session_state[page_key] += 1; st.rerun()
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN  [3] EN/KU language buttons removed — clean centered form only
+#  12 . LOGIN  (unchanged from v15.0)
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str, cookie_manager) -> None:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"], [data-testid="collapsedControl"], header {display: none !important;}
-    .stApp {
-        background: linear-gradient(-45deg, #0F172A, #1E3A8A, #3B82F6, #1E40AF);
-        background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+    [data-testid="stSidebar"],[data-testid="collapsedControl"],header{display:none!important;}
+    .stApp{
+        background:linear-gradient(-45deg,#0F172A,#1E3A8A,#3B82F6,#1E40AF);
+        background-size:400% 400%;animation:gradientBG 15s ease infinite;
     }
-    @keyframes gradientBG {
-        0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;}
+    @keyframes gradientBG{
+        0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}
     }
-    .block-container {
-        display:flex;flex-direction:column;justify-content:center;align-items:center;
-        min-height:100vh;padding:1rem !important;
-    }
-    [data-testid="stForm"] {
+    .block-container{display:flex;flex-direction:column;justify-content:center;align-items:center;
+        min-height:100vh;padding:1rem!important;}
+    [data-testid="stForm"]{
         background:rgba(255,255,255,0.95)!important;backdrop-filter:blur(12px)!important;
         -webkit-backdrop-filter:blur(12px)!important;border:1px solid rgba(255,255,255,0.3)!important;
         border-radius:24px!important;padding:40px 30px!important;
         box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;
         max-width:420px!important;width:100%!important;margin:0 auto!important;
     }
-    [data-testid="stFormSubmitButton"] button {
+    [data-testid="stFormSubmitButton"] button{
         background:linear-gradient(135deg,#1E3A8A 0%,#3B82F6 100%)!important;
         color:white!important;border:none!important;border-radius:12px!important;
         font-weight:bold!important;font-size:1rem!important;padding:0.6rem!important;
         width:100%!important;margin-top:10px!important;
         transition:transform 0.2s ease,box-shadow 0.2s ease!important;
     }
-    [data-testid="stFormSubmitButton"] button:hover {
+    [data-testid="stFormSubmitButton"] button:hover{
         transform:translateY(-2px)!important;
         box-shadow:0 10px 20px rgba(59,130,246,0.4)!important;color:white!important;
     }
     </style>""", unsafe_allow_html=True)
 
-    st.markdown("""
-    <script>
-    (function () {
-        function applyAutocomplete() {
-            try {
-                var doc = window.parent.document;
-                var textInputs = doc.querySelectorAll('input[type="text"]');
-                if (textInputs.length > 0) {
-                    textInputs[0].setAttribute('autocomplete', 'username');
-                    textInputs[0].setAttribute('name', 'username');
-                }
-                var pwInputs = doc.querySelectorAll('input[type="password"]');
-                if (pwInputs.length > 0) {
-                    pwInputs[0].setAttribute('autocomplete', 'current-password');
-                    pwInputs[0].setAttribute('name', 'password');
-                }
-            } catch(e) {}
-        }
-        [150, 400, 800, 1500].forEach(function(ms) {
-            setTimeout(applyAutocomplete, ms);
-        });
-    })();
-    </script>
-    """, unsafe_allow_html=True)
+    st.markdown("""<script>
+    (function(){function a(){try{var d=window.parent.document;
+    var t=d.querySelectorAll('input[type="text"]');
+    if(t.length>0){t[0].setAttribute('autocomplete','username');t[0].setAttribute('name','username');}
+    var p=d.querySelectorAll('input[type="password"]');
+    if(p.length>0){p[0].setAttribute('autocomplete','current-password');p[0].setAttribute('name','password');}
+    }catch(e){}}
+    [150,400,800,1500].forEach(function(ms){setTimeout(a,ms);});})();
+    </script>""", unsafe_allow_html=True)
 
-    # [3] Language toggle buttons removed — English only
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
         <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
@@ -1033,19 +1025,15 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
             spreadsheet_id,
         )
         if role:
-            em = st.session_state.get("_login_email", "")
+            em            = st.session_state.get("_login_email", "")
             display_email = "Admin" if role == "admin" else em.lower().strip()
             st.session_state.logged_in  = True
             st.session_state.user_email = display_email
             st.session_state.user_role  = role
             try:
                 expires_at = datetime.now() + timedelta(days=1)
-                cookie_manager.set(
-                    _COOKIE_NAME,
-                    f"{display_email}|{role}",
-                    expires_at=expires_at,
-                    key="login_set_cookie",
-                )
+                cookie_manager.set(_COOKIE_NAME, f"{display_email}|{role}",
+                                   expires_at=expires_at, key="login_set_cookie")
             except Exception:
                 pass
             st.rerun()
@@ -1054,10 +1042,9 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR  [3] Language buttons removed; dark mode toggle admin-only
+#  13 . SIDEBAR  (unchanged from v15.0)
 # -----------------------------------------------------------------------------
-def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
-                   cookie_manager):
+def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cookie_manager):
 
     def clear_all_filters():
         for k in ("f_binder", "f_license"):
@@ -1079,7 +1066,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         </div>
         <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
 
-        # ── Refresh button — admin/manager only ──────────────────────────────
         if st.session_state.get("user_role") in ("admin", "manager"):
             COOLDOWN = 600
             if "last_refresh_time" not in st.session_state:
@@ -1095,7 +1081,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                 _fetch_raw_sheet_cached.clear()
                 _fetch_users_cached.clear()
                 _fetch_sheet_metadata.clear()
-                st.session_state.local_cache_key = None
+                st.session_state.local_cache_key   = None
                 st.session_state.last_refresh_time = time.time()
                 st.toast("Data refreshed for all users", icon="🔄")
 
@@ -1106,15 +1092,9 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                 st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
                           disabled=True, use_container_width=True)
 
-           # Dark Mode toggle — admin only
             if is_admin:
-                def toggle_theme():
-                    pass # تەنیا بۆ ئەوەی پەڕەکە ڕێفرێش ببێتەوە
-                st.toggle(
-                    f"🌙 {t('dark_mode_label')}",
-                    key="dark_mode",
-                    on_change=toggle_theme
-                )
+                def toggle_theme(): pass
+                st.toggle(f"🌙 {t('dark_mode_label')}", key="dark_mode", on_change=toggle_theme)
 
         st.markdown(f"""
         <div class="cache-strip">
@@ -1123,9 +1103,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
-        # [3] Language buttons removed entirely
-
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>",
                     unsafe_allow_html=True)
@@ -1150,8 +1127,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
           <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
         </div>""", unsafe_allow_html=True)
 
-        # Self-service password change (intact)
-        st.markdown("<hr class='divider' style='margin: 8px 0;'/>", unsafe_allow_html=True)
+        st.markdown("<hr class='divider' style='margin:8px 0;'/>", unsafe_allow_html=True)
         if st.toggle(f"🔒 {t('update_pw')}", key="toggle_pw"):
             with st.form("change_my_pw_form_sidebar"):
                 new_pw = st.text_input(t("password_field"), type="password")
@@ -1162,7 +1138,8 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                             uws  = spr.worksheet(USERS_SHEET)
                             cell = _gsheets_call(uws.find, st.session_state.user_email)
                             if cell:
-                                _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
+                                _gsheets_call(uws.update_cell, cell.row, 2,
+                                              hash_pw(new_pw.strip()))
                                 _fetch_users_cached.clear()
                                 st.success("Password updated successfully! 🔒")
                                 time.sleep(1.5); st.rerun()
@@ -1174,8 +1151,6 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
                         st.warning("Please enter a new password.")
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-        # Sign-out — cookie delete
         if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
             try:
                 cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
@@ -1188,6 +1163,7 @@ def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at,
         st.session_state.get("f_binder",  ""),
         st.session_state.get("f_license", ""),
     )
+
 
 def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) -> None:
     n = _n_active(f_binder, f_license)
@@ -1203,7 +1179,7 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET
+#  DEEP SEARCH WIDGET  (unchanged)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email):
     def _clear():
@@ -1254,7 +1230,7 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST
+#  14 . WORKLIST  (unchanged)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license):
     p_count = len(pending_display)
@@ -1336,7 +1312,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE
+#  15 . ARCHIVE  (unchanged)
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_license=None):
@@ -1419,7 +1395,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS
+#  16 . ANALYTICS  (unchanged)
 # -----------------------------------------------------------------------------
 def render_analytics(df, col_agent_email=None, col_binder=None):
     pt = "plotly_white"; pb = "#FFFFFF"; pg = "#E4E7F0"; fc = "#0D1117"
@@ -1600,7 +1576,7 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS
+#  17 . AUDITOR LOGS  — [P2] Log Inspector added after paginated table
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     st.markdown(f"""
@@ -1631,6 +1607,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     if done_df.empty: st.info(t("logs_no_data")); return
 
+    # Build display_cols (COL_LOG intentionally excluded from table — shown in inspector)
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
     if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
@@ -1670,14 +1647,111 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"<span style='font-weight:400;text-transform:none;letter-spacing:0;'>"
                 f"{_html.escape(shown)}</span></div>", unsafe_allow_html=True)
 
+    # Sort by date descending before slicing
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
         table_df["_sort"] = table_df[COL_DATE].apply(parse_dt)
-        table_df = table_df.sort_values("_sort", ascending=False, na_position="last").drop(columns=["_sort"])
+        table_df = (table_df
+                    .sort_values("_sort", ascending=False, na_position="last")
+                    .drop(columns=["_sort"]))
     table_df = table_df.reset_index(drop=True)
 
     render_paginated_table(table_df, page_key="page_logs")
 
+    # ── [P2] LOG INSPECTOR ────────────────────────────────────────────────────
+    # We need the full done_df rows (with COL_LOG + COL_FEEDBACK) matched to
+    # the sorted table_df order.  We rebuild a parallel full_view from done_df.
+    full_view = view_df.copy()
+    if COL_DATE in full_view.columns:
+        full_view["_sort"] = full_view[COL_DATE].apply(parse_dt)
+        full_view = (full_view
+                     .sort_values("_sort", ascending=False, na_position="last")
+                     .drop(columns=["_sort"]))
+    full_view = full_view.reset_index(drop=True)
+
+    st.markdown(
+        f"<hr class='divider'/>"
+        f"<div class='section-title'>🔍 {t('inspector_title')}</div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(t("inspector_hint"))
+
+    # Build selectbox labels — prefer binder or company for readability
+    _label_col = (col_binder or col_company or
+                  (display_cols[0] if display_cols else None))
+
+    def _row_label(i: int, row: pd.Series) -> str:
+        auditor_str = str(row.get(COL_AUDITOR, "")).strip() or "?"
+        date_str    = str(row.get(COL_DATE, "")).strip()[:10] or "?"
+        hint        = ""
+        if _label_col and _label_col in row:
+            hint = str(row[_label_col]).strip()[:40]
+        if hint:
+            return f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}"
+        return f"#{i}  |  {auditor_str}  |  {date_str}"
+
+    inspector_opts = [t("inspector_select")] + [
+        _row_label(i, row) for i, row in full_view.iterrows()
+    ]
+
+    sel_inspect = st.selectbox(
+        "",
+        inspector_opts,
+        key="logs_inspector_sel",
+        label_visibility="collapsed",
+    )
+
+    if sel_inspect != t("inspector_select"):
+        # Parse row index from the label prefix "#N  |"
+        try:
+            row_idx = int(sel_inspect.split("|")[0].replace("#", "").strip())
+        except (ValueError, IndexError):
+            row_idx = None
+
+        if row_idx is not None and 0 <= row_idx < len(full_view):
+            insp_row = full_view.iloc[row_idx]
+
+            # ── Meta-info strip ───────────────────────────────────────────────
+            auditor_val = str(insp_row.get(COL_AUDITOR, "-")).strip() or "-"
+            date_val    = str(insp_row.get(COL_DATE,    "-")).strip() or "-"
+            eval_val    = str(insp_row.get(COL_EVAL,    "-")).strip() or "-"
+            binder_val  = str(insp_row.get(col_binder or "", "-")).strip() if col_binder else "-"
+
+            st.markdown(
+                f"<div class='inspector-panel'>"
+                f"<div class='inspector-meta'>"
+                f"<div>Auditor&nbsp;&nbsp;<span>{_html.escape(auditor_val)}</span></div>"
+                f"<div>Date&nbsp;&nbsp;<span>{_html.escape(date_val)}</span></div>"
+                f"<div>Evaluation&nbsp;&nbsp;<span>{_html.escape(eval_val)}</span></div>"
+                f"{'<div>Binder&nbsp;&nbsp;<span>' + _html.escape(binder_val) + '</span></div>' if col_binder else ''}"
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
+
+            # ── Audit Trail (COL_LOG) ─────────────────────────────────────────
+            # COL_LOG may not be in display_cols (it's hidden from the table) but
+            # it IS in full_view because full_view comes from done_df which has all cols.
+            if COL_LOG in full_view.columns:
+                audit_trail = str(insp_row.get(COL_LOG, "")).strip()
+                with st.expander(f"📜  {t('inspector_audit_trail')}", expanded=True):
+                    if audit_trail:
+                        st.code(audit_trail, language="text")
+                    else:
+                        st.info(t("inspector_empty_trail"))
+            else:
+                st.info(t("inspector_no_log_col"))
+
+            # ── Correction Notes / Auto-Diff (COL_FEEDBACK) ──────────────────
+            if COL_FEEDBACK in full_view.columns:
+                feedback_val_full = str(insp_row.get(COL_FEEDBACK, "")).strip()
+                with st.expander(f"🛠️  {t('inspector_feedback')}", expanded=True):
+                    if feedback_val_full:
+                        st.code(feedback_val_full, language="text")
+                    else:
+                        st.info(t("inspector_empty_feedback"))
+    # ── end [P2] LOG INSPECTOR ─────────────────────────────────────────────────
+
+    # Export (unchanged placement — after inspector)
     csv_buf = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
@@ -1694,7 +1768,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN
+#  18 . USER ADMIN  (unchanged)
 # -----------------------------------------------------------------------------
 def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
@@ -1780,10 +1854,10 @@ def render_user_admin(spreadsheet_id):
         st.markdown(f"<div class='section-title'>{t('staff_dir')}</div>", unsafe_allow_html=True)
         if not staff.empty and "email" in staff.columns:
             show_cols = [c for c in ["email", "role", "created_at"] if c in staff.columns]
-            tbl = staff[show_cols].copy().reset_index()
-            th_html = ("<tr><th class='row-idx'>#</th>" +
-                       "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
-            td_html = ""
+            tbl       = staff[show_cols].copy().reset_index()
+            th_html   = ("<tr><th class='row-idx'>#</th>" +
+                         "".join(f"<th>{_html.escape(c)}</th>" for c in show_cols) + "</tr>")
+            td_html   = ""
             for _, row in tbl.iterrows():
                 tr = f"<td class='row-idx'>{row['index']}</td>"
                 for c in show_cols:
@@ -1814,7 +1888,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER
+#  19 . MAIN CONTROLLER  (unchanged)
 # -----------------------------------------------------------------------------
 def main():
     cookie_manager = stx.CookieManager(key="portal_cm")
@@ -1848,6 +1922,8 @@ def main():
                     st.session_state[f"{prefix}{suffix}"] = ""
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state[pk] = 1
+            # reset inspector selection too
+            st.session_state["logs_inspector_sel"] = t("inspector_select") if "inspector_select" in _LANG["en"] else "-"
             st.session_state["local_cache_key"] = None
             st.session_state["local_df"]        = None
             st.session_state["local_headers"]   = None
@@ -1858,7 +1934,7 @@ def main():
 
         if USERS_SHEET not in all_titles:
             spr = get_spreadsheet()
-            uw = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
+            uw  = spr.add_worksheet(title=USERS_SHEET, rows="500", cols="4")
             _gsheets_call(uw.append_row, ["email", "password", "role", "created_at"])
             _fetch_sheet_metadata.clear()
             all_titles.append(USERS_SHEET)
@@ -1924,36 +2000,27 @@ def main():
             <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
             <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
             unsafe_allow_html=True)
-
             filtered_df = apply_filters_locally(df, f_binder, f_license, col_binder, col_license)
             render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
             filtered_df = pd.DataFrame()
 
-        # ── RBAC tab construction ─────────────────────────────────────────────
         if is_admin:
             tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
                             t("tab_analytics"), t("tab_logs"), t("tab_users")])
             t_work, t_arch, t_anal, t_logs, t_uadm = tabs
-
         elif is_manager:
             tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
                             t("tab_analytics"), t("tab_logs")])
             t_work, t_arch, t_anal, t_logs = tabs
             t_uadm = None
-
         else:
-            # Auditors: Worklist ONLY
             st.markdown(f"<div class='rbac-banner'>{t('rbac_notice')}</div>",
                         unsafe_allow_html=True)
             tabs   = st.tabs([t("tab_worklist")])
             t_work = tabs[0]
-            t_arch = None
-            t_anal = None
-            t_logs = None
-            t_uadm = None
+            t_arch = t_anal = t_logs = t_uadm = None
 
-        # ── Render tabs ───────────────────────────────────────────────────────
         with t_work:
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE].copy()
