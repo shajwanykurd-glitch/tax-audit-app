@@ -51,6 +51,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+TZ = pytz.timezone("Asia/Baghdad")  # <--- ئەمە ئەو دێڕەیە کە بیرم چوو بوو!
+
 # ئەمە وا دەکات ستریملیت ڕاستەوخۆ لە ڕەگەوە تێمەکەی خۆی بکات بە دارک
 if "dark_mode" in st.session_state and st.session_state.dark_mode:
     st.markdown(
