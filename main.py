@@ -580,7 +580,7 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
   border-color: rgba(240,246,252,0.12) !important;
 }
 
-/* ── فۆرمەکان و بۆکسی کۆدەکان (Expander & Code Blocks Fix) ── */
+/* ── فۆرمەکان و بۆکسی کۆدەکان (The Ultimate Dark Mode Fix) ── */
 [data-testid="stExpander"] details summary {
   background-color: #21262D !important;
   border-bottom: 1px solid rgba(240,246,252,0.10) !important;
@@ -594,22 +594,23 @@ ul[data-baseweb="menu"] li[aria-selected="true"] {
 [data-testid="stExpanderDetails"] > div { 
   background-color: #161B22 !important; 
 }
-/* ڕەشکردنی ناوەوەی بۆکسی کۆدەکان و لابردنی سپییەکە */
-[data-testid="stCodeBlock"], 
-[data-testid="stCodeBlock"] > div,
-[data-testid="stCodeBlock"] pre, 
-[data-testid="stCodeBlock"] code {
+
+/* کوشتنی تەواوەتی ڕەنگە سپییەکانی ستریملیت بۆ کۆدەکان */
+div[data-testid="stCodeBlock"], 
+div[data-testid="stCodeBlock"] > div,
+div[data-testid="stCodeBlock"] pre, 
+div[data-testid="stCodeBlock"] code {
   background-color: #0D1117 !important;
-  color: #60A5FA !important; 
   border: 1px solid rgba(99,102,241,0.2) !important;
-  text-shadow: none !important;
-}
-/* سڕینەوەی باکگراوندی پشتەوەی پیتەکان */
-[data-testid="stCodeBlock"] span {
-  color: #E6EDF3 !important;
-  background-color: transparent !important;
+  border-radius: 8px !important;
 }
 
+/* ئەم نیشانەی ئەستێرەیە (*) واتا بە زەبری هێز ڕەنگی هەموو پیتێک و بۆکسێک بگۆڕە */
+div[data-testid="stCodeBlock"] * {
+  background-color: transparent !important;
+  color: #60A5FA !important;
+  text-shadow: none !important;
+}
 .prog-wrap { background: #21262D; }
 .export-strip {
   background: linear-gradient(135deg, rgba(22,27,34,0.90) 0%, rgba(28,33,40,0.90) 100%) !important;
