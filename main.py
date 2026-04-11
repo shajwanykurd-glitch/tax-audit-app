@@ -994,7 +994,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         unsafe_allow_html=True,
     )
     
-   def clear_wl_filters():
+    def clear_wl_filters():
         st.session_state["wl_binder"] = ""
         st.session_state["wl_license"] = ""
 
@@ -1147,8 +1147,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
                                   eval_val=eval_val, feedback_val=feedback_combined)
         st.toast(t("saved_ok"), icon="✅")
         time.sleep(0.6); st.rerun()
-
-
 # -----------------------------------------------------------------------------
 #  15 . ARCHIVE
 # -----------------------------------------------------------------------------
