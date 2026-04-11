@@ -1,11 +1,10 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.4  (No Sidebar / Top Header)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.5  (Global Analytics Added)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.4 vs v16.3:
-#    [FEATURE] Sidebar completely removed for a wider, cleaner UI.
-#    [FEATURE] User Profile, Password Change, and Sign Out moved to a Top Header Popover.
-#    [FEATURE] Worklist now has its own dedicated inline search strip.
-#    [KEEP] Combo-Box logic, row-key UI refresh, vectorized Pandas, Light Mode.
+#  Changes v16.5 vs v16.4:
+#    [FEATURE] Added Global Analytics section aggregating data across all 3 sheets.
+#    [FEATURE] Added Auditor evaluation/productivity table in the global section.
+#    [KEEP] No Sidebar, Top Header UI, Combo-Box logic, row-key UI refresh.
 # =============================================================================
 
 import html as _html
@@ -47,7 +46,7 @@ _log = logging.getLogger("audit_portal")
 st.set_page_config(
     page_title="Tax Audit & Compliance Portal",
     layout="wide",
-    initial_sidebar_state="collapsed", # Collapsed by default
+    initial_sidebar_state="collapsed",
 )
 
 TZ = pytz.timezone("Asia/Baghdad")
@@ -210,7 +209,6 @@ span[class*="material-symbols"] {
     font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 !important;
 }
 
-/* ── بەتەواوی شاردنەوەی سایدبارەکە ── */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"], [data-testid="stSidebar"] { 
@@ -986,7 +984,6 @@ def _deep_search_active(b: str, a: str) -> bool:
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     col_binder, col_company, col_license):
     
-    # ── فلتەری ناوەوەی Worklist ──
     st.markdown(
         f"<div class='deep-search-strip'>"
         f"<div class='deep-search-title'>🔍 بگەڕێ لەناو کەیسەکان</div>"
@@ -1006,7 +1003,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     with c3:
         st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
-    # ── جێبەجێکردنی فلتەرەکە ──
     if wl_binder.strip() and col_binder and col_binder in pending_display.columns:
         pending_display = pending_display[pending_display[col_binder].astype(str).str.contains(wl_binder.strip(), case=False, na=False)]
     if wl_license.strip() and col_license and col_license in pending_display.columns:
@@ -1147,6 +1143,8 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
                                   eval_val=eval_val, feedback_val=feedback_combined)
         st.toast(t("saved_ok"), icon="✅")
         time.sleep(0.6); st.rerun()
+
+
 # -----------------------------------------------------------------------------
 #  15 . ARCHIVE
 # -----------------------------------------------------------------------------
@@ -1170,7 +1168,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         f"letter-spacing:.10em;text-transform:uppercase;color:var(--indigo-600);'>"
         f"{t('arch_search_title')}</div>", unsafe_allow_html=True)
 
-    # ── ئامادەکردنی لیستی ئۆدیتەرەکان بۆ درۆپ داون ──
     auditor_list = []
     if COL_AUDITOR in done_view.columns:
         auditor_list = sorted([a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")], key=str.lower)
@@ -1204,7 +1201,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
         filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str) == s_auditor.strip()]
 
-    # ── ڕیزکردنی داتاکان بەپێی نوێترین بەروار (Newest First) ──
     if not filtered_view.empty and COL_DATE in filtered_view.columns:
         filtered_view["_sort_date"] = pd.to_datetime(
             filtered_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce"
@@ -1250,9 +1246,40 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                 _apply_optimistic_reopen(df_iloc); st.rerun()
 
 # -----------------------------------------------------------------------------
+#  HELPER FOR GLOBAL ANALYTICS (All 3 Sheets)
+# -----------------------------------------------------------------------------
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_combined_analytics(sid):
+    all_dfs = []
+    for ws_name in VISIBLE_SHEETS:
+        try:
+            raw, _ = _fetch_raw_sheet_cached(sid, ws_name)
+            if not raw: continue
+            df_temp, h_temp, _ = _raw_to_dataframe(raw)
+            if df_temp.empty: continue
+            
+            df_done = df_temp[df_temp[COL_STATUS] == VAL_DONE].copy()
+            if df_done.empty: continue
+            
+            c_agent = detect_column(h_temp, "agent_email")
+            df_done["_Agent"] = df_done[c_agent].astype(str) if c_agent and c_agent in df_done.columns else ""
+            
+            for c in [COL_AUDITOR, COL_EVAL, COL_DATE]:
+                if c not in df_done.columns: df_done[c] = ""
+                
+            df_clean = df_done[["_Agent", COL_AUDITOR, COL_EVAL, COL_DATE]].copy()
+            df_clean["Sheet"] = ws_name
+            all_dfs.append(df_clean)
+        except Exception:
+            pass
+    if not all_dfs: return pd.DataFrame()
+    return pd.concat(all_dfs, ignore_axis=True)
+
+
+# -----------------------------------------------------------------------------
 #  16 . ANALYTICS  — Light mode only, fully vectorized
 # -----------------------------------------------------------------------------
-def render_analytics(df, col_agent_email=None, col_binder=None):
+def render_analytics(df, sid, col_agent_email=None, col_binder=None):
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
@@ -1451,6 +1478,111 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
         st.info(t("acc_no_data") +
                 ("" if col_agent_email else
                  " (Agent Email column not detected — check sheet headers.)"))
+
+
+    # =========================================================================
+    #  NEW FEATURE: GLOBAL ANALYTICS (ALL SHEETS)
+    # =========================================================================
+    st.markdown("<br><hr class='divider' style='border-top:3px solid var(--border);'/>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title' style='font-size:1.1rem;'>🌍 ئاماری گشتی (هەرسێ شیتەکە پێکەوە)</div>", unsafe_allow_html=True)
+    st.caption("لەم بەشەدا داتای هەموو شیتەکان کۆکراوەتەوە، و فلتەری کات (ڕۆژانە، هەفتانە، مانگانە) لەسەر ئەمیش جێبەجێ دەبێت.")
+
+    with st.spinner("Aggregating data from all sheets..."):
+        global_df_raw = fetch_combined_analytics(sid)
+
+    if global_df_raw.empty:
+        st.info("هیچ داتایەک لە شیتەکاندا نەدۆزرایەوە.")
+        return
+
+    # جێبەجێکردنی فلتەری کات
+    global_df = apply_period_filter(global_df_raw, COL_DATE, st.session_state.date_filter)
+
+    if global_df.empty:
+        st.info("هیچ کارێک نەکراوە لەم ماوەیەدا (Time Period).")
+        return
+
+    c_g1, c_g2 = st.columns(2)
+
+    # 1. Global Agent Accuracy
+    with c_g1:
+        st.markdown(f"<div class='section-title' style='background:var(--green-50); color:var(--green-700)!important; border-left-color:var(--green-600);'>📊 ئاستی وردی ئەجێنتەکان (گشتی)</div>", unsafe_allow_html=True)
+        
+        n_eval = global_df[COL_EVAL].fillna("").map(_normalise_eval)
+        g_mask = n_eval.str.contains("Good", na=False)
+        b_mask = n_eval.str.contains(r"Bad|Incorrect", na=False, regex=True)
+        d_mask = n_eval.str.contains("Duplicate", na=False)
+        r_mask = g_mask | b_mask | d_mask
+        ag_col = global_df["_Agent"].fillna("").astype(str).str.strip().replace("", "-")
+
+        gtmp = pd.DataFrame({
+            "agent": ag_col,
+            "good":  g_mask.astype(int),
+            "bad":   b_mask.astype(int),
+            "dup":   d_mask.astype(int),
+            "rated": r_mask.astype(int)
+        })
+        g_grp = gtmp.groupby("agent", sort=False).sum().reset_index()
+        g_grp["accuracy"] = g_grp.apply(lambda r: (r["good"] / r["rated"] * 100) if r["rated"] > 0 else 0.0, axis=1)
+        g_grp = g_grp.sort_values(["accuracy", "rated"], ascending=[False, False]).reset_index(drop=True)
+
+        if not g_grp.empty and g_grp["rated"].sum() > 0:
+            g_th = (f"<tr><th>#</th><th>ئەجێنت</th><th>کۆی گشتی</th>"
+                    f"<th>باش</th><th>خراپ</th><th>دووبارە</th><th>ڕێژە %</th></tr>")
+            g_td = ""
+            for pos, row in g_grp.iterrows():
+                pct = row["accuracy"]
+                if pct >= 80:   rc, bc = "acc-rate-high", "#16A34A"
+                elif pct >= 50: rc, bc = "acc-rate-mid",  "#B45309"
+                else:           rc, bc = "acc-rate-low",  "#DC2626"
+                bar = f"<span class='acc-bar-wrap'><span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span></span>"
+                g_td += (
+                    f"<tr>"
+                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
+                    f"<td style='font-weight:600;'>{_html.escape(str(row['agent']))[:30]}</td>"
+                    f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['rated'])}</td>"
+                    f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
+                    f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
+                    f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
+                    f"<td class='{rc}'>{pct:.1f}% {bar}</td>"
+                    f"</tr>"
+                )
+            st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{g_th}</thead><tbody>{g_td}</tbody></table></div>", unsafe_allow_html=True)
+        else:
+            st.info("هیچ هەڵسەنگاندنێک (Evaluation) بۆ ئەجێنتەکان نەکراوە لە هەرسێ شیتەکە.")
+
+    # 2. Global Auditor Productivity
+    with c_g2:
+        st.markdown(f"<div class='section-title' style='background:var(--blue-50); color:var(--blue-700)!important; border-left-color:var(--blue-500);'>📈 ئاماری کارکردنی ئۆدیتەرەکان (گشتی)</div>", unsafe_allow_html=True)
+        
+        aud_col = global_df[COL_AUDITOR].fillna("").astype(str).str.strip().replace("", "-")
+        atmp = pd.DataFrame({
+            "auditor": aud_col,
+            "total_cases": 1,
+            "gave_good": g_mask.astype(int),
+            "gave_bad":  b_mask.astype(int),
+            "gave_dup":  d_mask.astype(int),
+        })
+        a_grp = atmp.groupby("auditor", sort=False).sum().reset_index()
+        a_grp = a_grp.sort_values("total_cases", ascending=False).reset_index(drop=True)
+
+        if not a_grp.empty:
+            a_th = (f"<tr><th>#</th><th>ئۆدیتەر</th><th>کۆی کەیسە بڕاوەکان</th>"
+                    f"<th>پێدانی (باش)</th><th>پێدانی (خراپ)</th><th>پێدانی (دووبارە)</th></tr>")
+            a_td = ""
+            for pos, row in a_grp.iterrows():
+                a_td += (
+                    f"<tr>"
+                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
+                    f"<td style='font-weight:600;'>{_html.escape(str(row['auditor']))[:30]}</td>"
+                    f"<td style='font-family:var(--mono);font-size:1.1rem;color:var(--indigo-600);font-weight:800;'>{int(row['total_cases'])}</td>"
+                    f"<td><span style='color:var(--green-700);font-weight:600;'>{int(row['gave_good'])}</span></td>"
+                    f"<td><span style='color:var(--red-600);font-weight:600;'>{int(row['gave_bad'])}</span></td>"
+                    f"<td><span style='color:var(--amber-700);font-weight:600;'>{int(row['gave_dup'])}</span></td>"
+                    f"</tr>"
+                )
+            st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{a_th}</thead><tbody>{a_td}</tbody></table></div>", unsafe_allow_html=True)
+        else:
+            st.info("هیچ ئۆدیتەرێک کاری نەکردووە.")
 
 
 # -----------------------------------------------------------------------------
@@ -1949,7 +2081,7 @@ def main():
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    render_analytics(df, col_agent_email=col_agent_email,
+                    render_analytics(df, sid, col_agent_email=col_agent_email,
                                      col_binder=col_binder)
 
         if can_analytics and t_logs is not None:
