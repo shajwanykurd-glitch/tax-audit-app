@@ -452,40 +452,46 @@ div[data-baseweb="popover"] > div {
 }
 
 /* =========================================================
-   🛑 دژە-تاریکی زۆرەملێ بۆ ئەندرۆید و کرۆم (Force Light Dropdowns)
-   ========================================================= */
-@media screen {
-  /* ڕەنگی باگراوندی خوارەوەی درۆپ داونەکان */
-  div[data-baseweb="popover"],
-  div[data-baseweb="popover"] > div,
-  div[data-baseweb="popover"] > div > div,
-  div[data-baseweb="menu"],
-  div[data-baseweb="menu"] > ul {
-      background-color: #FFFFFF !important;
-      background: #FFFFFF !important;
-  }
+     🛑 چارەسەری کۆتایی بۆ ڕەشبوونی ئەرشیف و لۆگەکان لە ئەندرۆید
+     ========================================================= */
 
-  /* ڕەنگی تێکست و باگراوندی بژاردەکانی ناو درۆپ داونەکە */
-  li[role="option"],
-  [data-baseweb="menu"] li,
-  [data-baseweb="menu"] [role="option"] {
+  /* ١. چارەسەری درۆپ-داونی سەلێکتکردنی کەیسەکان */
+  [data-testid="stSelectbox"] [data-baseweb="select"] > div {
       background-color: #FFFFFF !important;
       color: #0D1117 !important;
-      -webkit-text-fill-color: #0D1117 !important; /* ئەمە کرۆم ناچار دەکات تێکستەکە ڕەش بکات */
-      font-weight: 600 !important;
+      -webkit-text-fill-color: #0D1117 !important;
   }
 
-  /* ڕەنگی کاتێک پەنجەی دەخەیتە سەر یان هەڵی دەبژێریت */
-  li[role="option"]:hover,
-  li[role="option"]:active,
-  li[role="option"][aria-selected="true"],
-  [data-baseweb="menu"] li:hover,
-  [data-baseweb="menu"] li[aria-selected="true"] {
-      background-color: #EEF2FF !important;
-      color: #4F46E5 !important;
-      -webkit-text-fill-color: #4F46E5 !important;
+  /* ٢. چارەسەری بۆکسی (Expander) کە لۆگەکانی تێدایە */
+  .streamlit-expanderHeader, 
+  .streamlit-expanderContent {
+      background-color: #FFFFFF !important;
+      color: #0D1117 !important;
+      -webkit-text-fill-color: #0D1117 !important;
   }
-}
+
+  /* ٣. چارەسەری بۆکسی کۆدەکان (st.code) کە تێکستە ڕەشەکەی تێدایە */
+  [data-testid="stCodeBlock"], 
+  [data-testid="stCodeBlock"] pre, 
+  [data-testid="stCodeBlock"] code {
+      background-color: #F8F9FA !important; /* ڕەنگێکی خۆڵەمێشی زۆر کاڵ بۆ ئەوەی جوان بێت */
+      color: #0D1117 !important;
+      -webkit-text-fill-color: #0D1117 !important;
+      text-shadow: none !important;
+  }
+
+  /* ٤. دڵنیابوونەوە لە لیستی هەڵبژاردنەکان (Dropdown Options) لە خوارەوە */
+  [data-baseweb="menu"],
+  [data-baseweb="popover"],
+  ul[role="listbox"] {
+      background-color: #FFFFFF !important;
+  }
+  [data-baseweb="menu"] li,
+  ul[role="listbox"] li {
+      background-color: #FFFFFF !important;
+      color: #0D1117 !important;
+      -webkit-text-fill-color: #0D1117 !important;
+  }
 </style>""", unsafe_allow_html=True)
     
 # -----------------------------------------------------------------------------
