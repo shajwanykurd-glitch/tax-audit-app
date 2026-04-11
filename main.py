@@ -452,39 +452,40 @@ div[data-baseweb="popover"] > div {
 }
 
 /* =========================================================
-   📱 مۆبایل و تابلێت (Mobile & Tablet Responsiveness)
+   🛑 دژە-تاریکی زۆرەملێ بۆ ئەندرۆید و کرۆم (Force Light Dropdowns)
    ========================================================= */
-@media (max-width: 768px) {
-  /* ڕێکخستنی هێدەر و سەردێڕەکان بۆ ئەوەی بێنە ژێر یەکتر */
-  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
-  .page-title { font-size: 1.3rem !important; }
-  .page-timestamp { align-self: flex-start !important; margin-top: 0 !important; }
-  
-  /* ڕێکخستنی شریتی Worklist و ئامارەکان */
-  .worklist-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 15px !important; }
-  
-  /* لابردنی هێڵی ستوونی ئامارەکان و خستنە ژێر یەکتریان */
-  .log-stat-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
-  .log-stat-divider { display: none !important; }
-  
-  /* بچووککردنەوەی بۆشایی ناو فۆرمەکان */
-  div[data-testid="stForm"] { padding: 18px 20px !important; }
-  
-  /* گونجاندنی خشتەکان (Tables) بۆ مۆبایل بۆ ئەوەی جوان سکڕۆڵ ببن */
-  .gov-table th, .acc-table th { padding: 10px 12px !important; font-size: 0.58rem !important; }
-  .gov-table td, .acc-table td { padding: 10px 12px !important; font-size: 0.78rem !important; }
-  .gov-table-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px !important; }
-  
-  /* بۆکسی وردبینی (Inspector) */
-  .inspector-meta { flex-direction: column !important; gap: 8px !important; }
-  
-  /* بۆکسە گەورەکانی ئامار (Metrics) */
-  [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
-  
-  /* دوگمەکانی سەرەوە */
-  [data-testid="stPopover"] > button { width: 100% !important; margin-top: 10px !important; }
-}
+@media screen {
+  /* ڕەنگی باگراوندی خوارەوەی درۆپ داونەکان */
+  div[data-baseweb="popover"],
+  div[data-baseweb="popover"] > div,
+  div[data-baseweb="popover"] > div > div,
+  div[data-baseweb="menu"],
+  div[data-baseweb="menu"] > ul {
+      background-color: #FFFFFF !important;
+      background: #FFFFFF !important;
+  }
 
+  /* ڕەنگی تێکست و باگراوندی بژاردەکانی ناو درۆپ داونەکە */
+  li[role="option"],
+  [data-baseweb="menu"] li,
+  [data-baseweb="menu"] [role="option"] {
+      background-color: #FFFFFF !important;
+      color: #0D1117 !important;
+      -webkit-text-fill-color: #0D1117 !important; /* ئەمە کرۆم ناچار دەکات تێکستەکە ڕەش بکات */
+      font-weight: 600 !important;
+  }
+
+  /* ڕەنگی کاتێک پەنجەی دەخەیتە سەر یان هەڵی دەبژێریت */
+  li[role="option"]:hover,
+  li[role="option"]:active,
+  li[role="option"][aria-selected="true"],
+  [data-baseweb="menu"] li:hover,
+  [data-baseweb="menu"] li[aria-selected="true"] {
+      background-color: #EEF2FF !important;
+      color: #4F46E5 !important;
+      -webkit-text-fill-color: #4F46E5 !important;
+  }
+}
 </style>""", unsafe_allow_html=True)
     
 # -----------------------------------------------------------------------------
