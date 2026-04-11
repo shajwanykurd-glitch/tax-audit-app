@@ -597,7 +597,7 @@ def apply_period_filter(df, col, period):
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
     parsed    = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-    cutoff_ts = pd.Timestamp(cutoff)
+    cutoff_ts = pd.Timestamp(cutoff).tz_localize(None) # لێرەدا کێشەی تایمزۆنەکە چارەسەر کراوە
     return df[parsed >= cutoff_ts]
 
 def build_auto_diff(record: dict, new_vals: dict) -> str:
