@@ -1,10 +1,11 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.3  (Light Mode / Combo-Box / Row Keys)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.4  (No Sidebar / Top Header)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.3 vs v16.2:
-#    [FIX] Added sheet_row to form widget keys to force UI refresh on row change.
-#    [FEATURE] Combo-Box (Dropdown + Text Input) for specific columns.
-#    [KEEP] Light Mode only, vectorized Pandas, Deep Search agent dropdown.
+#  Changes v16.4 vs v16.3:
+#    [FEATURE] Sidebar completely removed for a wider, cleaner UI.
+#    [FEATURE] User Profile, Password Change, and Sign Out moved to a Top Header Popover.
+#    [FEATURE] Worklist now has its own dedicated inline search strip.
+#    [KEEP] Combo-Box logic, row-key UI refresh, vectorized Pandas, Light Mode.
 # =============================================================================
 
 import html as _html
@@ -46,7 +47,7 @@ _log = logging.getLogger("audit_portal")
 st.set_page_config(
     page_title="Tax Audit & Compliance Portal",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed", # Collapsed by default
 )
 
 TZ = pytz.timezone("Asia/Baghdad")
@@ -131,7 +132,7 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS  — Light Mode Only
+#  5 . CSS  — Light Mode Only & Hiding Sidebar
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
@@ -209,16 +210,12 @@ span[class*="material-symbols"] {
     font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 !important;
 }
 
+/* ── بەتەواوی شاردنەوەی سایدبارەکە ── */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"] { display: none !important; }
-
-[data-testid="stSidebar"] {
-  background-color: var(--surface) !important;
-  border-right: 1px solid var(--border) !important;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.04) !important;
+[data-testid="collapsedControl"], [data-testid="stSidebar"] { 
+    display: none !important; 
 }
-[data-testid="stSidebar"] * { color: var(--text-primary) !important; }
 
 .stTextInput > div > div > input, .stTextArea > div > div > textarea {
   background: var(--surface) !important; color: var(--text-primary) !important;
@@ -405,12 +402,6 @@ div[data-testid="stForm"] {
 .lb-count { font-size:.88rem;font-weight:800;color:var(--indigo-600)!important;font-family:var(--mono)!important;background:var(--indigo-50);padding:3px 10px;border-radius:var(--radius-full);border:1px solid var(--indigo-100); }
 .log-line { font-family:var(--mono)!important;font-size:.74rem;color:var(--text-secondary)!important;padding:6px 0;border-bottom:1px dashed var(--border);line-height:1.5; }
 .log-line:last-child { border-bottom:none; }
-.sidebar-header { border-top:3px solid var(--indigo-500);padding:20px 18px 16px; }
-.sidebar-logo-text { font-size:.98rem;font-weight:800;color:var(--text-primary)!important;letter-spacing:-.02em;margin-bottom:3px; }
-.sidebar-ministry { font-size:.60rem;color:var(--text-muted)!important;letter-spacing:.12em;text-transform:uppercase;font-weight:600; }
-.sb-label { font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)!important;margin-bottom:5px; }
-.sb-email { font-size:.85rem;font-weight:700;color:var(--text-primary)!important;word-break:break-all; }
-.sb-user-card { background:linear-gradient(135deg,var(--indigo-50) 0%,#F5F0FF 100%);border:1px solid var(--indigo-100);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow-sm); }
 .cache-badge { display:inline-flex;align-items:center;gap:5px;background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200);border-radius:var(--radius-full);font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px; }
 .cache-info  { font-size:.62rem;color:var(--text-muted)!important;margin-top:6px;font-family:var(--mono)!important; }
 .cache-strip { padding:10px 18px;background:var(--surface-2);border-bottom:1px solid var(--border); }
@@ -610,18 +601,6 @@ def apply_period_filter(df, col, period):
     parsed    = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
     cutoff_ts = pd.Timestamp(cutoff)
     return df[parsed >= cutoff_ts]
-
-def _n_active(fb: str, fl: str) -> int:
-    return sum([bool(fb.strip()), bool(fl.strip())])
-
-def apply_filters_locally(df, f_binder: str, f_license: str, col_binder, col_license):
-    if df.empty: return df
-    mask = pd.Series(True, index=df.index)
-    if f_binder.strip() and col_binder and col_binder in df.columns:
-        mask &= df[col_binder].astype(str).str.contains(f_binder.strip(), case=False, na=False)
-    if f_license.strip() and col_license and col_license in df.columns:
-        mask &= df[col_license].astype(str).str.contains(f_license.strip(), case=False, na=False)
-    return df[mask]
 
 def build_auto_diff(record: dict, new_vals: dict) -> str:
     lines = []
@@ -929,136 +908,6 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  13 . SIDEBAR
-# -----------------------------------------------------------------------------
-def render_sidebar(headers, col_binder, col_license, col_company, is_admin, fetched_at, cookie_manager):
-
-    def clear_all_filters():
-        for k in ("f_binder", "f_license", "f_company"):
-            st.session_state[k] = ""
-        for pk in ("page_worklist", "page_archive", "page_logs"):
-            st.session_state[pk] = 1
-
-    role       = st.session_state.user_role
-    role_label = {"admin": t("role_admin"), "manager": t("role_manager"),
-                  "auditor": t("role_auditor")}.get(role, role.title())
-    badge_cls  = {"admin": "role-badge-admin", "manager": "role-badge-manager",
-                  "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
-
-    with st.sidebar:
-        st.markdown(f"""
-        <div class="sidebar-header">
-          <div class="sidebar-logo-text">{t('portal_title')}</div>
-          <div class="sidebar-ministry">{t('ministry')}</div>
-        </div>
-        <hr class="divider" style="margin:0;"/>""", unsafe_allow_html=True)
-
-        if st.session_state.get("user_role") in ("admin", "manager"):
-            COOLDOWN = 600
-            if "last_refresh_time" not in st.session_state:
-                st.session_state.last_refresh_time = 0
-            current_time = time.time()
-            time_passed  = current_time - st.session_state.last_refresh_time
-            time_left    = int((COOLDOWN - time_passed) / 60)
-            can_refresh  = not (st.session_state.user_role == "manager" and time_passed < COOLDOWN)
-
-            def _do_refresh():
-                _fetch_raw_sheet_cached.clear()
-                _fetch_users_cached.clear()
-                _fetch_sheet_metadata.clear()
-                st.session_state.local_cache_key   = None
-                st.session_state.last_refresh_time = time.time()
-                st.toast("Data refreshed for all users", icon="🔄")
-
-            if can_refresh:
-                st.button("🔄 Refresh Data", key="sb_refresh",
-                          use_container_width=True, on_click=_do_refresh)
-            else:
-                st.button(f"⏳ Wait {max(1, time_left)} min", key="sb_refresh_disabled",
-                          disabled=True, use_container_width=True)
-
-        st.markdown(f"""
-        <div class="cache-strip">
-          <span class="cache-badge">{t('local_mode')}</span>
-          <div class="cache-info">{t('cache_age')}: {READ_TTL//60} min - Last sync: {fetched_at[-8:] if fetched_at else '-'}</div>
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-        st.markdown(f"<div class='adv-filter-header'>{t('adv_filters')}</div>",
-                    unsafe_allow_html=True)
-
-        for key, label, hint, disabled in [
-            ("f_binder",  t("f_binder"),  col_binder  or "not detected", col_binder  is None),
-            ("f_license", t("f_license"), col_license or "not detected", col_license is None),
-        ]:
-            st.markdown(f"<div class='sb-label' style='margin-top:10px;'>{label}"
-                        f"<span class='col-hint'> ({hint})</span></div>", unsafe_allow_html=True)
-            st.text_input(label, key=key, disabled=disabled, label_visibility="collapsed")
-
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        st.button(f"X  {t('clear_filters')}", use_container_width=True,
-                  key="clr_f", on_click=clear_all_filters)
-        st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
-
-        st.markdown(f"""
-        <div class="sb-user-card">
-          <div class="sb-label">{t('signed_as')}</div>
-          <div class="sb-email">{_html.escape(st.session_state.user_email)}</div>
-          <span class="{badge_cls}" style="margin-top:8px;">{role_label}</span>
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("<hr class='divider' style='margin:8px 0;'/>", unsafe_allow_html=True)
-        if st.toggle(f"🔒 {t('update_pw')}", key="toggle_pw"):
-            with st.form("change_my_pw_form_sidebar"):
-                new_pw = st.text_input(t("password_field"), type="password")
-                if st.form_submit_button(t("update_pw"), use_container_width=True):
-                    if new_pw.strip():
-                        try:
-                            spr  = get_spreadsheet()
-                            uws  = spr.worksheet(USERS_SHEET)
-                            cell = _gsheets_call(uws.find, st.session_state.user_email)
-                            if cell:
-                                _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
-                                _fetch_users_cached.clear()
-                                st.success("Password updated successfully! 🔒")
-                                time.sleep(1.5); st.rerun()
-                            else:
-                                st.error("Account not found.")
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                    else:
-                        st.warning("Please enter a new password.")
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button(f"-> {t('sign_out')}", use_container_width=True, key="sb_logout"):
-            try:
-                cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
-            except Exception:
-                pass
-            for k, v in _DEFAULTS.items(): st.session_state[k] = v
-            st.rerun()
-
-    return (
-        st.session_state.get("f_binder",  ""),
-        st.session_state.get("f_license", ""),
-    )
-
-
-def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) -> None:
-    n = _n_active(f_binder, f_license)
-    if n == 0: return
-    badges = ""
-    if f_binder.strip():  badges += f"<span class='filter-badge'>{_html.escape(f_binder.strip()[:20])}</span> "
-    if f_license.strip(): badges += f"<span class='filter-badge'>{_html.escape(f_license.strip()[:20])}</span> "
-    st.markdown(f"""<div class="filter-result-bar">
-      <span style="font-size:.70rem;font-weight:800;color:var(--indigo-600);text-transform:uppercase;letter-spacing:.08em;">
-        {t('active_filters')} ({n})</span> {badges}
-      <span class="result-count"><strong style="color:var(--indigo-600);">{filtered}</strong>/{total}&nbsp;{t('results_shown')}</span>
-    </div>""", unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
 #  DEEP SEARCH WIDGET  (agent dropdown preserved)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
@@ -1132,28 +981,52 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST (Combo-Box added for specific columns)
+#  14 . WORKLIST (Combo-Box + Inline Search Strip)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
-                    f_binder, f_license, col_binder, col_company):
+                    col_binder, col_company, col_license):
+    
+    # ── فلتەری ناوەوەی Worklist ──
+    st.markdown(
+        f"<div class='deep-search-strip'>"
+        f"<div class='deep-search-title'>🔍 بگەڕێ لەناو کەیسەکان</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    
+    c1, c2, c3 = st.columns([1, 1, 0.32])
+    with c1:
+        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder=col_binder or "Not in sheet", disabled=(col_binder is None), label_visibility="collapsed")
+    with c2:
+        wl_license = st.text_input("License No.", key="wl_license", placeholder=col_license or "Not in sheet", disabled=(col_license is None), label_visibility="collapsed")
+    with c3:
+        if st.button("Clear", key="wl_clr", use_container_width=True):
+            st.session_state.wl_binder = ""
+            st.session_state.wl_license = ""
+            st.rerun()
+
+    # ── جێبەجێکردنی فلتەرەکە ──
+    if wl_binder.strip() and col_binder and col_binder in pending_display.columns:
+        pending_display = pending_display[pending_display[col_binder].astype(str).str.contains(wl_binder.strip(), case=False, na=False)]
+    if wl_license.strip() and col_license and col_license in pending_display.columns:
+        pending_display = pending_display[pending_display[col_license].astype(str).str.contains(wl_license.strip(), case=False, na=False)]
+
     p_count = len(pending_display)
-    st.markdown(f"""<div class="worklist-header">
+    st.markdown(f"""<div class="worklist-header" style="margin-top: 15px;">
       <div><div class="worklist-title">{t('worklist_title')}</div>
       <div class="worklist-sub">{t('worklist_sub')}</div></div>
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
     </div>""", unsafe_allow_html=True)
 
     if pending_display.empty:
-        st.info(t("no_match") if _n_active(f_binder, f_license) else "All cases processed.")
+        st.info("No cases found." if (wl_binder or wl_license) else "All cases processed.")
         return
 
     render_paginated_table(pending_display, page_key="page_worklist")
 
     st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
     
-    # چارەسەرکردنی کێشەی دیارنەکەوتنی ناوی کۆمپانیا لە لیستەکە
     display_label_col = col_company or col_binder or next((h for h in headers if h not in SYSTEM_COLS), "Row")
-    
     opts = ["-"] + [
         f"Row {idx}{_ROW_SEP}{str(row.get(display_label_col, ''))[:40]}{_ROW_SEP}{str(row.get(COL_DATE, ''))[:10]}"
         for idx, row in pending_display.iterrows()
@@ -1182,46 +1055,24 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    # Strict target list using partial matching to avoid newline/space issues
     COMBO_TARGETS = [
-        {
-            "match": "باجدەری باج لە کام شاردایە",
-            "options": ["Erbil", "Sulaymaniyah", "Duhok"]
-        },
-        {
-            "match": "في أي مدينة يقع هذا دافع الضرائب",
-            "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]
-        },
-        {
-            "match": "هل يوجد نموذج يتضمن عناصر التسجيل",
-            "options": ["Yes", "No"]
-        },
-        {
-            "match": "Does the company have an investment license",
-            "options": ["Yes", "No"]
-        },
-        {
-            "match": "نشاط الشركة",
-            "options": [
-                "CEN / Construction & Engineering / بیناسازی و ئەندازیاری",
-                "HLT / Health Services /  خزمەتگوزاری تەندروستی",
-                "ITS / IT & Software / زانیاری تەکنەلۆژیا و سۆفتوێر",
-                "LOG / Transportation & Logistics / گواستنەوە و لۆجیستیک",
-                "MFG / Manufacturing / بەرهەمهێنان",
-                "REF / Real Estate & Financial Services / خانووبەرە و خزمەتگوزاری دارایی",
-                "RET / Retail & Services / فرۆشتنی تاک و خزمەتگوزاریەکان",
-                "TEL / Telecom & Media / پەیوەندییەکان و میدیا",
-                "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی"
-            ]
-        },
-        {
-            "match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات",
-            "options": ["Yes", "No"]
-        },
-        {
-            "match": "Company status",
-            "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]
-        }
+        {"match": "باجدەری باج لە کام شاردایە", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
+        {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+        {"match": "هل يوجد نموذج يتضمن عناصر التسجيل", "options": ["Yes", "No"]},
+        {"match": "Does the company have an investment license", "options": ["Yes", "No"]},
+        {"match": "نشاط الشركة", "options": [
+            "CEN / Construction & Engineering / بیناسازی و ئەندازیاری",
+            "HLT / Health Services /  خزمەتگوزاری تەندروستی",
+            "ITS / IT & Software / زانیاری تەکنەلۆژیا و سۆفتوێر",
+            "LOG / Transportation & Logistics / گواستنەوە و لۆجیستیک",
+            "MFG / Manufacturing / بەرهەمهێنان",
+            "REF / Real Estate & Financial Services / خانووبەرە و خزمەتگوزاری دارایی",
+            "RET / Retail & Services / فرۆشتنی تاک و خزمەتگوزاریەکان",
+            "TEL / Telecom & Media / پەیوەندییەکان و میدیا",
+            "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی"
+        ]},
+        {"match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات", "options": ["Yes", "No"]},
+        {"match": "Company status", "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]}
     ]
 
     with st.form("audit_form"):
@@ -1248,14 +1099,12 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
                     def_idx = 0
                 
                 with c1:
-                    # لێرەدا sheet_row مان زیاد کرد بۆ ئەوەی بۆکسەکە تایبەت بێت بەو کەیسە
                     st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{sheet_row}_{fname}", label_visibility="collapsed")
                 with c2:
                     st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
                 
                 combo_keys.append(fname)
             else:
-                # لێرەش sheet_row مان زیاد کرد
                 new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{sheet_row}_{fname}")
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
@@ -1266,7 +1115,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
-        # Resolve combo keys logic with the new unique keys
         for fname in combo_keys:
             sel_val = st.session_state.get(f"sel_{sheet_row}_{fname}", "")
             txt_val = st.session_state.get(f"txt_{sheet_row}_{fname}", "")
@@ -1902,7 +1750,7 @@ def main():
         inject_css()
 
         def _on_ws_change():
-            for k in ("f_binder", "f_license",
+            for k in ("wl_binder", "wl_license",
                       "arch_binder", "arch_license", "arch_auditor"):
                 st.session_state[k] = ""
             for prefix in ("anal", "logs"):
@@ -1928,23 +1776,79 @@ def main():
         if not st.session_state.logged_in:
             render_login(sid, cookie_manager); return
 
-        st.markdown("<style>[data-testid='stSidebar']{display:flex!important;}</style>",
-                    unsafe_allow_html=True)
-
         role          = st.session_state.user_role
         is_admin      = (role == "admin")
         is_manager    = (role == "manager")
         can_analytics = is_admin or is_manager
 
-        ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
-        st.markdown(f"""
-        <div class="page-header">
-          <div>
-            <div class="page-title">{_html.escape(t('portal_title'))}</div>
-            <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
-          </div>
-          <div class="page-timestamp">{ts_str}</div>
-        </div>""", unsafe_allow_html=True)
+        role_label = {"admin": t("role_admin"), "manager": t("role_manager"),
+                      "auditor": t("role_auditor")}.get(role, role.title())
+        badge_cls  = {"admin": "role-badge-admin", "manager": "role-badge-manager",
+                      "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
+
+        # ── Top Header UI ──
+        h_left, h_right = st.columns([4, 1], vertical_alignment="center")
+        
+        with h_left:
+            ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;">
+              <div>
+                <div class="page-title">{_html.escape(t('portal_title'))}</div>
+                <div class="page-subtitle">{_html.escape(t('ministry'))}</div>
+              </div>
+              <div class="page-timestamp" style="margin-top:5px;">{ts_str}</div>
+            </div>""", unsafe_allow_html=True)
+            
+        with h_right:
+            with st.popover(f"👤 Account / هەژمار", use_container_width=True):
+                st.markdown(f"<div style='font-size:0.85rem; font-weight:700;'>{_html.escape(st.session_state.user_email)}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='margin-bottom:15px;'><span class='{badge_cls}'>{role_label}</span></div>", unsafe_allow_html=True)
+                
+                if role in ("admin", "manager"):
+                    COOLDOWN = 600
+                    if "last_refresh_time" not in st.session_state:
+                        st.session_state.last_refresh_time = 0
+                    time_passed  = time.time() - st.session_state.last_refresh_time
+                    can_refresh  = not (role == "manager" and time_passed < COOLDOWN)
+
+                    def _do_refresh():
+                        _fetch_raw_sheet_cached.clear()
+                        _fetch_users_cached.clear()
+                        _fetch_sheet_metadata.clear()
+                        st.session_state.local_cache_key   = None
+                        st.session_state.last_refresh_time = time.time()
+                        st.toast("Data refreshed for all users", icon="🔄")
+
+                    if can_refresh:
+                        st.button("🔄 Refresh Data", key="top_refresh", use_container_width=True, on_click=_do_refresh)
+                    else:
+                        st.button(f"⏳ Wait {max(1, int((COOLDOWN - time_passed) / 60))} min", key="top_refresh_disabled", disabled=True, use_container_width=True)
+                
+                with st.expander(f"🔒 {t('update_pw')}", expanded=False):
+                    with st.form("top_pw_form"):
+                        new_pw = st.text_input(t("password_field"), type="password")
+                        if st.form_submit_button(t("update_pw"), use_container_width=True):
+                            if new_pw.strip():
+                                try:
+                                    spr  = get_spreadsheet(); uws  = spr.worksheet(USERS_SHEET)
+                                    cell = _gsheets_call(uws.find, st.session_state.user_email)
+                                    if cell:
+                                        _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
+                                        _fetch_users_cached.clear()
+                                        st.success("Password updated!")
+                                        time.sleep(1); st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                            else:
+                                st.warning("Enter a new password.")
+                                
+                if st.button(f"🚪 {t('sign_out')}", use_container_width=True, key="top_logout"):
+                    try: cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
+                    except Exception: pass
+                    for k, v in _DEFAULTS.items(): st.session_state[k] = v
+                    st.rerun()
+
 
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS
@@ -1970,9 +1874,6 @@ def main():
         col_license     = detect_column(headers, "license")
         col_agent_email = detect_column(headers, "agent_email")
 
-        f_binder, f_license = render_sidebar(
-            headers, col_binder, col_license, col_company, is_admin, fetched_at, cookie_manager)
-
         if not df.empty:
             st.markdown(f"<div class='section-title'>{t('overview')}</div>",
                         unsafe_allow_html=True)
@@ -1992,11 +1893,8 @@ def main():
             <div class="prog-wrap">
               <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
             </div>""", unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(
-                df, f_binder, f_license, col_binder, col_license)
-            render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
-            filtered_df = pd.DataFrame()
+            pass
 
         if is_admin:
             tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
@@ -2016,15 +1914,15 @@ def main():
 
         with t_work:
             if not df.empty and ws_title:
-                pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE]
+                pv  = df[df[COL_STATUS] != VAL_DONE]
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
                 render_worklist(pd_, df, headers, col_map, ws_title,
-                                f_binder, f_license, col_binder, col_company)
+                                col_binder, col_company, col_license)
 
         if t_arch is not None:
             with t_arch:
                 if not df.empty and ws_title:
-                    dv = filtered_df[filtered_df[COL_STATUS] == VAL_DONE].copy()
+                    dv = df[df[COL_STATUS] == VAL_DONE].copy()
                     dv.index = dv.index + 2
                     render_archive(dv, df, col_map, ws_title, is_admin,
                                    col_binder=col_binder, col_license=col_license)
