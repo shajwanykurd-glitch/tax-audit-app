@@ -1273,7 +1273,7 @@ def fetch_combined_analytics(sid):
         except Exception:
             pass
     if not all_dfs: return pd.DataFrame()
-    return pd.concat(all_dfs, ignore_axis=True)
+    return pd.concat(all_dfs, ignore_index=True)
 
 
 # -----------------------------------------------------------------------------
