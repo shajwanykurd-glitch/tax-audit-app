@@ -1214,20 +1214,28 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
         render_paginated_table(filtered_view[ordered_cols], page_key="page_archive")
 
-    if is_admin and not done_view.empty:
+   if is_admin and not filtered_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
-        ropts = ["-"] + [f"Row {idx}" for idx in done_view.index]
+        
+        # لێرەدا داتای فلتەرکراو بەکاردەهێنین و ناوی بایندەرەکەش پیشان دەدەین بۆ ڕوونی زیاتر
+        display_label_col = col_binder or col_license or next((h for h in filtered_view.columns if h not in SYSTEM_COLS), "Row")
+        
+        ropts = ["-"] + [
+            f"Row {idx} | {str(row.get(display_label_col, ''))[:40]} | {str(row.get(COL_DATE, ''))[:10]}"
+            for idx, row in filtered_view.iterrows()
+        ]
+        
         rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
         if rsel != "-":
-            ridx    = int(rsel.split(" ")[1])
+            # وەرگرتنەوەی ژمارەی ڕیزەکە لەناو تێکستە نوێیەکە
+            ridx    = int(rsel.split("|")[0].replace("Row", "").strip())
             df_iloc = ridx - 2
             if st.button(t("reopen"), key="reopen_btn"):
                 with st.spinner("Re-opening..."):
                     try:    write_reopen_to_sheet(ws_title, ridx, col_map)
                     except gspread.exceptions.APIError as e: st.error(f"Error: {e}"); return
                 _apply_optimistic_reopen(df_iloc); st.rerun()
-
 
 # -----------------------------------------------------------------------------
 #  16 . ANALYTICS  — Light mode only, fully vectorized
