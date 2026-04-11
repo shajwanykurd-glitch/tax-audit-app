@@ -893,7 +893,7 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
             {_html.escape(t('classified'))}</div>
         <div style="text-align:center;font-size:.85rem;color:#475569;margin-bottom:20px;">
             {_html.escape(t('login_prompt'))}</div>""", unsafe_allow_html=True)
-        st.text_input(t("email_field"), placeholder="user@mof.gov.iq", key="_login_email")
+        st.text_input(t("email_field"), placeholder="user@agents.tax.gov.krd", key="_login_email")
         st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
         submitted = st.form_submit_button(t("sign_in"))
 
