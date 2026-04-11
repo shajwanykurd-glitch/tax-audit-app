@@ -1798,7 +1798,7 @@ def render_user_admin(spreadsheet_id):
     with cl:
         st.markdown(f"<div class='section-title'>{t('add_auditor')}</div>", unsafe_allow_html=True)
         with st.form("add_user_form"):
-            nu_e = st.text_input("Email", placeholder="user@mof.gov")
+            nu_e = st.text_input("Email", placeholder="user@agents.tax.gov.krd")
             nu_p = st.text_input("Password", type="password")
             nu_r = st.selectbox(t("role_label"), VALID_ROLES, format_func=lambda r: r.title())
             if st.form_submit_button("Register User", use_container_width=True):
