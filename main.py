@@ -228,13 +228,27 @@ span[class*="material-symbols"] {
   box-shadow: var(--shadow-sm) !important;
 }
 
-/* درۆپ داون و لیستی بژاردەکان (سپی زۆرەملێ) */
-.stSelectbox > div > div, [data-baseweb="select"] > div,
-[data-baseweb="popover"] > div, [data-baseweb="menu"], ul[role="listbox"] {
+/* درۆپ داون و لیستی بژاردەکان (سپی زۆرەملێ لەگەڵ چوارچێوەی دیار) */
+.stSelectbox > div > div, [data-baseweb="select"] > div {
   background: #FFFFFF !important; 
   background-color: #FFFFFF !important;
   color: #0D1117 !important;
+  border: 1.5px solid var(--border-2) !important; /* لێرەدا چوارچێوەکەمان بۆ زیاد کردووەوە */
   border-radius: var(--radius-md) !important;
+  min-height: 42px !important;
+}
+
+/* دڵنیابوونەوە لەوەی چوارچێوەکە دیارە کاتێک کلیکی لێ دەکرێت */
+[data-baseweb="select"] > div:focus-within {
+  border-color: var(--indigo-500) !important;
+  box-shadow: var(--ring) !important;
+}
+
+[data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {
+  background: #FFFFFF !important; 
+  background-color: #FFFFFF !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 [data-baseweb="menu"] li, [role="option"] {
