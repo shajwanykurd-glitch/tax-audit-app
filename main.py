@@ -1,10 +1,10 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.2  (Light Mode / Combo-Box)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.3  (Light Mode / Combo-Box / Row Keys)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.2 vs v16.1:
-#    [FEATURE] Added Combo-Box (Dropdown + Text Input) for 7 specific columns.
-#    [KEEP] Light Mode only, vectorized Pandas, Deep Search agent dropdown,
-#           cookie auth, pagination, concurrency guard, optimistic UI.
+#  Changes v16.3 vs v16.2:
+#    [FIX] Added sheet_row to form widget keys to force UI refresh on row change.
+#    [FEATURE] Combo-Box (Dropdown + Text Input) for specific columns.
+#    [KEEP] Light Mode only, vectorized Pandas, Deep Search agent dropdown.
 # =============================================================================
 
 import html as _html
@@ -931,10 +931,10 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 # -----------------------------------------------------------------------------
 #  13 . SIDEBAR
 # -----------------------------------------------------------------------------
-def render_sidebar(headers, col_binder, col_license, is_admin, fetched_at, cookie_manager):
+def render_sidebar(headers, col_binder, col_license, col_company, is_admin, fetched_at, cookie_manager):
 
     def clear_all_filters():
-        for k in ("f_binder", "f_license"):
+        for k in ("f_binder", "f_license", "f_company"):
             st.session_state[k] = ""
         for pk in ("page_worklist", "page_archive", "page_logs"):
             st.session_state[pk] = 1
@@ -1135,7 +1135,7 @@ def _deep_search_active(b: str, a: str) -> bool:
 #  14 . WORKLIST (Combo-Box added for specific columns)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
-                    f_binder, f_license, col_binder):
+                    f_binder, f_license, col_binder, col_company):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">{t('worklist_title')}</div>
@@ -1150,9 +1150,12 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     render_paginated_table(pending_display, page_key="page_worklist")
 
     st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
-    label_col = next((h for h in headers if h not in SYSTEM_COLS), headers[0] if headers else "Row")
+    
+    # چارەسەرکردنی کێشەی دیارنەکەوتنی ناوی کۆمپانیا لە لیستەکە
+    display_label_col = col_company or col_binder or next((h for h in headers if h not in SYSTEM_COLS), "Row")
+    
     opts = ["-"] + [
-        f"Row {idx}{_ROW_SEP}{str(row.get(label_col, ''))[:55]}"
+        f"Row {idx}{_ROW_SEP}{str(row.get(display_label_col, ''))[:40]}{_ROW_SEP}{str(row.get(COL_DATE, ''))[:10]}"
         for idx, row in pending_display.iterrows()
     ]
     row_sel = st.selectbox("", opts, key="row_sel", label_visibility="collapsed")
@@ -1245,26 +1248,28 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
                     def_idx = 0
                 
                 with c1:
-                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{fname}", label_visibility="collapsed")
+                    # لێرەدا sheet_row مان زیاد کرد بۆ ئەوەی بۆکسەکە تایبەت بێت بەو کەیسە
+                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{sheet_row}_{fname}", label_visibility="collapsed")
                 with c2:
-                    st.text_input("", value=current, key=f"txt_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
+                    st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
                 
                 combo_keys.append(fname)
             else:
-                new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
+                # لێرەش sheet_row مان زیاد کرد
+                new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{sheet_row}_{fname}")
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
-        eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key="form_eval")
+        eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key=f"form_eval_{sheet_row}")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
-                                    key="form_feedback", height=100)
+                                    key=f"form_feedback_{sheet_row}", height=100)
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
-        # Resolve combo keys logic
+        # Resolve combo keys logic with the new unique keys
         for fname in combo_keys:
-            sel_val = st.session_state.get(f"sel_{fname}", "")
-            txt_val = st.session_state.get(f"txt_{fname}", "")
+            sel_val = st.session_state.get(f"sel_{sheet_row}_{fname}", "")
+            txt_val = st.session_state.get(f"txt_{sheet_row}_{fname}", "")
             if sel_val != "-- Type manually / بە دەست بنووسە --":
                 new_vals[fname] = sel_val
             else:
@@ -1966,7 +1971,7 @@ def main():
         col_agent_email = detect_column(headers, "agent_email")
 
         f_binder, f_license = render_sidebar(
-            headers, col_binder, col_license, is_admin, fetched_at, cookie_manager)
+            headers, col_binder, col_license, col_company, is_admin, fetched_at, cookie_manager)
 
         if not df.empty:
             st.markdown(f"<div class='section-title'>{t('overview')}</div>",
@@ -2014,7 +2019,7 @@ def main():
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE]
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
                 render_worklist(pd_, df, headers, col_map, ws_title,
-                                f_binder, f_license, col_binder)
+                                f_binder, f_license, col_binder, col_company)
 
         if t_arch is not None:
             with t_arch:
