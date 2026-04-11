@@ -432,9 +432,61 @@ div[data-testid="stForm"] {
   margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
 }
 .inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
+
+/* ── ڕێگریکردن لە ڕەشبوونی درۆپ-داون و بەتنەکان لە مۆبایل ── */
+:root {
+  color-scheme: light !important;
+}
+
+input, textarea, select, button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
+}
+
+div[data-baseweb="select"] > div,
+div[data-baseweb="popover"] > div {
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* =========================================================
+   📱 مۆبایل و تابلێت (Mobile & Tablet Responsiveness)
+   ========================================================= */
+@media (max-width: 768px) {
+  /* ڕێکخستنی هێدەر و سەردێڕەکان بۆ ئەوەی بێنە ژێر یەکتر */
+  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
+  .page-title { font-size: 1.3rem !important; }
+  .page-timestamp { align-self: flex-start !important; margin-top: 0 !important; }
+  
+  /* ڕێکخستنی شریتی Worklist و ئامارەکان */
+  .worklist-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 15px !important; }
+  
+  /* لابردنی هێڵی ستوونی ئامارەکان و خستنە ژێر یەکتریان */
+  .log-stat-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
+  .log-stat-divider { display: none !important; }
+  
+  /* بچووککردنەوەی بۆشایی ناو فۆرمەکان */
+  div[data-testid="stForm"] { padding: 18px 20px !important; }
+  
+  /* گونجاندنی خشتەکان (Tables) بۆ مۆبایل بۆ ئەوەی جوان سکڕۆڵ ببن */
+  .gov-table th, .acc-table th { padding: 10px 12px !important; font-size: 0.58rem !important; }
+  .gov-table td, .acc-table td { padding: 10px 12px !important; font-size: 0.78rem !important; }
+  .gov-table-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px !important; }
+  
+  /* بۆکسی وردبینی (Inspector) */
+  .inspector-meta { flex-direction: column !important; gap: 8px !important; }
+  
+  /* بۆکسە گەورەکانی ئامار (Metrics) */
+  [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
+  
+  /* دوگمەکانی سەرەوە */
+  [data-testid="stPopover"] > button { width: 100% !important; margin-top: 10px !important; }
+}
+
 </style>""", unsafe_allow_html=True)
-
-
+    
 # -----------------------------------------------------------------------------
 #  6 . TRANSLATIONS — English only
 # -----------------------------------------------------------------------------
