@@ -994,16 +994,17 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         unsafe_allow_html=True,
     )
     
+   def clear_wl_filters():
+        st.session_state["wl_binder"] = ""
+        st.session_state["wl_license"] = ""
+
     c1, c2, c3 = st.columns([1, 1, 0.32])
     with c1:
         wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder=col_binder or "Not in sheet", disabled=(col_binder is None), label_visibility="collapsed")
     with c2:
         wl_license = st.text_input("License No.", key="wl_license", placeholder=col_license or "Not in sheet", disabled=(col_license is None), label_visibility="collapsed")
     with c3:
-        if st.button("Clear", key="wl_clr", use_container_width=True):
-            st.session_state.wl_binder = ""
-            st.session_state.wl_license = ""
-            st.rerun()
+        st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
     # ── جێبەجێکردنی فلتەرەکە ──
     if wl_binder.strip() and col_binder and col_binder in pending_display.columns:
