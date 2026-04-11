@@ -1,10 +1,13 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v17.0  (Light Mode / Optimized)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.1  (Light Mode / Optimized)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v17.0:
-#    [REMOVE]  Dynamic binder selectbox fully eradicated from worklist form.
-#    [FEATURE] Combo-box (Select OR Type) pattern for 10 targeted columns.
-#    [KEEP]    All v16.0 light-mode, vectorization, and deep-search behaviour.
+#  Changes v16.1 vs v16.0:
+#    [FIX] render_worklist: removed binder dropdown entirely.
+#    [FIX] render_worklist: removed combo-box pattern for target columns.
+#    [FIX] render_worklist: all audit-form fields are plain st.text_input.
+#    [FIX] render_worklist: submission block reads new_vals directly (no combo state).
+#    [KEEP] Light Mode only, vectorized Pandas, Deep Search agent dropdown,
+#           cookie auth, pagination, concurrency guard, optimistic UI.
 # =============================================================================
 
 import html as _html
@@ -102,21 +105,7 @@ _ROW_SEP     = " \u007c "
 _PAGE_SIZE   = 10
 _COOKIE_NAME = "portal_auth"
 
-# Combo-box target column substrings (case-insensitive match)
-COMBO_TARGETS = [
-    'باجدەری باج لە کام شاردایە',
-    'هل يوجد نموذج يتضمن عناصر التسجيل',
-    'investment license',
-    'نشاط الشركة',
-    'دوای ساڵی 2020 کار دەکات',
-    'Q1 -',
-    'Q2 -',
-    'Q3.',
-    'Q4.',
-    'Company status',
-]
-
-# Light-mode Plotly constants (hardcoded — no dark mode branch needed)
+# Light-mode Plotly constants
 _PT  = "plotly_white"
 _PBG = "#FFFFFF"
 _PGR = "#E4E7F0"
@@ -208,28 +197,19 @@ p, span, div, li, label, h1, h2, h3, h4, h5, h6,
   font-family: var(--font);
 }
 
-/* Ironclad Material Symbols protection */
 .material-symbols-rounded,
-[data-testid="stIconMaterial"],
-.stIcon,
-.streamlit-expanderHeader svg,
-.streamlit-expanderHeader span,
-[data-testid="stIcon"] svg,
-[data-testid="stIcon"] span,
-.stButton button svg,
-button svg.material-symbols-rounded,
+[data-testid="stIconMaterial"], .stIcon,
+.streamlit-expanderHeader svg, .streamlit-expanderHeader span,
+[data-testid="stIcon"] svg, [data-testid="stIcon"] span,
+.stButton button svg, button svg.material-symbols-rounded,
 div[data-testid="stMarkdownContainer"] svg,
 span[class*="material-symbols"] {
     font-family: 'Material Symbols Rounded' !important;
-    font-weight: normal !important;
-    font-style: normal !important;
-    letter-spacing: normal !important;
-    text-transform: none !important;
-    white-space: nowrap !important;
-    word-wrap: normal !important;
-    direction: ltr !important;
-    -webkit-font-smoothing: antialiased !important;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+    font-weight: normal !important; font-style: normal !important;
+    letter-spacing: normal !important; text-transform: none !important;
+    white-space: nowrap !important; word-wrap: normal !important;
+    direction: ltr !important; -webkit-font-smoothing: antialiased !important;
+    font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 !important;
 }
 
 #MainMenu, footer, header, .stDeployButton,
@@ -456,13 +436,9 @@ div[data-testid="stForm"] {
 .acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
 .acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
 .inspector-panel {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--indigo-500);
-  border-radius: var(--radius-md);
-  padding: 18px 22px;
-  margin-top: 8px;
-  box-shadow: var(--shadow-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md);
+  padding: 18px 22px; margin-top: 8px; box-shadow: var(--shadow-sm);
 }
 .inspector-meta {
   font-size: .72rem; font-weight: 700; color: var(--text-muted) !important;
@@ -470,19 +446,6 @@ div[data-testid="stForm"] {
   margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap;
 }
 .inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
-/* Combo-box column header */
-.combo-field-label {
-  font-size: 0.75rem; font-weight: 700;
-  color: var(--text-secondary) !important;
-  margin-bottom: 5px; margin-top: 12px;
-}
-.combo-col-hint {
-  font-size: 0.60rem; font-weight: 600; letter-spacing: .06em;
-  color: var(--indigo-500) !important;
-  background: var(--indigo-50); border: 1px solid var(--indigo-100);
-  border-radius: var(--radius-full); padding: 1px 8px;
-  display: inline-block; margin-left: 6px; text-transform: uppercase;
-}
 </style>""", unsafe_allow_html=True)
 
 
@@ -562,8 +525,6 @@ _LANG: dict[str, dict[str, str]] = {
         "inspector_empty_trail":"No audit trail recorded for this entry.",
         "inspector_empty_feedback":"No correction notes for this entry.",
         "inspector_no_log_col":"Audit_Log column not present in this view.",
-        "combo_select_hint":"Select from existing values OR type manually in the right box",
-        "combo_manual_placeholder":"Type manually...",
     },
 }
 
@@ -649,7 +610,7 @@ def apply_period_filter(df, col, period):
     elif period == "this_week":  cutoff = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
-    parsed = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+    parsed    = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
     cutoff_ts = pd.Timestamp(cutoff)
     return df[parsed >= cutoff_ts]
 
@@ -673,29 +634,6 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
         if old_v != new_v_clean:
             lines.append(f"[{field}]:\n  WAS: {old_v!r}\n  NOW: {new_v_clean!r}")
     return ("Auto-Log:\n" + "\n".join(lines)) if lines else "Auto-Log: No field changes detected."
-
-
-# -----------------------------------------------------------------------------
-#  7b . COMBO-BOX HELPERS
-# -----------------------------------------------------------------------------
-_COMBO_MANUAL_SENTINEL = "-- Type Manually / بە دەست بنووسە --"
-
-def _is_combo_field(fname: str) -> bool:
-    """Return True if fname contains any COMBO_TARGETS substring (case-insensitive)."""
-    fl = fname.lower()
-    return any(ct.lower() in fl for ct in COMBO_TARGETS)
-
-def _combo_safe_key(fname: str) -> str:
-    """Stable short key derived from field name, safe for Streamlit widget keys."""
-    return hashlib.md5(fname.encode("utf-8")).hexdigest()[:12]
-
-def _combo_unique_vals(df: pd.DataFrame, fname: str) -> list[str]:
-    """Sorted unique non-empty values for a combo column."""
-    if fname not in df.columns:
-        return []
-    series = df[fname].astype(str).str.strip()
-    vals   = series[series != ""].unique().tolist()
-    return sorted(vals)
 
 
 # -----------------------------------------------------------------------------
@@ -735,10 +673,10 @@ def get_local_data(spreadsheet_id, ws_title):
     fp = _data_fingerprint(raw); ck = f"{ws_title}::{fp}"
     if st.session_state.get("local_cache_key") != ck:
         df, h, cm = _raw_to_dataframe(raw)
-        st.session_state.local_df        = df.copy()
-        st.session_state.local_headers   = h
-        st.session_state.local_col_map   = cm
-        st.session_state.local_cache_key = ck
+        st.session_state.local_df         = df.copy()
+        st.session_state.local_headers    = h
+        st.session_state.local_col_map    = cm
+        st.session_state.local_cache_key  = ck
         st.session_state.local_fetched_at = fetched_at
     return (st.session_state.local_df, st.session_state.local_headers,
             st.session_state.local_col_map, st.session_state.local_fetched_at or fetched_at)
@@ -1124,7 +1062,7 @@ def render_filter_bar(total: int, filtered: int, f_binder: str, f_license: str) 
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET
+#  DEEP SEARCH WIDGET  (agent dropdown preserved)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
     def _clear():
@@ -1153,10 +1091,11 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
 
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
-                      placeholder=ph_binder, disabled=(col_binder is None), label_visibility="collapsed")
+                      placeholder=ph_binder, disabled=(col_binder is None),
+                      label_visibility="collapsed")
     with c2:
         if agent_options is not None and len(agent_options) > 0:
-            opts = [""] + agent_options
+            opts        = [""] + agent_options
             current_val = st.session_state.get(f"{key_prefix}_agent", "")
             try:
                 idx = opts.index(current_val) if current_val in opts else 0
@@ -1164,10 +1103,12 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
                 idx = 0
             st.selectbox(
                 t("ds_agent"), options=opts, key=f"{key_prefix}_agent",
-                index=idx, disabled=(col_agent_email is None), label_visibility="collapsed")
+                index=idx, disabled=(col_agent_email is None),
+                label_visibility="collapsed")
         else:
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
-                          placeholder=ph_agent, disabled=(col_agent_email is None), label_visibility="collapsed")
+                          placeholder=ph_agent, disabled=(col_agent_email is None),
+                          label_visibility="collapsed")
     with c3:
         if not has_valign:
             st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
@@ -1195,8 +1136,11 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 # -----------------------------------------------------------------------------
 #  14 . WORKLIST
+#  [v16.1] Binder dropdown removed. Combo-box logic removed.
+#          Every field is a plain st.text_input. Submission reads new_vals directly.
 # -----------------------------------------------------------------------------
-def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f_license, col_binder):
+def render_worklist(pending_display, df, headers, col_map, ws_title,
+                    f_binder, f_license, col_binder):
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header">
       <div><div class="worklist-title">{t('worklist_title')}</div>
@@ -1240,73 +1184,12 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    # ------------------------------------------------------------------
-    # Hint banner for combo fields
-    # ------------------------------------------------------------------
-    combo_field_names = [fn for fn in fields if _is_combo_field(fn)]
-    if combo_field_names:
-        st.markdown(
-            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);"
-            f"padding:10px 16px;margin-bottom:6px;font-size:.76rem;"
-            f"color:var(--indigo-600)!important;font-weight:600;'>"
-            f"&#9432;&nbsp; {t('combo_select_hint')} "
-            f"<span class='combo-col-hint'>combo</span> fields below.</div>",
-            unsafe_allow_html=True,
-        )
-
-    # ------------------------------------------------------------------
-    # Audit Form  —  combo & standard fields
-    # ------------------------------------------------------------------
-    # Capture return values from widgets inside the form so we can resolve
-    # final values immediately after the submit button is clicked.
-    _std_returns:   dict[str, str] = {}   # fname -> value from st.text_input
-    _combo_sel:     dict[str, str] = {}   # fname -> selectbox return
-    _combo_txt:     dict[str, str] = {}   # fname -> text_input return
-
+    # ── Audit form: every field is a plain text input ─────────────────────────
     with st.form("audit_form"):
-
+        new_vals = {}
         for fname, fval in fields.items():
-            safe_key = _combo_safe_key(fname)
-
-            if _is_combo_field(fname):
-                # --- COMBO FIELD: label + side-by-side select / type ---
-                unique_vals = _combo_unique_vals(df, fname)
-                sel_options = [_COMBO_MANUAL_SENTINEL] + unique_vals
-
-                st.markdown(
-                    f"<div class='combo-field-label'>"
-                    f"{_html.escape(fname)}"
-                    f"<span class='combo-col-hint'>combo</span>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                c1, c2 = st.columns(2)
-                with c1:
-                    sel_val = st.selectbox(
-                        "",
-                        options=sel_options,
-                        key=f"combo_sel_{safe_key}",
-                        label_visibility="collapsed",
-                    )
-                with c2:
-                    txt_val = st.text_input(
-                        "",
-                        value=clean_cell(fval),
-                        key=f"combo_txt_{safe_key}",
-                        placeholder=t("combo_manual_placeholder"),
-                        label_visibility="collapsed",
-                    )
-                _combo_sel[fname] = sel_val
-                _combo_txt[fname] = txt_val
-
-            else:
-                # --- STANDARD FIELD ---
-                _std_returns[fname] = st.text_input(
-                    fname,
-                    value=clean_cell(fval),
-                    key=f"field_{fname}",
-                )
+            new_vals[fname] = st.text_input(
+                fname, value=clean_cell(fval), key=f"field_{fname}")
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
@@ -1316,31 +1199,12 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
-        # ------------------------------------------------------------------
-        # Resolve final new_vals from captured widget return values
-        # ------------------------------------------------------------------
-        new_vals: dict[str, str] = {}
-
-        # Standard fields
-        for fname, val in _std_returns.items():
-            new_vals[fname] = val
-
-        # Combo fields: prefer selectbox unless sentinel chosen
-        for fname in _combo_sel:
-            sel = _combo_sel[fname]
-            txt = _combo_txt[fname]
-            new_vals[fname] = txt if sel == _COMBO_MANUAL_SENTINEL else sel
-
-        # ------------------------------------------------------------------
-        # Write to sheet
-        # ------------------------------------------------------------------
         ts_now     = now_str()
         auditor    = st.session_state.user_email
         log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
-
         with st.spinner("Committing record to Google Sheets..."):
             try:
                 is_success = write_approval_to_sheet(
@@ -1353,7 +1217,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title, f_binder, f
                     time.sleep(2); st.rerun(); return
             except gspread.exceptions.APIError as e:
                 st.error(f"Write failed: {e}"); return
-
         _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                                   eval_val=eval_val, feedback_val=feedback_combined)
         st.toast(t("saved_ok"), icon="✅")
@@ -1449,9 +1312,10 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
-        agent_opts = sorted(agent_series[agent_series != ""].unique().tolist())
+        agent_opts   = sorted(agent_series[agent_series != ""].unique().tolist())
 
-    srch_binder, srch_agent = render_deep_search_strip("anal", col_binder, col_agent_email, agent_options=agent_opts)
+    srch_binder, srch_agent = render_deep_search_strip(
+        "anal", col_binder, col_agent_email, agent_options=agent_opts)
     work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
     if _deep_search_active(srch_binder, srch_agent):
@@ -1557,16 +1421,15 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
         bad_mask    = normalised.str.contains(r"Bad|Incorrect", na=False, regex=True)
         dup_mask    = normalised.str.contains("Duplicate", na=False)
         rated_mask  = good_mask | bad_mask | dup_mask
-
         agent_col   = done_f[col_agent_email].fillna("").astype(str).str.strip().replace("", "-")
 
         tmp = pd.DataFrame({
-            "agent":  agent_col,
-            "good":   good_mask.astype(int),
-            "bad":    bad_mask.astype(int),
-            "dup":    dup_mask.astype(int),
-            "rated":  rated_mask.astype(int),
-            "unrated":(~rated_mask).astype(int),
+            "agent":   agent_col,
+            "good":    good_mask.astype(int),
+            "bad":     bad_mask.astype(int),
+            "dup":     dup_mask.astype(int),
+            "rated":   rated_mask.astype(int),
+            "unrated": (~rated_mask).astype(int),
         })
         grp = tmp.groupby("agent", sort=False).sum().reset_index()
         grp["accuracy"] = grp.apply(
@@ -1603,7 +1466,8 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
                 f"<thead>{th_row}</thead><tbody>{td_rows}</tbody>"
                 f"</table></div>", unsafe_allow_html=True)
 
-            st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-title'>{t('eval_breakdown')}</div>",
+                        unsafe_allow_html=True)
             st.caption(t("eval_breakdown_sub"))
             plot_df = grp[grp["rated"] > 0]
             if not plot_df.empty:
@@ -1627,11 +1491,11 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
                     barmode="stack", template=_PT, paper_bgcolor=_PBG, plot_bgcolor=_PBG,
                     font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                                font=dict(size=11), bgcolor=_PBG,
-                                bordercolor=_PGR, borderwidth=1),
+                                font=dict(size=11), bgcolor=_PBG, bordercolor=_PGR, borderwidth=1),
                     margin=dict(l=8, r=8, t=40, b=60),
                     xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
-                               tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
+                               tickangle=-30,
+                               title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
                     yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
                                title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
                     height=400, hovermode="x")
@@ -1641,19 +1505,21 @@ def render_analytics(df, col_agent_email=None, col_binder=None):
             st.info(t("acc_no_data"))
     else:
         st.info(t("acc_no_data") +
-                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
+                ("" if col_agent_email else
+                 " (Agent Email column not detected — check sheet headers.)"))
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — fully vectorized + plain st.code() in light mode
+#  17 . AUDITOR LOGS  — vectorized + plain st.code() for light mode
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
-        agent_opts = sorted(agent_series[agent_series != ""].unique().tolist())
+        agent_opts   = sorted(agent_series[agent_series != ""].unique().tolist())
 
-    srch_binder, srch_agent = render_deep_search_strip("logs", col_binder, col_agent_email, agent_options=agent_opts)
+    srch_binder, srch_agent = render_deep_search_strip(
+        "logs", col_binder, col_agent_email, agent_options=agent_opts)
 
     done_df = df[df[COL_STATUS] == VAL_DONE]
     if done_df.empty:
@@ -1675,12 +1541,9 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         st.info(t("logs_no_data")); return
 
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
-    if col_company and col_company in done_df.columns:
-        display_cols.insert(1, col_company)
-    if col_binder and col_binder in done_df.columns:
-        display_cols.insert(1, col_binder)
-    if col_agent_email and col_agent_email in done_df.columns:
-        display_cols.insert(2, col_agent_email)
+    if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
+    if col_binder      and col_binder      in done_df.columns: display_cols.insert(1, col_binder)
+    if col_agent_email and col_agent_email in done_df.columns: display_cols.insert(2, col_agent_email)
     seen_c: set = set()
     display_cols = [c for c in display_cols
                     if c in done_df.columns and not (c in seen_c or seen_c.add(c))]
@@ -1693,20 +1556,25 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                            key="logs_auditor_sel")
     view_df = done_df[done_df[COL_AUDITOR] == sel_aud] if sel_aud != all_opt else done_df
 
-    total_p  = len(view_df)
-    uniq_a   = view_df[COL_AUDITOR].nunique()
-    valid_dates = pd.to_datetime(view_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce").dropna()
+    total_p = len(view_df)
+    uniq_a  = view_df[COL_AUDITOR].nunique()
+    valid_dates = pd.to_datetime(
+        view_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce").dropna()
     dr_str = (f"{valid_dates.min().strftime('%Y-%m-%d')} - {valid_dates.max().strftime('%Y-%m-%d')}"
               if not valid_dates.empty else "-")
 
     st.markdown(f"""
     <div class="log-summary-card">
       <div class="log-stat-row">
-        <div class="log-stat"><span class="log-stat-value">{total_p}</span><span class="log-stat-label">{t('logs_total')}</span></div>
+        <div class="log-stat"><span class="log-stat-value">{total_p}</span>
+          <span class="log-stat-label">{t('logs_total')}</span></div>
         <div class="log-stat-divider"></div>
-        <div class="log-stat"><span class="log-stat-value">{uniq_a}</span><span class="log-stat-label">{t('logs_auditors')}</span></div>
+        <div class="log-stat"><span class="log-stat-value">{uniq_a}</span>
+          <span class="log-stat-label">{t('logs_auditors')}</span></div>
         <div class="log-stat-divider"></div>
-        <div class="log-stat"><span class="log-stat-value" style="font-size:1.05rem;">{dr_str}</span><span class="log-stat-label">{t('logs_date_range')}</span></div>
+        <div class="log-stat">
+          <span class="log-stat-value" style="font-size:1.05rem;">{dr_str}</span>
+          <span class="log-stat-label">{t('logs_date_range')}</span></div>
       </div>
     </div>""", unsafe_allow_html=True)
 
@@ -1717,7 +1585,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     table_df = view_df[display_cols].copy()
     if COL_DATE in table_df.columns:
-        table_df["_sort"] = pd.to_datetime(table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        table_df["_sort"] = pd.to_datetime(
+            table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
         table_df = (table_df.sort_values("_sort", ascending=False, na_position="last")
                              .drop(columns=["_sort"])
                              .reset_index(drop=True))
@@ -1727,7 +1596,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     # Log Inspector
     full_view = view_df.copy()
     if COL_DATE in full_view.columns:
-        full_view["_sort"] = pd.to_datetime(full_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        full_view["_sort"] = pd.to_datetime(
+            full_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
         full_view = (full_view.sort_values("_sort", ascending=False, na_position="last")
                               .drop(columns=["_sort"])
                               .reset_index(drop=True))
@@ -1744,7 +1614,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         auditor_str = str(row.get(COL_AUDITOR, "")).strip() or "?"
         date_str    = str(row.get(COL_DATE, "")).strip()[:10] or "?"
         hint        = str(row[_label_col]).strip()[:40] if (_label_col and _label_col in row) else ""
-        return f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}" if hint else f"#{i}  |  {auditor_str}  |  {date_str}"
+        return (f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}"
+                if hint else f"#{i}  |  {auditor_str}  |  {date_str}")
 
     inspector_opts = [t("inspector_select")] + [
         _row_label(i, row) for i, row in full_view.iterrows()]
@@ -1797,7 +1668,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
     dtag = datetime.now(TZ).strftime("%Y%m%d")
-    atag = sel_aud.replace("@", "_").replace(".", "_") if sel_aud != all_opt else "all_auditors"
+    atag = (sel_aud.replace("@", "_").replace(".", "_")
+            if sel_aud != all_opt else "all_auditors")
     st.markdown(f"""
     <div class="export-strip">
       <div><div class="export-text">{t('logs_export_hdr')}</div>
@@ -1953,7 +1825,8 @@ def main():
         inject_css()
 
         def _on_ws_change():
-            for k in ("f_binder", "f_license", "arch_binder", "arch_license", "arch_auditor"):
+            for k in ("f_binder", "f_license",
+                      "arch_binder", "arch_license", "arch_auditor"):
                 st.session_state[k] = ""
             for prefix in ("anal", "logs"):
                 for suffix in ("_binder", "_agent"):
@@ -1997,14 +1870,17 @@ def main():
         </div>""", unsafe_allow_html=True)
 
         atm       = {title.strip().lower(): title for title in all_titles}
-        available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS if s.strip().lower() in atm]
+        available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS
+                     if s.strip().lower() in atm]
 
         df = pd.DataFrame(); headers = []; col_map = {}; ws_title = None; fetched_at = "-"
 
         if not available:
-            st.warning("None of the configured worksheets found. Expected: " + ", ".join(VISIBLE_SHEETS))
+            st.warning("None of the configured worksheets found. Expected: " +
+                       ", ".join(VISIBLE_SHEETS))
         else:
-            ws_title = st.selectbox(t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
+            ws_title = st.selectbox(
+                t("workspace"), available, key="ws_sel", on_change=_on_ws_change)
             try:
                 df, headers, col_map, fetched_at = get_local_data(sid, ws_title)
             except gspread.exceptions.WorksheetNotFound:
@@ -2021,7 +1897,8 @@ def main():
             headers, col_binder, col_license, is_admin, fetched_at, cookie_manager)
 
         if not df.empty:
-            st.markdown(f"<div class='section-title'>{t('overview')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-title'>{t('overview')}</div>",
+                        unsafe_allow_html=True)
             total_n   = len(df)
             done_n    = int((df[COL_STATUS] == VAL_DONE).sum())
             pending_n = total_n - done_n
@@ -2032,10 +1909,14 @@ def main():
             m3.metric(t("outstanding"), pending_n,
                       delta=f"{100-int(pct*100)}% remaining", delta_color="inverse")
             st.markdown(f"""
-            <div class="prog-labels"><span>{t('processed')}</span><span>{int(pct*100)}%</span></div>
-            <div class="prog-wrap"><div class="prog-fill" style="width:{int(pct*100)}%;"></div></div>""",
-                        unsafe_allow_html=True)
-            filtered_df = apply_filters_locally(df, f_binder, f_license, col_binder, col_license)
+            <div class="prog-labels">
+              <span>{t('processed')}</span><span>{int(pct*100)}%</span>
+            </div>
+            <div class="prog-wrap">
+              <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
+            </div>""", unsafe_allow_html=True)
+            filtered_df = apply_filters_locally(
+                df, f_binder, f_license, col_binder, col_license)
             render_filter_bar(total_n, len(filtered_df), f_binder, f_license)
         else:
             filtered_df = pd.DataFrame()
@@ -2060,7 +1941,8 @@ def main():
             if not df.empty and ws_title:
                 pv  = filtered_df[filtered_df[COL_STATUS] != VAL_DONE]
                 pd_ = pv.copy(); pd_.index = pd_.index + 2
-                render_worklist(pd_, df, headers, col_map, ws_title, f_binder, f_license, col_binder)
+                render_worklist(pd_, df, headers, col_map, ws_title,
+                                f_binder, f_license, col_binder)
 
         if t_arch is not None:
             with t_arch:
@@ -2073,7 +1955,8 @@ def main():
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    render_analytics(df, col_agent_email=col_agent_email, col_binder=col_binder)
+                    render_analytics(df, col_agent_email=col_agent_email,
+                                     col_binder=col_binder)
 
         if can_analytics and t_logs is not None:
             with t_logs:
