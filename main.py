@@ -1214,11 +1214,10 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         ordered_cols  = [c for c in priority_cols if c in filtered_view.columns] + other_cols
         render_paginated_table(filtered_view[ordered_cols], page_key="page_archive")
 
-   if is_admin and not filtered_view.empty:
+    if is_admin and not filtered_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
         
-        # لێرەدا داتای فلتەرکراو بەکاردەهێنین و ناوی بایندەرەکەش پیشان دەدەین بۆ ڕوونی زیاتر
         display_label_col = col_binder or col_license or next((h for h in filtered_view.columns if h not in SYSTEM_COLS), "Row")
         
         ropts = ["-"] + [
@@ -1228,7 +1227,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         
         rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
         if rsel != "-":
-            # وەرگرتنەوەی ژمارەی ڕیزەکە لەناو تێکستە نوێیەکە
             ridx    = int(rsel.split("|")[0].replace("Row", "").strip())
             df_iloc = ridx - 2
             if st.button(t("reopen"), key="reopen_btn"):
