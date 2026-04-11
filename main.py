@@ -1170,6 +1170,16 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         f"letter-spacing:.10em;text-transform:uppercase;color:var(--indigo-600);'>"
         f"{t('arch_search_title')}</div>", unsafe_allow_html=True)
 
+    # ── ئامادەکردنی لیستی ئۆدیتەرەکان بۆ درۆپ داون ──
+    auditor_list = []
+    if COL_AUDITOR in done_view.columns:
+        auditor_list = sorted([a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")], key=str.lower)
+    auditor_opts = [""] + auditor_list
+
+    # پاراستنی کێشەی (Session State) ئەگەر پێشتر شتێک نووسرابێت
+    if st.session_state.get("arch_auditor") not in auditor_opts:
+        st.session_state["arch_auditor"] = ""
+
     c1, c2, c3, c4 = st.columns([1, 1, 1, 0.28])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
@@ -1180,8 +1190,8 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                                   placeholder=col_license or "column not in sheet",
                                   disabled=(col_license is None))
     with c3:
-        s_auditor = st.text_input("Auditor Email", key="arch_auditor",
-                                  placeholder="e.g. auditor@mof.gov")
+        # لێرەدا بۆکسی نووسینەکەمان کرد بە سەلێکتبۆکس (درۆپ داون)
+        s_auditor = st.selectbox("Auditor Email", options=auditor_opts, key="arch_auditor")
     with c4:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
@@ -1194,8 +1204,8 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(
             s_license.strip(), case=False, na=False)]
     if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
-        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str).str.contains(
-            s_auditor.strip(), case=False, na=False)]
+        # لێرەدا دەبێت یەکسان بێت (==) لەبری گەڕان، چونکە بژاردەیە
+        filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str) == s_auditor.strip()]
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
