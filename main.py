@@ -1176,7 +1176,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         auditor_list = sorted([a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")], key=str.lower)
     auditor_opts = [""] + auditor_list
 
-    # پاراستنی کێشەی (Session State) ئەگەر پێشتر شتێک نووسرابێت
     if st.session_state.get("arch_auditor") not in auditor_opts:
         st.session_state["arch_auditor"] = ""
 
@@ -1190,7 +1189,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                                   placeholder=col_license or "column not in sheet",
                                   disabled=(col_license is None))
     with c3:
-        # لێرەدا بۆکسی نووسینەکەمان کرد بە سەلێکتبۆکس (درۆپ داون)
         s_auditor = st.selectbox("Auditor Email", options=auditor_opts, key="arch_auditor")
     with c4:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
@@ -1204,8 +1202,14 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(
             s_license.strip(), case=False, na=False)]
     if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
-        # لێرەدا دەبێت یەکسان بێت (==) لەبری گەڕان، چونکە بژاردەیە
         filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str) == s_auditor.strip()]
+
+    # ── ڕیزکردنی داتاکان بەپێی نوێترین بەروار (Newest First) ──
+    if not filtered_view.empty and COL_DATE in filtered_view.columns:
+        filtered_view["_sort_date"] = pd.to_datetime(
+            filtered_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce"
+        )
+        filtered_view = filtered_view.sort_values("_sort_date", ascending=False, na_position="last").drop(columns=["_sort_date"])
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
