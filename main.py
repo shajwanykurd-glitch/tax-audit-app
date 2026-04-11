@@ -1,11 +1,8 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.1  (Light Mode / Optimized)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.2  (Light Mode / Combo-Box)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.1 vs v16.0:
-#    [FIX] render_worklist: removed binder dropdown entirely.
-#    [FIX] render_worklist: removed combo-box pattern for target columns.
-#    [FIX] render_worklist: all audit-form fields are plain st.text_input.
-#    [FIX] render_worklist: submission block reads new_vals directly (no combo state).
+#  Changes v16.2 vs v16.1:
+#    [FEATURE] Added Combo-Box (Dropdown + Text Input) for 7 specific columns.
 #    [KEEP] Light Mode only, vectorized Pandas, Deep Search agent dropdown,
 #           cookie auth, pagination, concurrency guard, optimistic UI.
 # =============================================================================
@@ -1135,9 +1132,7 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST
-#  [v16.1] Binder dropdown removed. Combo-box logic removed.
-#          Every field is a plain st.text_input. Submission reads new_vals directly.
+#  14 . WORKLIST (Combo-Box added for specific columns)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     f_binder, f_license, col_binder):
@@ -1184,12 +1179,79 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     SKIP   = set(SYSTEM_COLS)
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
-    # ── Audit form: every field is a plain text input ─────────────────────────
+    # Strict target list using partial matching to avoid newline/space issues
+    COMBO_TARGETS = [
+        {
+            "match": "باجدەری باج لە کام شاردایە",
+            "options": ["Erbil", "Sulaymaniyah", "Duhok"]
+        },
+        {
+            "match": "في أي مدينة يقع هذا دافع الضرائب",
+            "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]
+        },
+        {
+            "match": "هل يوجد نموذج يتضمن عناصر التسجيل",
+            "options": ["Yes", "No"]
+        },
+        {
+            "match": "Does the company have an investment license",
+            "options": ["Yes", "No"]
+        },
+        {
+            "match": "نشاط الشركة",
+            "options": [
+                "CEN / Construction & Engineering / بیناسازی و ئەندازیاری",
+                "HLT / Health Services /  خزمەتگوزاری تەندروستی",
+                "ITS / IT & Software / زانیاری تەکنەلۆژیا و سۆفتوێر",
+                "LOG / Transportation & Logistics / گواستنەوە و لۆجیستیک",
+                "MFG / Manufacturing / بەرهەمهێنان",
+                "REF / Real Estate & Financial Services / خانووبەرە و خزمەتگوزاری دارایی",
+                "RET / Retail & Services / فرۆشتنی تاک و خزمەتگوزاریەکان",
+                "TEL / Telecom & Media / پەیوەندییەکان و میدیا",
+                "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی"
+            ]
+        },
+        {
+            "match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات",
+            "options": ["Yes", "No"]
+        },
+        {
+            "match": "Company status",
+            "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]
+        }
+    ]
+
     with st.form("audit_form"):
         new_vals = {}
+        combo_keys = []
+        
         for fname, fval in fields.items():
-            new_vals[fname] = st.text_input(
-                fname, value=clean_cell(fval), key=f"field_{fname}")
+            clean_fname = str(fname).replace("\n", " ").replace("\r", " ")
+            
+            matched_target = None
+            for target in COMBO_TARGETS:
+                if target["match"] in clean_fname:
+                    matched_target = target
+                    break
+            
+            if matched_target:
+                options = matched_target["options"]
+                st.markdown(f"<div style='font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:5px;'>{_html.escape(fname)}</div>", unsafe_allow_html=True)
+                c1, c2 = st.columns(2)
+                current = clean_cell(fval)
+                try:
+                    def_idx = options.index(current) + 1
+                except ValueError:
+                    def_idx = 0
+                
+                with c1:
+                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{fname}", label_visibility="collapsed")
+                with c2:
+                    st.text_input("", value=current, key=f"txt_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
+                
+                combo_keys.append(fname)
+            else:
+                new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{fname}")
 
         st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
@@ -1199,12 +1261,22 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
 
     if do_submit:
+        # Resolve combo keys logic
+        for fname in combo_keys:
+            sel_val = st.session_state.get(f"sel_{fname}", "")
+            txt_val = st.session_state.get(f"txt_{fname}", "")
+            if sel_val != "-- Type manually / بە دەست بنووسە --":
+                new_vals[fname] = sel_val
+            else:
+                new_vals[fname] = txt_val
+
         ts_now     = now_str()
         auditor    = st.session_state.user_email
         log_prefix = f"[x] {auditor} | {ts_now}"
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
+        
         with st.spinner("Committing record to Google Sheets..."):
             try:
                 is_success = write_approval_to_sheet(
@@ -1588,8 +1660,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         table_df["_sort"] = pd.to_datetime(
             table_df[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
         table_df = (table_df.sort_values("_sort", ascending=False, na_position="last")
-                             .drop(columns=["_sort"])
-                             .reset_index(drop=True))
+                            .drop(columns=["_sort"])
+                            .reset_index(drop=True))
 
     render_paginated_table(table_df, page_key="page_logs")
 
