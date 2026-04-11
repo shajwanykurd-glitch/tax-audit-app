@@ -373,10 +373,68 @@ div[data-testid="stForm"] {
   .gov-table-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px !important; }
   .inspector-meta { flex-direction: column !important; gap: 8px !important; }
   [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
-  [data-testid="stPopover"] > button { width: 100% !important; margin-top: 10px !important; }
 }
 
-</style>""", unsafe_allow_html=True)
+/* =========================================================
+   ٥. چارەسەری کۆتایی بۆ ڕەشبوونی ئەندرۆید و کرۆم (Anti-Dark Mode Force)
+   ========================================================= */
+
+/* چارەسەری دوگمەی ئەکاونت لەسەرەوە */
+[data-testid="stPopover"] > button,
+[data-testid="stPopover"] > button * {
+    background-color: #FFFFFF !important;
+    color: #0D1117 !important;
+    -webkit-text-fill-color: #0D1117 !important;
+    border-color: #E4E7F0 !important;
+}
+
+/* چارەسەری بۆکسی زانیارییەکان (Inspector Panel) */
+.inspector-panel, 
+.inspector-panel div, 
+.inspector-meta, 
+.inspector-meta span {
+    background-color: #F0F2F9 !important; /* ڕەنگێکی شین-خۆڵەمێشی کاڵ بۆ باگراوند */
+    color: #0D1117 !important;
+    -webkit-text-fill-color: #0D1117 !important; /* ئەمە وا دەکات تێکستەکە هەرگیز سپی نەبێتەوە */
+}
+
+/* چارەسەری ناوەوەی بۆکسەکانی لۆگ و ئۆدیت ترەیل (st.code) */
+[data-testid="stCodeBlock"] {
+    background-color: #E4E7F0 !important;
+}
+
+[data-testid="stCodeBlock"] * {
+    background-color: transparent !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important; /* دەبێت ڕەش بێت */
+    text-shadow: none !important;
+}
+
+/* چارەسەری تەواوەتی درۆپ-داونەکان (Selectbox) لە هەموو شوێنێک */
+div[data-baseweb="select"] > div,
+div[data-baseweb="popover"] > div,
+div[data-baseweb="menu"], 
+ul[role="listbox"] {
+    background-color: #FFFFFF !important;
+}
+
+div[data-baseweb="menu"] li, 
+ul[role="listbox"] li, 
+li[role="option"] {
+    background-color: #FFFFFF !important;
+    color: #0D1117 !important;
+    -webkit-text-fill-color: #0D1117 !important;
+}
+
+div[data-baseweb="menu"] li:hover, 
+ul[role="listbox"] li:hover {
+    background-color: #EEF2FF !important;
+    color: #4F46E5 !important;
+    -webkit-text-fill-color: #4F46E5 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
     
 # -----------------------------------------------------------------------------
 #  6 . TRANSLATIONS — English only
