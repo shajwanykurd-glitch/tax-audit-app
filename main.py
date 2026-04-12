@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.6  (Company/Taxpayer Filter Added)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.7  (Placeholder & UI Polish)
 #  Architecture: Optimistic UI / Local-First Mutation
 # =============================================================================
 
@@ -135,9 +135,6 @@ def inject_css() -> None:
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
 
-/* =========================================================
-   ١. ڕەنگە بنەڕەتییەکان و دژە-تاریکی (Anti-Dark Mode)
-   ========================================================= */
 :root {
   color-scheme: light only !important;
   --bg:            #F7F8FC;
@@ -206,23 +203,18 @@ span[class*="material-symbols"] {
     letter-spacing: normal !important; text-transform: none !important;
 }
 
-/* شاردنەوەی سایدبار و مێنیوی ستریملیت */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"], [data-testid="stSidebar"] { 
     display: none !important; 
 }
 
-/* بۆشاییە زیادەکەی سەرەوە ناهێڵێت */
 .block-container {
     padding-top: 0rem !important;
     margin-top: -2rem !important;
 }
 header { visibility: hidden !important; }
 
-/* =========================================================
-   ٢. دیزاینی فۆرمەکان، درۆپ-داونەکان و بۆکسەکان
-   ========================================================= */
 .stTextInput > div > div > input, .stTextArea > div > div > textarea {
   background: var(--surface) !important; color: var(--text-primary) !important;
   -webkit-text-fill-color: var(--text-primary) !important;
@@ -279,9 +271,6 @@ header { visibility: hidden !important; }
   text-shadow: none !important;
 }
 
-/* =========================================================
-   ٣. دیزاینی بەشەکانی تری سایتەکە (تاب، خشتە، ئامار)
-   ========================================================= */
 [data-testid="stMetricContainer"] {
   background: var(--surface) !important; border: 1px solid var(--border) !important;
   border-top: 3px solid var(--indigo-500) !important; border-radius: var(--radius-lg) !important;
@@ -344,7 +333,6 @@ div[data-testid="stForm"] {
 .s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
 .s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
 
-/* خشتەکان */
 .gov-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:18px; }
 .gov-table { width:100%;border-collapse:collapse;background:var(--surface);font-size:.84rem; }
 .gov-table th { color:var(--text-muted)!important;background:var(--surface-2)!important;font-weight:700!important;padding:13px 18px!important;white-space:nowrap;text-align:left!important; }
@@ -371,9 +359,6 @@ div[data-testid="stForm"] {
 .role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
 .role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
 
-/* =========================================================
-   ٤. مۆبایل و تابلێت (Mobile & Tablet Responsiveness)
-   ========================================================= */
 @media (max-width: 768px) {
   .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
   .page-title { font-size: 1.3rem !important; }
@@ -389,9 +374,6 @@ div[data-testid="stForm"] {
   [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
 }
 
-/* =========================================================
-   ٥. چارەسەری کۆتایی بۆ ڕەشبوونی ئەندرۆید و کرۆم (Anti-Dark Mode Force)
-   ========================================================= */
 [data-testid="stPopover"] > button, [data-testid="stPopover"] > button * {
     background-color: #FFFFFF !important; color: #0D1117 !important; -webkit-text-fill-color: #0D1117 !important; border-color: #E4E7F0 !important;
 }
@@ -525,7 +507,6 @@ def detect_column(headers, kind):
             continue
         hl = h.lower().strip()
         
-        # چارەسەری کێشەی تێکەڵبوونی بایندەر لەگەڵ ناوی کۆمپانیا
         if kind == "company":
             if any(x in hl for x in ["رقم", "ملف", "ژمارە", "بایندەر", "binder", "file"]):
                 continue
@@ -534,6 +515,7 @@ def detect_column(headers, kind):
             if kw.lower() in hl:
                 return h
     return None
+
 def hash_pw(pw):   return hashlib.sha256(pw.encode()).hexdigest()
 def now_str():     return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -892,15 +874,11 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, col_company, agent_options=None, company_options=None):
     def _clear():
         st.session_state[f"{key_prefix}_binder"] = ""
-        st.session_state[f"{key_prefix}_agent"]  = ""
-        st.session_state[f"{key_prefix}_company"] = ""
+        st.session_state[f"{key_prefix}_agent"]  = None
+        st.session_state[f"{key_prefix}_company"] = None
         for pk in ("page_worklist", "page_archive", "page_logs"):
             if pk in st.session_state:
                 st.session_state[pk] = 1
-
-    ph_binder  = col_binder or "Not in sheet"
-    ph_agent   = col_agent_email or "Not in sheet"
-    ph_company = col_company or "Not in sheet"
 
     st.markdown(
         f"<div class='deep-search-strip'>"
@@ -918,32 +896,26 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, col_c
 
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
-                      placeholder=ph_binder, disabled=(col_binder is None),
+                      placeholder="🔍 بایندەر...", disabled=(col_binder is None),
                       label_visibility="collapsed")
     with c2:
         if company_options is not None and len(company_options) > 0:
-            opts = [""] + company_options
-            current_val = st.session_state.get(f"{key_prefix}_company", "")
-            idx = opts.index(current_val) if current_val in opts else 0
-            st.selectbox(t("ds_company"), options=opts, key=f"{key_prefix}_company",
-                         index=idx, disabled=(col_company is None),
+            st.selectbox(t("ds_company"), options=company_options, key=f"{key_prefix}_company",
+                         index=None, placeholder="🔍 بگەڕێ بۆ ناوی کۆمپانیا...", disabled=(col_company is None),
                          label_visibility="collapsed")
         else:
             st.text_input(t("ds_company"), key=f"{key_prefix}_company",
-                          placeholder=ph_company, disabled=(col_company is None),
+                          placeholder="🔍 ناوی کۆمپانیا...", disabled=(col_company is None),
                           label_visibility="collapsed")
     with c3:
         if agent_options is not None and len(agent_options) > 0:
-            opts = [""] + agent_options
-            current_val = st.session_state.get(f"{key_prefix}_agent", "")
-            idx = opts.index(current_val) if current_val in opts else 0
             st.selectbox(
-                t("ds_agent"), options=opts, key=f"{key_prefix}_agent",
-                index=idx, disabled=(col_agent_email is None),
+                t("ds_agent"), options=agent_options, key=f"{key_prefix}_agent",
+                index=None, placeholder="🔍 بگەڕێ بۆ ئەجێنت...", disabled=(col_agent_email is None),
                 label_visibility="collapsed")
         else:
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
-                          placeholder=ph_agent, disabled=(col_agent_email is None),
+                          placeholder="🔍 ناوی ئەجێنت...", disabled=(col_agent_email is None),
                           label_visibility="collapsed")
     with c4:
         if not has_valign:
@@ -952,9 +924,9 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, col_c
                   use_container_width=True, on_click=_clear)
 
     return (
-        st.session_state.get(f"{key_prefix}_binder", ""),
-        st.session_state.get(f"{key_prefix}_agent",  ""),
-        st.session_state.get(f"{key_prefix}_company", ""),
+        st.session_state.get(f"{key_prefix}_binder", "") or "",
+        st.session_state.get(f"{key_prefix}_agent",  "") or "",
+        st.session_state.get(f"{key_prefix}_company", "") or "",
     )
 
 
@@ -989,7 +961,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     def clear_wl_filters():
         st.session_state["wl_binder"] = ""
         st.session_state["wl_license"] = ""
-        st.session_state["wl_company"] = ""
+        st.session_state["wl_company"] = None
 
     company_opts = []
     if col_company and col_company in pending_display.columns:
@@ -998,17 +970,14 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
     c1, c2, c3, c4 = st.columns([1, 1, 1.5, 0.32])
     with c1:
-        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder=col_binder or "Not in sheet", disabled=(col_binder is None), label_visibility="collapsed")
+        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder="🔍 ژمارەی بایندەر", disabled=(col_binder is None), label_visibility="collapsed") or ""
     with c2:
-        wl_license = st.text_input("License No.", key="wl_license", placeholder=col_license or "Not in sheet", disabled=(col_license is None), label_visibility="collapsed")
+        wl_license = st.text_input("License No.", key="wl_license", placeholder="🔍 ژمارەی مۆڵەت", disabled=(col_license is None), label_visibility="collapsed") or ""
     with c3:
         if company_opts:
-            opts = [""] + company_opts
-            cur = st.session_state.get("wl_company", "")
-            idx = opts.index(cur) if cur in opts else 0
-            wl_company = st.selectbox("Company", options=opts, key="wl_company", index=idx, label_visibility="collapsed", disabled=(col_company is None))
+            wl_company = st.selectbox("Company", options=company_opts, key="wl_company", index=None, placeholder="🔍 بگەڕێ بۆ ناوی کۆمپانیا...", label_visibility="collapsed", disabled=(col_company is None)) or ""
         else:
-            wl_company = st.text_input("Company", key="wl_company", placeholder=col_company or "Not in sheet", disabled=(col_company is None), label_visibility="collapsed")
+            wl_company = st.text_input("Company", key="wl_company", placeholder="🔍 ناوی کۆمپانیا", disabled=(col_company is None), label_visibility="collapsed") or ""
     with c4:
         st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
@@ -1163,8 +1132,10 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_company=None, col_license=None):
 
     def clear_arch_search():
-        for k in ("arch_binder", "arch_license", "arch_auditor", "arch_company"):
+        for k in ("arch_binder", "arch_license"):
             st.session_state[k] = ""
+        for k in ("arch_auditor", "arch_company"):
+            st.session_state[k] = None
         st.session_state["page_archive"] = 1
 
     d_count = len(done_view)
@@ -1182,10 +1153,6 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     auditor_list = []
     if COL_AUDITOR in done_view.columns:
         auditor_list = sorted([a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")], key=str.lower)
-    auditor_opts = [""] + auditor_list
-
-    if st.session_state.get("arch_auditor") not in auditor_opts:
-        st.session_state["arch_auditor"] = ""
 
     company_opts = []
     if col_company and col_company in done_view.columns:
@@ -1195,22 +1162,19 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1.5, 1.2, 0.4])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
-                                  placeholder=col_binder  or "Not in sheet",
-                                  disabled=(col_binder  is None))
+                                  placeholder="🔍 بایندەر...",
+                                  disabled=(col_binder  is None)) or ""
     with c2:
         s_license = st.text_input("License No.", key="arch_license",
-                                  placeholder=col_license or "Not in sheet",
-                                  disabled=(col_license is None))
+                                  placeholder="🔍 مۆڵەت...",
+                                  disabled=(col_license is None)) or ""
     with c3:
         if company_opts:
-            opts = [""] + company_opts
-            cur = st.session_state.get("arch_company", "")
-            idx = opts.index(cur) if cur in opts else 0
-            s_company = st.selectbox("Company", options=opts, key="arch_company", index=idx, disabled=(col_company is None))
+            s_company = st.selectbox("Company", options=company_opts, key="arch_company", index=None, placeholder="🔍 بگەڕێ بۆ کۆمپانیا...", disabled=(col_company is None)) or ""
         else:
-            s_company = st.text_input("Company", key="arch_company", placeholder=col_company or "Not in sheet", disabled=(col_company is None))
+            s_company = st.text_input("Company", key="arch_company", placeholder="🔍 ناوی کۆمپانیا...", disabled=(col_company is None)) or ""
     with c4:
-        s_auditor = st.selectbox("Auditor Email", options=auditor_opts, key="arch_auditor")
+        s_auditor = st.selectbox("Auditor Email", options=auditor_list, key="arch_auditor", index=None, placeholder="🔍 بگەڕێ بۆ ئۆدیتەر...") or ""
     with c5:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
@@ -1939,12 +1903,14 @@ def main():
         inject_css()
 
         def _on_ws_change():
-            for k in ("wl_binder", "wl_license", "wl_company",
-                      "arch_binder", "arch_license", "arch_auditor", "arch_company"):
+            for k in ("wl_binder", "wl_license", "arch_binder", "arch_license"):
                 st.session_state[k] = ""
+            for k in ("wl_company", "arch_auditor", "arch_company"):
+                st.session_state[k] = None
             for prefix in ("anal", "logs"):
-                for suffix in ("_binder", "_agent", "_company"):
-                    st.session_state[f"{prefix}{suffix}"] = ""
+                st.session_state[f"{prefix}_binder"] = ""
+                st.session_state[f"{prefix}_agent"] = None
+                st.session_state[f"{prefix}_company"] = None
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state.pop(pk, None)
             st.session_state["logs_inspector_sel"] = t("inspector_select")
