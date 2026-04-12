@@ -1,10 +1,6 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.5  (Global Analytics Added)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.6  (Company/Taxpayer Filter Added)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.5 vs v16.4:
-#    [FEATURE] Added Global Analytics section aggregating data across all 3 sheets.
-#    [FEATURE] Added Auditor evaluation/productivity table in the global section.
-#    [KEEP] No Sidebar, Top Header UI, Combo-Box logic, row-key UI refresh.
 # =============================================================================
 
 import html as _html
@@ -143,7 +139,7 @@ def inject_css() -> None:
    ١. ڕەنگە بنەڕەتییەکان و دژە-تاریکی (Anti-Dark Mode)
    ========================================================= */
 :root {
-  color-scheme: light only !important; /* ڕێگری لە دارک مۆدی ئەندرۆید دەکات */
+  color-scheme: light only !important;
   --bg:            #F7F8FC;
   --surface:       #FFFFFF;
   --surface-2:     #F0F2F9;
@@ -217,6 +213,13 @@ span[class*="material-symbols"] {
     display: none !important; 
 }
 
+/* بۆشاییە زیادەکەی سەرەوە ناهێڵێت */
+.block-container {
+    padding-top: 0rem !important;
+    margin-top: -2rem !important;
+}
+header { visibility: hidden !important; }
+
 /* =========================================================
    ٢. دیزاینی فۆرمەکان، درۆپ-داونەکان و بۆکسەکان
    ========================================================= */
@@ -228,17 +231,15 @@ span[class*="material-symbols"] {
   box-shadow: var(--shadow-sm) !important;
 }
 
-/* درۆپ داون و لیستی بژاردەکان (سپی زۆرەملێ لەگەڵ چوارچێوەی دیار) */
 .stSelectbox > div > div, [data-baseweb="select"] > div {
   background: #FFFFFF !important; 
   background-color: #FFFFFF !important;
   color: #0D1117 !important;
-  border: 1.5px solid var(--border-2) !important; /* لێرەدا چوارچێوەکەمان بۆ زیاد کردووەوە */
+  border: 1.5px solid var(--border-2) !important;
   border-radius: var(--radius-md) !important;
   min-height: 42px !important;
 }
 
-/* دڵنیابوونەوە لەوەی چوارچێوەکە دیارە کاتێک کلیکی لێ دەکرێت */
 [data-baseweb="select"] > div:focus-within {
   border-color: var(--indigo-500) !important;
   box-shadow: var(--ring) !important;
@@ -265,7 +266,6 @@ span[class*="material-symbols"] {
   -webkit-text-fill-color: #4F46E5 !important;
 }
 
-/* بۆکسەکانی لۆگ و کۆد (Expander & Code block) */
 .streamlit-expanderHeader, .streamlit-expanderContent {
   background-color: #FFFFFF !important;
   color: #0D1117 !important;
@@ -392,79 +392,17 @@ div[data-testid="stForm"] {
 /* =========================================================
    ٥. چارەسەری کۆتایی بۆ ڕەشبوونی ئەندرۆید و کرۆم (Anti-Dark Mode Force)
    ========================================================= */
-
-/* چارەسەری دوگمەی ئەکاونت لەسەرەوە */
-[data-testid="stPopover"] > button,
-[data-testid="stPopover"] > button * {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
-    border-color: #E4E7F0 !important;
+[data-testid="stPopover"] > button, [data-testid="stPopover"] > button * {
+    background-color: #FFFFFF !important; color: #0D1117 !important; -webkit-text-fill-color: #0D1117 !important; border-color: #E4E7F0 !important;
 }
-
-/* چارەسەری بۆکسی زانیارییەکان (Inspector Panel) */
-.inspector-panel, 
-.inspector-panel div, 
-.inspector-meta, 
-.inspector-meta span {
-    background-color: #F0F2F9 !important; /* ڕەنگێکی شین-خۆڵەمێشی کاڵ بۆ باگراوند */
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important; /* ئەمە وا دەکات تێکستەکە هەرگیز سپی نەبێتەوە */
+.inspector-panel, .inspector-panel div, .inspector-meta, .inspector-meta span {
+    background-color: #F0F2F9 !important; color: #0D1117 !important; -webkit-text-fill-color: #0D1117 !important; 
 }
-
-/* چارەسەری ناوەوەی بۆکسەکانی لۆگ و ئۆدیت ترەیل (st.code) */
-[data-testid="stCodeBlock"] {
-    background-color: #E4E7F0 !important;
-}
-
-[data-testid="stCodeBlock"] * {
-    background-color: transparent !important;
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important; /* دەبێت ڕەش بێت */
-    text-shadow: none !important;
-}
-
-/* چارەسەری تەواوەتی درۆپ-داونەکان (Selectbox) لە هەموو شوێنێک */
-div[data-baseweb="select"] > div,
-div[data-baseweb="popover"] > div,
-div[data-baseweb="menu"], 
-ul[role="listbox"] {
-    background-color: #FFFFFF !important;
-}
-
-div[data-baseweb="menu"] li, 
-ul[role="listbox"] li, 
-li[role="option"] {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
-}
-
-div[data-baseweb="menu"] li:hover, 
-ul[role="listbox"] li:hover {
-    background-color: #EEF2FF !important;
-    color: #4F46E5 !important;
-    -webkit-text-fill-color: #4F46E5 !important;
-}
-/* نەهێشتنی بۆشاییە گەورەکەی سەرەوەی شاشەکە و بردنە سەرەوەی داشبۆردەکە */
-.block-container {
-    padding-top: 0rem !important; 
-    padding-bottom: 1rem !important;
-    margin-top: 0 !important;
-}
-
-[data-testid="block-container"] {
-    padding-top: 1.5rem !important;
-}
-/* ئەمە تەنیا بۆشاییە زیادەکەی سەرەوە ناهێڵێت */
-.block-container {
-    padding-top: 0rem !important;
-    margin-top: -2rem !important;
-}
-
-header {
-    visibility: hidden !important;
-}
+[data-testid="stCodeBlock"] { background-color: #E4E7F0 !important; }
+[data-testid="stCodeBlock"] * { background-color: transparent !important; color: #000000 !important; -webkit-text-fill-color: #000000 !important; text-shadow: none !important; }
+div[data-baseweb="select"] > div, div[data-baseweb="popover"] > div, div[data-baseweb="menu"], ul[role="listbox"] { background-color: #FFFFFF !important; }
+div[data-baseweb="menu"] li, ul[role="listbox"] li, li[role="option"] { background-color: #FFFFFF !important; color: #0D1117 !important; -webkit-text-fill-color: #0D1117 !important; }
+div[data-baseweb="menu"] li:hover, ul[role="listbox"] li:hover { background-color: #EEF2FF !important; color: #4F46E5 !important; -webkit-text-fill-color: #4F46E5 !important; }
 </style>
 """, unsafe_allow_html=True)
     
@@ -531,8 +469,12 @@ _LANG: dict[str, dict[str, str]] = {
         "role_label":"Role","change_role":"Change User Role",
         "change_role_sub":"Upgrade or downgrade any user's access level",
         "role_updated":"Role updated successfully.",
-        "deep_search":"Deep Search","ds_binder":"Binder No.","ds_agent":"Agent Email",
-        "ds_clear":"Clear","ds_showing":"Showing results for",
+        "deep_search":"Deep Search",
+        "ds_binder":"Binder No.",
+        "ds_agent":"Agent Email",
+        "ds_company":"Company / باجدەر",
+        "ds_clear":"Clear",
+        "ds_showing":"Showing results for",
         "eval_breakdown":"Evaluation Breakdown per Agent",
         "eval_breakdown_sub":"Stacked view: Good / Bad / Duplicate per data-entry agent",
         "arch_search_title":"Archive Quick Search",
@@ -562,7 +504,8 @@ def _get_column_keywords():
                     "binder","file no","file_no"],
         "company": ["ناوی کۆمپانیا","اسم الشركة","اسم_الشركة","اسم الشركه",
                     "کۆمپانیای","کۆمپانیا","كومبانيا","شركة",
-                    "company name","company_name","company"],
+                    "company name","company_name","company",
+                    "ناوی باجدەر", "دافع الضرائب", "taxpayer name", "taxpayer"],
         "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
                     "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
                     "license no","license_no","license","licence"],
@@ -630,7 +573,7 @@ def apply_period_filter(df, col, period):
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
     parsed    = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-    cutoff_ts = pd.Timestamp(cutoff).tz_localize(None) # لێرەدا کێشەی تایمزۆنەکە چارەسەر کراوە
+    cutoff_ts = pd.Timestamp(cutoff).tz_localize(None)
     return df[parsed >= cutoff_ts]
 
 def build_auto_diff(record: dict, new_vals: dict) -> str:
@@ -939,18 +882,20 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (agent dropdown preserved)
+#  DEEP SEARCH WIDGET  (Global filter for Analytics & Logs)
 # -----------------------------------------------------------------------------
-def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
+def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, col_company, agent_options=None, company_options=None):
     def _clear():
         st.session_state[f"{key_prefix}_binder"] = ""
         st.session_state[f"{key_prefix}_agent"]  = ""
+        st.session_state[f"{key_prefix}_company"] = ""
         for pk in ("page_worklist", "page_archive", "page_logs"):
             if pk in st.session_state:
                 st.session_state[pk] = 1
 
-    ph_binder = col_binder      or "column not detected in sheet"
-    ph_agent  = col_agent_email or "column not detected in sheet"
+    ph_binder  = col_binder or "Not in sheet"
+    ph_agent   = col_agent_email or "Not in sheet"
+    ph_company = col_company or "Not in sheet"
 
     st.markdown(
         f"<div class='deep-search-strip'>"
@@ -960,10 +905,10 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
     )
 
     try:
-        c1, c2, c3 = st.columns([1, 1, 0.32], gap="small", vertical_alignment="bottom")
+        c1, c2, c3, c4 = st.columns([1, 1.5, 1, 0.32], gap="small", vertical_alignment="bottom")
         has_valign = True
     except TypeError:
-        c1, c2, c3 = st.columns([1, 1, 0.32], gap="small")
+        c1, c2, c3, c4 = st.columns([1, 1.5, 1, 0.32], gap="small")
         has_valign = False
 
     with c1:
@@ -971,13 +916,22 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
                       placeholder=ph_binder, disabled=(col_binder is None),
                       label_visibility="collapsed")
     with c2:
+        if company_options is not None and len(company_options) > 0:
+            opts = [""] + company_options
+            current_val = st.session_state.get(f"{key_prefix}_company", "")
+            idx = opts.index(current_val) if current_val in opts else 0
+            st.selectbox(t("ds_company"), options=opts, key=f"{key_prefix}_company",
+                         index=idx, disabled=(col_company is None),
+                         label_visibility="collapsed")
+        else:
+            st.text_input(t("ds_company"), key=f"{key_prefix}_company",
+                          placeholder=ph_company, disabled=(col_company is None),
+                          label_visibility="collapsed")
+    with c3:
         if agent_options is not None and len(agent_options) > 0:
-            opts        = [""] + agent_options
+            opts = [""] + agent_options
             current_val = st.session_state.get(f"{key_prefix}_agent", "")
-            try:
-                idx = opts.index(current_val) if current_val in opts else 0
-            except ValueError:
-                idx = 0
+            idx = opts.index(current_val) if current_val in opts else 0
             st.selectbox(
                 t("ds_agent"), options=opts, key=f"{key_prefix}_agent",
                 index=idx, disabled=(col_agent_email is None),
@@ -986,7 +940,7 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
                           placeholder=ph_agent, disabled=(col_agent_email is None),
                           label_visibility="collapsed")
-    with c3:
+    with c4:
         if not has_valign:
             st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
         st.button(t("ds_clear"), key=f"{key_prefix}_clr",
@@ -995,20 +949,23 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent
     return (
         st.session_state.get(f"{key_prefix}_binder", ""),
         st.session_state.get(f"{key_prefix}_agent",  ""),
+        st.session_state.get(f"{key_prefix}_company", ""),
     )
 
 
-def apply_deep_search(df, srch_binder: str, srch_agent: str, col_binder, col_agent_email):
+def apply_deep_search(df, srch_binder: str, srch_agent: str, srch_company: str, col_binder, col_agent_email, col_company):
     if df.empty: return df
     mask = pd.Series(True, index=df.index)
     if srch_binder.strip() and col_binder and col_binder in df.columns:
         mask &= df[col_binder].astype(str).str.contains(srch_binder.strip(), case=False, na=False)
     if srch_agent.strip() and col_agent_email and col_agent_email in df.columns:
         mask &= df[col_agent_email].astype(str).str.contains(srch_agent.strip(), case=False, na=False)
+    if srch_company.strip() and col_company and col_company in df.columns:
+        mask &= df[col_company].astype(str).str.contains(srch_company.strip(), case=False, na=False)
     return df[mask]
 
-def _deep_search_active(b: str, a: str) -> bool:
-    return any(x.strip() for x in (b, a))
+def _deep_search_active(b: str, a: str, c: str) -> bool:
+    return any(x.strip() for x in (b, a, c))
 
 
 # -----------------------------------------------------------------------------
@@ -1027,19 +984,35 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     def clear_wl_filters():
         st.session_state["wl_binder"] = ""
         st.session_state["wl_license"] = ""
+        st.session_state["wl_company"] = ""
 
-    c1, c2, c3 = st.columns([1, 1, 0.32])
+    company_opts = []
+    if col_company and col_company in pending_display.columns:
+        c_series = pending_display[col_company].astype(str).str.strip()
+        company_opts = sorted(c_series[c_series != ""].unique().tolist())
+
+    c1, c2, c3, c4 = st.columns([1, 1, 1.5, 0.32])
     with c1:
         wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder=col_binder or "Not in sheet", disabled=(col_binder is None), label_visibility="collapsed")
     with c2:
         wl_license = st.text_input("License No.", key="wl_license", placeholder=col_license or "Not in sheet", disabled=(col_license is None), label_visibility="collapsed")
     with c3:
+        if company_opts:
+            opts = [""] + company_opts
+            cur = st.session_state.get("wl_company", "")
+            idx = opts.index(cur) if cur in opts else 0
+            wl_company = st.selectbox("Company", options=opts, key="wl_company", index=idx, label_visibility="collapsed", disabled=(col_company is None))
+        else:
+            wl_company = st.text_input("Company", key="wl_company", placeholder=col_company or "Not in sheet", disabled=(col_company is None), label_visibility="collapsed")
+    with c4:
         st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
     if wl_binder.strip() and col_binder and col_binder in pending_display.columns:
         pending_display = pending_display[pending_display[col_binder].astype(str).str.contains(wl_binder.strip(), case=False, na=False)]
     if wl_license.strip() and col_license and col_license in pending_display.columns:
         pending_display = pending_display[pending_display[col_license].astype(str).str.contains(wl_license.strip(), case=False, na=False)]
+    if wl_company.strip() and col_company and col_company in pending_display.columns:
+        pending_display = pending_display[pending_display[col_company].astype(str).str.contains(wl_company.strip(), case=False, na=False)]
 
     p_count = len(pending_display)
     st.markdown(f"""<div class="worklist-header" style="margin-top: 15px;">
@@ -1049,7 +1022,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     </div>""", unsafe_allow_html=True)
 
     if pending_display.empty:
-        st.info("No cases found." if (wl_binder or wl_license) else "All cases processed.")
+        st.info("No cases found." if (wl_binder or wl_license or wl_company) else "All cases processed.")
         return
 
     render_paginated_table(pending_display, page_key="page_worklist")
@@ -1182,10 +1155,10 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 #  15 . ARCHIVE
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
-                   col_binder=None, col_license=None):
+                   col_binder=None, col_company=None, col_license=None):
 
     def clear_arch_search():
-        for k in ("arch_binder", "arch_license", "arch_auditor"):
+        for k in ("arch_binder", "arch_license", "arch_auditor", "arch_company"):
             st.session_state[k] = ""
         st.session_state["page_archive"] = 1
 
@@ -1209,18 +1182,31 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     if st.session_state.get("arch_auditor") not in auditor_opts:
         st.session_state["arch_auditor"] = ""
 
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 0.28])
+    company_opts = []
+    if col_company and col_company in done_view.columns:
+        c_series = done_view[col_company].astype(str).str.strip()
+        company_opts = sorted(c_series[c_series != ""].unique().tolist())
+
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1.5, 1.2, 0.4])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
-                                  placeholder=col_binder  or "column not in sheet",
+                                  placeholder=col_binder  or "Not in sheet",
                                   disabled=(col_binder  is None))
     with c2:
         s_license = st.text_input("License No.", key="arch_license",
-                                  placeholder=col_license or "column not in sheet",
+                                  placeholder=col_license or "Not in sheet",
                                   disabled=(col_license is None))
     with c3:
-        s_auditor = st.selectbox("Auditor Email", options=auditor_opts, key="arch_auditor")
+        if company_opts:
+            opts = [""] + company_opts
+            cur = st.session_state.get("arch_company", "")
+            idx = opts.index(cur) if cur in opts else 0
+            s_company = st.selectbox("Company", options=opts, key="arch_company", index=idx, disabled=(col_company is None))
+        else:
+            s_company = st.text_input("Company", key="arch_company", placeholder=col_company or "Not in sheet", disabled=(col_company is None))
     with c4:
+        s_auditor = st.selectbox("Auditor Email", options=auditor_opts, key="arch_auditor")
+    with c5:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
 
@@ -1231,6 +1217,9 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     if s_license.strip() and col_license and col_license in filtered_view.columns:
         filtered_view = filtered_view[filtered_view[col_license].astype(str).str.contains(
             s_license.strip(), case=False, na=False)]
+    if s_company.strip() and col_company and col_company in filtered_view.columns:
+        filtered_view = filtered_view[filtered_view[col_company].astype(str).str.contains(
+            s_company.strip(), case=False, na=False)]
     if s_auditor.strip() and COL_AUDITOR in filtered_view.columns:
         filtered_view = filtered_view[filtered_view[COL_AUDITOR].astype(str) == s_auditor.strip()]
 
@@ -1312,15 +1301,20 @@ def fetch_combined_analytics(sid):
 # -----------------------------------------------------------------------------
 #  16 . ANALYTICS  — Light mode only, fully vectorized
 # -----------------------------------------------------------------------------
-def render_analytics(df, sid, col_agent_email=None, col_binder=None):
+def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company=None):
     agent_opts = None
     if col_agent_email and col_agent_email in df.columns:
         agent_series = df[col_agent_email].astype(str).str.strip()
         agent_opts   = sorted(agent_series[agent_series != ""].unique().tolist())
 
-    srch_binder, srch_agent = render_deep_search_strip(
-        "anal", col_binder, col_agent_email, agent_options=agent_opts)
-    work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
+    company_opts = None
+    if col_company and col_company in df.columns:
+        company_series = df[col_company].astype(str).str.strip()
+        company_opts   = sorted(company_series[company_series != ""].unique().tolist())
+
+    srch_binder, srch_agent, srch_company = render_deep_search_strip(
+        "anal", col_binder, col_agent_email, col_company, agent_options=agent_opts, company_options=company_opts)
+    work_df = apply_deep_search(df, srch_binder, srch_agent, srch_company, col_binder, col_agent_email, col_company)
 
     st.markdown(f"<div class='section-title'>{t('period')}</div>", unsafe_allow_html=True)
     periods = [("all", t("all_time")), ("today", t("today")),
@@ -1330,13 +1324,11 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
             st.session_state.date_filter = pk; st.rerun()
 
-    # فلتەرکردنی داتاکان بۆ ئەوەی تەنیا کەیسە تەواوکراوەکانی ماوەی دیاریکراو بمێنێتەوە
     done_base = work_df[work_df[COL_STATUS] == VAL_DONE]
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
 
-    # پیشاندانی پەیامی گەڕانەکە بە پشتبەستن بە ژمارەی ڕاستەقینەی خشتەکە
-    if _deep_search_active(srch_binder, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
+    if _deep_search_active(srch_binder, srch_agent, srch_company):
+        terms = [_html.escape(x) for x in (srch_binder, srch_agent, srch_company) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
@@ -1630,17 +1622,22 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         agent_series = df[col_agent_email].astype(str).str.strip()
         agent_opts   = sorted(agent_series[agent_series != ""].unique().tolist())
 
-    srch_binder, srch_agent = render_deep_search_strip(
-        "logs", col_binder, col_agent_email, agent_options=agent_opts)
+    company_opts = None
+    if col_company and col_company in df.columns:
+        company_series = df[col_company].astype(str).str.strip()
+        company_opts   = sorted(company_series[company_series != ""].unique().tolist())
+
+    srch_binder, srch_agent, srch_company = render_deep_search_strip(
+        "logs", col_binder, col_agent_email, col_company, agent_options=agent_opts, company_options=company_opts)
 
     done_df = df[df[COL_STATUS] == VAL_DONE]
     if done_df.empty:
         st.info(t("logs_no_data")); return
 
-    done_df = apply_deep_search(done_df, srch_binder, srch_agent, col_binder, col_agent_email)
+    done_df = apply_deep_search(done_df, srch_binder, srch_agent, srch_company, col_binder, col_agent_email, col_company)
 
-    if _deep_search_active(srch_binder, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
+    if _deep_search_active(srch_binder, srch_agent, srch_company):
+        terms = [_html.escape(x) for x in (srch_binder, srch_agent, srch_company) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
             f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
@@ -1937,11 +1934,11 @@ def main():
         inject_css()
 
         def _on_ws_change():
-            for k in ("wl_binder", "wl_license",
-                      "arch_binder", "arch_license", "arch_auditor"):
+            for k in ("wl_binder", "wl_license", "wl_company",
+                      "arch_binder", "arch_license", "arch_auditor", "arch_company"):
                 st.session_state[k] = ""
             for prefix in ("anal", "logs"):
-                for suffix in ("_binder", "_agent"):
+                for suffix in ("_binder", "_agent", "_company"):
                     st.session_state[f"{prefix}{suffix}"] = ""
             for pk in ("page_worklist", "page_archive", "page_logs"):
                 st.session_state.pop(pk, None)
@@ -2112,13 +2109,13 @@ def main():
                     dv = df[df[COL_STATUS] == VAL_DONE].copy()
                     dv.index = dv.index + 2
                     render_archive(dv, df, col_map, ws_title, is_admin,
-                                   col_binder=col_binder, col_license=col_license)
+                                   col_binder=col_binder, col_company=col_company, col_license=col_license)
 
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
                     render_analytics(df, sid, col_agent_email=col_agent_email,
-                                     col_binder=col_binder)
+                                     col_binder=col_binder, col_company=col_company)
 
         if can_analytics and t_logs is not None:
             with t_logs:
