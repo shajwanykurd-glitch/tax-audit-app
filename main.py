@@ -135,330 +135,265 @@ def _gsheets_call(func, *args, **kwargs):
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
 
-/* =========================================================
-   ١. ڕەنگە بنەڕەتییەکان و دژە-تاریکی (Anti-Dark Mode)
-   ========================================================= */
-:root {
-  color-scheme: light only !important; /* ڕێگری لە دارک مۆدی ئەندرۆید دەکات */
-  --bg:            #F7F8FC;
-  --surface:       #FFFFFF;
-  --surface-2:     #F0F2F9;
-  --border:        #E4E7F0;
-  --border-2:      #D0D5E8;
-  --text-primary:    #0D1117;
-  --text-secondary:  #4B5563;
-  --text-muted:      #9CA3AF;
-  --indigo-50:  #EEF2FF;
-  --indigo-100: #E0E7FF;
-  --indigo-400: #818CF8;
-  --indigo-500: #6366F1;
-  --indigo-600: #4F46E5;
-  --indigo-700: #4338CA;
-  --blue-400:   #60A5FA;
-  --blue-500:   #3B82F6;
-  --green-50:   #F0FDF4;
-  --green-200:  #A7F3D0;
-  --green-600:  #16A34A;
-  --green-700:  #15803D;
-  --amber-50:   #FFFBEB;
-  --amber-200:  #FDE68A;
-  --amber-700:  #B45309;
-  --red-50:     #FFF1F2;
-  --red-200:    #FECDD3;
-  --red-600:    #DC2626;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
-  --radius-xl:   24px;
-  --radius-full: 9999px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
-  --ring: 0 0 0 3px rgba(99,102,241,0.18);
-  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'JetBrains Mono', 'Courier New', monospace;
-}
+    /* =========================
+       1. ROOT DESIGN SYSTEM (SaaS Vercel/Stripe Style)
+    ========================== */
+    :root {
+        color-scheme: light only !important; /* ڕێگری لە دارک مۆد */
+        --bg: #F9FAFB;
+        --card: #FFFFFF;
+        --surface: #FFFFFF;
+        --border: #E5E7EB;
+        --border-2: #D1D5DB;
+        --text: #0F172A;
+        --text-primary: #0F172A;
+        --muted: #6B7280;
+        --text-muted: #6B7280;
+        --text-secondary: #475569;
 
-*, *::before, *::after { box-sizing: border-box !important; }
+        --primary-1: #6366F1;
+        --primary-2: #3B82F6;
+        --indigo-50: #EEF2FF;
+        --indigo-100: #E0E7FF;
+        --indigo-500: #6366F1;
+        --indigo-600: #4F46E5;
 
-html, body, .stApp, [data-testid="stAppViewContainer"],
-[data-testid="stMain"], .main, .block-container {
-  background-color: var(--bg) !important;
-  color: var(--text-primary) !important;
-  font-family: var(--font);
-}
+        /* Status Colors */
+        --green-50: #F0FDF4; --green-200: #A7F3D0; --green-700: #15803D;
+        --amber-50: #FFFBEB; --amber-200: #FDE68A; --amber-700: #B45309;
+        --red-50: #FFF1F2; --red-200: #FECDD3; --red-600: #DC2626;
 
-p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] {
-  color: var(--text-primary) !important;
-  font-family: var(--font);
-}
+        --radius: 14px;
+        --radius-sm: 8px;
+        --radius-full: 9999px;
 
-.material-symbols-rounded,
-[data-testid="stIconMaterial"], .stIcon,
-.streamlit-expanderHeader svg, .streamlit-expanderHeader span,
-[data-testid="stIcon"] svg, [data-testid="stIcon"] span,
-.stButton button svg, button svg.material-symbols-rounded,
-div[data-testid="stMarkdownContainer"] svg,
-span[class*="material-symbols"] {
-    font-family: 'Material Symbols Rounded' !important;
-    font-weight: normal !important; font-style: normal !important;
-    letter-spacing: normal !important; text-transform: none !important;
-}
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+        --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
 
-/* شاردنەوەی سایدبار و مێنیوی ستریملیت */
-#MainMenu, footer, header, .stDeployButton,
-[data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"], [data-testid="stSidebar"] { 
-    display: none !important; 
-}
+        --ring: 0 0 0 2px #6366f1;
+        --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        --mono: 'JetBrains Mono', 'Courier New', monospace;
+    }
 
-/* =========================================================
-   ٢. دیزاینی فۆرمەکان، درۆپ-داونەکان و بۆکسەکان
-   ========================================================= */
-.stTextInput > div > div > input, .stTextArea > div > div > textarea {
-  background: var(--surface) !important; color: var(--text-primary) !important;
-  -webkit-text-fill-color: var(--text-primary) !important;
-  border: 1.5px solid var(--border-2) !important; border-radius: var(--radius-md) !important;
-  font-size: 0.875rem !important; font-weight: 500 !important; padding: 11px 14px !important;
-  box-shadow: var(--shadow-sm) !important;
-}
+    *, *::before, *::after { box-sizing: border-box !important; }
 
-/* درۆپ داون و لیستی بژاردەکان (سپی زۆرەملێ لەگەڵ چوارچێوەی دیار) */
-.stSelectbox > div > div, [data-baseweb="select"] > div {
-  background: #FFFFFF !important; 
-  background-color: #FFFFFF !important;
-  color: #0D1117 !important;
-  border: 1.5px solid var(--border-2) !important; /* لێرەدا چوارچێوەکەمان بۆ زیاد کردووەوە */
-  border-radius: var(--radius-md) !important;
-  min-height: 42px !important;
-}
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+        background: var(--bg) !important;
+        font-family: var(--font) !important;
+        color: var(--text) !important;
+    }
 
-/* دڵنیابوونەوە لەوەی چوارچێوەکە دیارە کاتێک کلیکی لێ دەکرێت */
-[data-baseweb="select"] > div:focus-within {
-  border-color: var(--indigo-500) !important;
-  box-shadow: var(--ring) !important;
-}
-
-[data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {
-  background: #FFFFFF !important; 
-  background-color: #FFFFFF !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow-md) !important;
-}
-
-[data-baseweb="menu"] li, [role="option"] {
-  background-color: #FFFFFF !important; 
-  color: #0D1117 !important; 
-  -webkit-text-fill-color: #0D1117 !important;
-  font-size: 0.875rem !important;
-  font-weight: 600 !important;
-}
-
-[data-baseweb="menu"] li:hover, [data-baseweb="menu"] [aria-selected="true"], [role="option"]:hover {
-  background-color: #EEF2FF !important; 
-  color: #4F46E5 !important;
-  -webkit-text-fill-color: #4F46E5 !important;
-}
-
-/* بۆکسەکانی لۆگ و کۆد (Expander & Code block) */
-.streamlit-expanderHeader, .streamlit-expanderContent {
-  background-color: #FFFFFF !important;
-  color: #0D1117 !important;
-  -webkit-text-fill-color: #0D1117 !important;
-}
-
-[data-testid="stCodeBlock"], [data-testid="stCodeBlock"] pre, [data-testid="stCodeBlock"] code {
-  background-color: #F8F9FA !important;
-  color: #0D1117 !important;
-  -webkit-text-fill-color: #0D1117 !important;
-  text-shadow: none !important;
-}
-
-/* =========================================================
-   ٣. دیزاینی بەشەکانی تری سایتەکە (تاب، خشتە، ئامار)
-   ========================================================= */
-[data-testid="stMetricContainer"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-top: 3px solid var(--indigo-500) !important; border-radius: var(--radius-lg) !important;
-  padding: 22px 26px !important; box-shadow: var(--shadow-md) !important;
-}
-[data-testid="stMetricValue"] { font-size: 2.1rem !important; font-weight: 800 !important; color: var(--indigo-600) !important; }
-[data-testid="stMetricLabel"] { font-size: 0.68rem !important; font-weight: 700 !important; color: var(--text-muted) !important; }
-
-.stButton > button {
-  background: linear-gradient(135deg, var(--indigo-600) 0%, var(--blue-500) 100%) !important;
-  color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important;
-  border: none !important; border-radius: var(--radius-md) !important;
-  font-weight: 700 !important; font-size: 0.84rem !important; padding: 10px 20px !important;
-}
-
-div[data-testid="stForm"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important; padding: 28px 32px !important;
-}
-
-.stTabs [data-baseweb="tab-list"] {
-  gap: 2px !important; background: var(--surface-2) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius-full) !important;
-  padding: 4px !important; width: fit-content !important; box-shadow: var(--shadow-sm) !important;
-}
-.stTabs [data-baseweb="tab"] {
-  background: transparent !important; color: var(--text-muted) !important;
-  border-radius: var(--radius-full) !important; padding: 8px 22px !important; font-weight: 600 !important;
-}
-.stTabs [aria-selected="true"] {
-  background: var(--surface) !important; color: var(--indigo-600) !important;
-  -webkit-text-fill-color: var(--indigo-600) !important; box-shadow: var(--shadow-sm) !important;
-}
-
-.deep-search-strip { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md); padding: 12px 20px 16px; margin-bottom: 20px; }
-.deep-search-title { font-size: .62rem; font-weight: 800; color: var(--indigo-600) !important; margin-bottom: 10px; }
-.page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
-.page-title  { font-size:1.55rem;font-weight:800;color:var(--text-primary)!important;margin:0; }
-.page-subtitle { font-size:.78rem;color:var(--text-muted)!important;margin-top:4px;font-weight:500; }
-.page-timestamp { font-size:.74rem;color:var(--text-muted)!important;font-weight:600;background:var(--surface);padding:7px 16px;border-radius:var(--radius-full);border:1px solid var(--border); }
-.section-title { display:inline-flex;align-items:center;gap:8px;font-size:.70rem;font-weight:800;color:var(--indigo-600)!important;margin:24px 0 14px;padding:6px 14px 6px 10px;border-left:3px solid var(--indigo-500);background:var(--indigo-50); }
-.worklist-header { display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:18px 24px;margin-bottom:18px; }
-.log-summary-card { background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:20px 26px;margin-bottom:18px; }
-.log-stat-row { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
-.log-stat { display:flex;flex-direction:column;gap:2px; }
-.log-stat-value { font-size:1.55rem;font-weight:800;color:var(--indigo-600)!important; }
-.log-stat-label { font-size:.62rem;font-weight:700;color:var(--text-muted)!important; }
-.log-stat-divider { width:1px;height:40px;background:var(--border); }
-.export-strip { background:linear-gradient(135deg,#F0FDF4 0%,#EFF6FF 100%);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px; }
-.prog-wrap  { background:var(--border);border-radius:var(--radius-full);height:7px;overflow:hidden;margin:6px 0 12px; }
-.prog-fill  { height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--indigo-600),var(--blue-400)); }
-.prog-labels{ display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted)!important;font-weight:600;margin-bottom:4px; }
-.chip { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:var(--radius-full);font-size:.68rem;font-weight:700; }
-.chip-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.chip-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.s-chip { display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-full);font-size:.63rem;font-weight:700; }
-.s-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.s-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.s-eval-good { background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200); }
-.s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
-.s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
-
-/* خشتەکان */
-.gov-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:18px; }
-.gov-table { width:100%;border-collapse:collapse;background:var(--surface);font-size:.84rem; }
-.gov-table th { color:var(--text-muted)!important;background:var(--surface-2)!important;font-weight:700!important;padding:13px 18px!important;white-space:nowrap;text-align:left!important; }
-.gov-table td { color:var(--text-primary)!important;background:var(--surface)!important;padding:11px 18px!important;border-bottom:1px solid var(--border)!important;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.gov-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.gov-table tbody tr:hover td { background:var(--indigo-50)!important;color:var(--text-primary)!important; }
-.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
-.acc-table th { background:var(--indigo-50)!important;color:var(--indigo-600)!important;font-size:.62rem!important;font-weight:800!important;padding:11px 16px!important;border-bottom:2px solid var(--indigo-100)!important;text-align:left!important; }
-.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important;font-weight:500!important;color:var(--text-primary)!important;background:var(--surface)!important; }
-.acc-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.acc-table tbody tr:hover td { background:var(--indigo-50)!important; }
-.acc-rate-high { color:var(--green-700)!important;font-weight:800!important; }
-.acc-rate-mid  { color:var(--amber-700)!important;font-weight:800!important; }
-.acc-rate-low  { color:var(--red-600)!important;font-weight:800!important; }
-.acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
-.acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
-
-.inspector-panel { background: var(--surface-2); border: 1px solid var(--border); border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md); padding: 18px 22px; margin-top: 8px; }
-.inspector-meta { font-size: .72rem; font-weight: 700; color: var(--text-muted) !important; margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap; }
-.inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
-.log-line { font-family:var(--mono)!important;font-size:.74rem;color:var(--text-secondary)!important;padding:6px 0;border-bottom:1px dashed var(--border);line-height:1.5; }
-.divider { border:none;border-top:1px solid var(--border);margin:14px 0; }
-.role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-.role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-.role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-
-/* =========================================================
-   ٤. مۆبایل و تابلێت (Mobile & Tablet Responsiveness)
-   ========================================================= */
-@media (max-width: 768px) {
-  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
-  .page-title { font-size: 1.3rem !important; }
-  .page-timestamp { align-self: flex-start !important; margin-top: 0 !important; }
-  .worklist-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 15px !important; }
-  .log-stat-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
-  .log-stat-divider { display: none !important; }
-  div[data-testid="stForm"] { padding: 18px 20px !important; }
-  .gov-table th, .acc-table th { padding: 10px 12px !important; font-size: 0.58rem !important; }
-  .gov-table td, .acc-table td { padding: 10px 12px !important; font-size: 0.78rem !important; }
-  .gov-table-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px !important; }
-  .inspector-meta { flex-direction: column !important; gap: 8px !important; }
-  [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
-}
-
-/* =========================================================
-   ٥. چارەسەری کۆتایی بۆ ڕەشبوونی ئەندرۆید و کرۆم (Anti-Dark Mode Force)
-   ========================================================= */
-
-/* چارەسەری دوگمەی ئەکاونت لەسەرەوە */
-[data-testid="stPopover"] > button,
-[data-testid="stPopover"] > button * {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
-    border-color: #E4E7F0 !important;
-}
-
-/* چارەسەری بۆکسی زانیارییەکان (Inspector Panel) */
-.inspector-panel, 
-.inspector-panel div, 
-.inspector-meta, 
-.inspector-meta span {
-    background-color: #F0F2F9 !important; /* ڕەنگێکی شین-خۆڵەمێشی کاڵ بۆ باگراوند */
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important; /* ئەمە وا دەکات تێکستەکە هەرگیز سپی نەبێتەوە */
-}
-
-/* چارەسەری ناوەوەی بۆکسەکانی لۆگ و ئۆدیت ترەیل (st.code) */
-[data-testid="stCodeBlock"] {
-    background-color: #E4E7F0 !important;
-}
-
-[data-testid="stCodeBlock"] * {
-    background-color: transparent !important;
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important; /* دەبێت ڕەش بێت */
-    text-shadow: none !important;
-}
-
-/* چارەسەری تەواوەتی درۆپ-داونەکان (Selectbox) لە هەموو شوێنێک */
-div[data-baseweb="select"] > div,
-div[data-baseweb="popover"] > div,
-div[data-baseweb="menu"], 
-ul[role="listbox"] {
-    background-color: #FFFFFF !important;
-}
-
-div[data-baseweb="menu"] li, 
-ul[role="listbox"] li, 
-li[role="option"] {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
-}
-
-div[data-baseweb="menu"] li:hover, 
-ul[role="listbox"] li:hover {
-    background-color: #EEF2FF !important;
-    color: #4F46E5 !important;
-    -webkit-text-fill-color: #4F46E5 !important;
-}
-/* نەهێشتنی بۆشاییە گەورەکەی سەرەوەی شاشەکە و بردنە سەرەوەی داشبۆردەکە */
-.block-container {
-    padding-top: 0rem !important; 
-    padding-bottom: 1rem !important;
-    margin-top: 0 !important;
-}
-
-[data-testid="block-container"] {
-    padding-top: 1.5rem !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    p, span, label, div, h1, h2, h3, h4 {
+        color: var(--text-primary) !important;
+        font-family: var(--font);
+    }
     
+    h1, h2, h3, h4 { font-weight: 700 !important; letter-spacing: -0.02em; }
+
+    /* Icons */
+    .material-symbols-rounded, [data-testid="stIconMaterial"], .stIcon {
+        font-family: 'Material Symbols Rounded' !important;
+        font-weight: normal !important; font-style: normal !important;
+    }
+
+    /* =========================
+       2. HIDE CLUTTER & FIX PADDING
+    ========================== */
+    #MainMenu, footer, header, [data-testid="stToolbar"], [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+
+    .block-container, [data-testid="block-container"] {
+        padding-top: 1.5rem !important; /* ڕاکێشانی داشبۆردەکە بۆ سەرەوە */
+        padding-bottom: 2rem !important;
+        margin-top: 0 !important;
+        max-width: 1400px;
+    }
+
+    /* =========================
+       3. CARDS, FORMS & METRICS
+    ========================== */
+    div[data-testid="stMetricContainer"], div[data-testid="stForm"], .stExpander {
+        background: var(--card) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+        box-shadow: var(--shadow-md) !important;
+        padding: 20px !important;
+    }
+    
+    .streamlit-expanderHeader { font-weight: 600; font-size: 14px; background: transparent !important; }
+    
+    [data-testid="stMetricValue"] { font-size: 28px !important; font-weight: 800 !important; color: var(--text); }
+    [data-testid="stMetricLabel"] { color: var(--muted) !important; font-size: 12px !important; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700 !important;}
+
+    /* =========================
+       4. PREMIUM BUTTONS
+    ========================== */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--primary-1), var(--primary-2)) !important;
+        color: white !important; -webkit-text-fill-color: white !important;
+        border: none !important; border-radius: 10px !important;
+        padding: 10px 18px !important; font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.25) !important;
+    }
+
+    .stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 8px 20px rgba(99,102,241,0.35) !important; color: white !important;}
+    .stButton > button:active { transform: translateY(0px) !important; }
+
+    /* =========================
+       5. INPUTS & SELECTS (Smart Focus)
+    ========================== */
+    input, textarea, .stSelectbox > div, [data-baseweb="select"] > div {
+        background: #FFFFFF !important; background-color: #FFFFFF !important;
+        border: 1px solid var(--border) !important; border-radius: 10px !important;
+        padding: 10px !important; font-size: 14px !important; font-weight: 500 !important;
+        transition: all 0.15s ease; color: var(--text) !important; -webkit-text-fill-color: var(--text) !important;
+    }
+
+    input:focus, textarea:focus, [data-baseweb="select"] > div:focus-within {
+        outline: none !important; border-color: var(--primary-1) !important; box-shadow: var(--ring) !important;
+    }
+
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+        background: #FFFFFF !important; background-color: #FFFFFF !important;
+        border-radius: 10px !important; border: 1px solid var(--border) !important; box-shadow: var(--shadow-lg) !important;
+    }
+
+    [data-baseweb="menu"] li, [role="option"] { background-color: #FFFFFF !important; color: var(--text) !important; -webkit-text-fill-color: var(--text) !important; font-weight: 600 !important;}
+    [data-baseweb="menu"] li:hover, [role="option"]:hover, [data-baseweb="menu"] [aria-selected="true"] {
+        background-color: var(--indigo-50) !important; color: var(--indigo-600) !important; -webkit-text-fill-color: var(--indigo-600) !important;
+    }
+
+    /* =========================
+       6. CUSTOM PORTAL CLASSES (Merged with SaaS Style)
+    ========================== */
+    .deep-search-strip, .worklist-header, .log-summary-card, .inspector-panel, .export-strip {
+        background: var(--card) !important; border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important; box-shadow: var(--shadow-md) !important;
+        padding: 20px !important; margin-bottom: 20px;
+    }
+    
+    .deep-search-title { font-size: .65rem; font-weight: 800; color: var(--indigo-600) !important; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
+    .page-title  { font-size:1.75rem;font-weight:800;color:var(--text-primary)!important;margin:0; letter-spacing: -0.03em; }
+    .page-subtitle { font-size:.85rem;color:var(--muted)!important;margin-top:4px;font-weight:500; }
+    .page-timestamp { font-size:.75rem;color:var(--muted)!important;font-weight:600;background:var(--surface);padding:8px 16px;border-radius:var(--radius-full);border:1px solid var(--border); box-shadow: var(--shadow-sm);}
+    .section-title { display:inline-flex;align-items:center;gap:8px;font-size:.75rem;font-weight:800;color:var(--indigo-600)!important;margin:24px 0 14px;padding:6px 14px 6px 10px;border-left:3px solid var(--indigo-500);background:var(--indigo-50); border-radius: 0 6px 6px 0; text-transform: uppercase; letter-spacing: 0.05em;}
+    
+    .log-stat-row { display:flex;align-items:center;gap:32px;flex-wrap:wrap; }
+    .log-stat { display:flex;flex-direction:column;gap:4px; }
+    .log-stat-value { font-size:1.75rem;font-weight:800;color:var(--text)!important; }
+    .log-stat-label { font-size:.65rem;font-weight:700;color:var(--muted)!important; text-transform: uppercase; letter-spacing: 0.05em;}
+    .log-stat-divider { width:1px;height:40px;background:var(--border); }
+    
+    .export-strip { background: linear-gradient(135deg, var(--card), #F8FAFC) !important; display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .prog-wrap  { background:var(--border);border-radius:var(--radius-full);height:8px;overflow:hidden;margin:8px 0 14px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);}
+    .prog-fill  { height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--primary-1),var(--primary-2)); }
+    .prog-labels{ display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)!important;font-weight:600;margin-bottom:6px; }
+    
+    /* Chips */
+    .chip { display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:var(--radius-full);font-size:.70rem;font-weight:700; box-shadow: var(--shadow-sm);}
+    .chip-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
+    .chip-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+    .s-chip { display:inline-flex;align-items:center;padding:4px 10px;border-radius:var(--radius-full);font-size:.65rem;font-weight:700; }
+    .s-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
+    .s-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+    .s-eval-good { background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200); }
+    .s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
+    .s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
+
+    /* =========================
+       7. TABLES (SaaS Style + Portal Classes)
+    ========================== */
+    .gov-table-wrap { 
+        overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); 
+        margin-bottom:20px; box-shadow: var(--shadow-sm); background: var(--card);
+    }
+    .gov-table, .acc-table { border-collapse: separate !important; border-spacing: 0; width:100%; font-size:14px; background: transparent; }
+    .gov-table th, .acc-table th { 
+        position: sticky; top: 0; background: #F9FAFB !important; color: var(--muted) !important; 
+        font-weight: 600 !important; padding: 14px 18px !important; border-bottom: 1px solid var(--border) !important; 
+        text-align: left !important; white-space: nowrap; z-index: 2; text-transform: uppercase; font-size: 0.70rem !important; letter-spacing: 0.05em;
+    }
+    .gov-table td, .acc-table td { 
+        color: var(--text) !important; padding: 14px 18px !important; border-bottom: 1px solid var(--border) !important; 
+        max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle !important;
+    }
+    .gov-table tbody tr:hover td, .acc-table tbody tr:hover td { background: #F8FAFC !important; }
+    .acc-table th { color: var(--indigo-600) !important; background: var(--indigo-50) !important; border-bottom: 2px solid var(--indigo-100) !important;}
+    
+    .acc-rate-high { color:var(--green-700)!important;font-weight:800!important; }
+    .acc-rate-mid  { color:var(--amber-700)!important;font-weight:800!important; }
+    .acc-rate-low  { color:var(--red-600)!important;font-weight:800!important; }
+    .acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; overflow:hidden;}
+    .acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
+
+    /* =========================
+       8. MISC PORTAL ELEMENTS
+    ========================== */
+    .inspector-meta { font-size: .75rem; font-weight: 700; color: var(--muted) !important; margin-bottom: 12px; display: flex; gap: 20px; flex-wrap: wrap; }
+    .inspector-meta span { color: var(--text) !important; font-weight: 600; background: #FFFFFF; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);}
+    .log-line { font-family:var(--mono)!important;font-size:.80rem;color:var(--text-secondary)!important;padding:8px 0;border-bottom:1px dashed var(--border);line-height:1.6; }
+    .divider { border:none;border-top:1px solid var(--border);margin:20px 0; }
+    
+    .role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-sm);padding:3px 10px;font-size:.65rem;font-weight:800;display:inline-block; }
+    .role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-sm);padding:3px 10px;font-size:.65rem;font-weight:800;display:inline-block; }
+    .role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-sm);padding:3px 10px;font-size:.65rem;font-weight:800;display:inline-block; }
+
+    /* Tabs Override */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px !important; background: var(--bg) !important; border: 1px solid var(--border) !important; 
+        border-radius: var(--radius-full) !important; padding: 6px !important; width: fit-content !important; box-shadow: var(--shadow-sm) !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: transparent !important; color: var(--muted) !important; border-radius: var(--radius-full) !important; 
+        padding: 8px 24px !important; font-weight: 600 !important; font-size: 14px !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background: #FFFFFF !important; color: var(--text) !important; -webkit-text-fill-color: var(--text) !important; 
+        box-shadow: var(--shadow-md) !important;
+    }
+
+    /* Code block for Audit Trails */
+    [data-testid="stCodeBlock"] { background-color: var(--bg) !important; border: 1px solid var(--border); border-radius: var(--radius-sm);}
+    [data-testid="stCodeBlock"] * { color: var(--text) !important; -webkit-text-fill-color: var(--text) !important; text-shadow: none !important; font-family: var(--mono) !important; font-size: 13px !important;}
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+    /* =========================
+       9. MOBILE RESPONSIVENESS
+    ========================== */
+    @media (max-width: 768px) {
+      .block-container { padding-top: 1rem !important; }
+      .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
+      .page-title { font-size: 1.4rem !important; }
+      .page-timestamp { align-self: flex-start !important; margin-top: 0 !important; }
+      .worklist-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 15px !important; }
+      .log-stat-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
+      .log-stat-divider { display: none !important; }
+      div[data-testid="stForm"] { padding: 18px 20px !important; }
+      .gov-table th, .acc-table th { padding: 12px 14px !important; font-size: 0.60rem !important; }
+      .gov-table td, .acc-table td { padding: 12px 14px !important; font-size: 0.80rem !important; }
+      .gov-table-wrap { border-radius: 10px !important; }
+      .inspector-meta { flex-direction: column !important; gap: 8px !important; }
+    }
+    
+    /* Top Right Account Button Override */
+    [data-testid="stPopover"] > button {
+        background: #FFFFFF !important; color: var(--text) !important; -webkit-text-fill-color: var(--text) !important;
+        border: 1px solid var(--border) !important; box-shadow: var(--shadow-sm) !important; border-radius: var(--radius-sm) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 # -----------------------------------------------------------------------------
 #  6 . TRANSLATIONS — English only
 # -----------------------------------------------------------------------------
