@@ -1304,16 +1304,6 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
         "anal", col_binder, col_agent_email, agent_options=agent_opts)
     work_df = apply_deep_search(df, srch_binder, srch_agent, col_binder, col_agent_email)
 
-    if _deep_search_active(srch_binder, srch_agent):
-        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
-        st.markdown(
-            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
-            f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
-            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
-            f" &mdash; <strong>{len(work_df)}</strong> records matched</div>",
-            unsafe_allow_html=True)
-
     st.markdown(f"<div class='section-title'>{t('period')}</div>", unsafe_allow_html=True)
     periods = [("all", t("all_time")), ("today", t("today")),
                ("this_week", t("this_week")), ("this_month", t("this_month"))]
@@ -1322,8 +1312,21 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
             st.session_state.date_filter = pk; st.rerun()
 
+    # فلتەرکردنی داتاکان بۆ ئەوەی تەنیا کەیسە تەواوکراوەکانی ماوەی دیاریکراو بمێنێتەوە
     done_base = work_df[work_df[COL_STATUS] == VAL_DONE]
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
+
+    # پیشاندانی پەیامی گەڕانەکە بە پشتبەستن بە ژمارەی ڕاستەقینەی خشتەکە
+    if _deep_search_active(srch_binder, srch_agent):
+        terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
+        st.markdown(
+            f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
+            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
+            f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
+            f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
+            f" &mdash; <strong>{len(done_f)}</strong> processed records matched</div>",
+            unsafe_allow_html=True)
+
     if done_f.empty:
         st.info(t("no_records")); return
 
