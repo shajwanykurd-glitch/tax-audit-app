@@ -1,5 +1,5 @@
 # =============================================================================
-#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.7  (Placeholder & UI Polish)
+#  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.8  (English UI Only)
 #  Architecture: Optimistic UI / Local-First Mutation
 # =============================================================================
 
@@ -85,9 +85,9 @@ VAL_DONE    = "Processed"
 VAL_PENDING = "Pending"
 
 EVAL_OPTIONS = [
-    "Good (باش)",
-    "Bad / Incorrect (خراپ)",
-    "Duplicate (دووبارە)",
+    "Good",
+    "Bad / Incorrect",
+    "Duplicate",
 ]
 
 VALID_ROLES  = ["auditor", "manager", "admin"]
@@ -440,8 +440,8 @@ _LANG: dict[str, dict[str, str]] = {
         "logs_export_sub":"Download the complete audit log as a CSV file.",
         "logs_export_btn":"Download CSV Report",
         "logs_filename":"audit_log_report.csv","logs_cols_shown":"Columns displayed",
-        "eval_label":"Data Entry Quality (کوالێتی داتا)",
-        "feedback_label":"Auditor Feedback / Notes for Agent (تێبینی)",
+        "eval_label":"Data Entry Quality",
+        "feedback_label":"Auditor Feedback / Notes for Agent",
         "feedback_placeholder":"Optional notes, issues found, corrections made...",
         "acc_ranking_title":"Data Entry Accuracy Ranking",
         "acc_agent":"Agent Email","acc_total":"Total",
@@ -454,7 +454,7 @@ _LANG: dict[str, dict[str, str]] = {
         "deep_search":"Deep Search",
         "ds_binder":"Binder No.",
         "ds_agent":"Agent Email",
-        "ds_company":"Company / باجدەر",
+        "ds_company":"Company / Taxpayer",
         "ds_clear":"Clear",
         "ds_showing":"Showing results for",
         "eval_breakdown":"Evaluation Breakdown per Agent",
@@ -896,26 +896,26 @@ def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, col_c
 
     with c1:
         st.text_input(t("ds_binder"), key=f"{key_prefix}_binder",
-                      placeholder="🔍 بایندەر...", disabled=(col_binder is None),
+                      placeholder="🔍 Binder No...", disabled=(col_binder is None),
                       label_visibility="collapsed")
     with c2:
         if company_options is not None and len(company_options) > 0:
             st.selectbox(t("ds_company"), options=company_options, key=f"{key_prefix}_company",
-                         index=None, placeholder="🔍 بگەڕێ بۆ ناوی کۆمپانیا...", disabled=(col_company is None),
+                         index=None, placeholder="🔍 Search Company...", disabled=(col_company is None),
                          label_visibility="collapsed")
         else:
             st.text_input(t("ds_company"), key=f"{key_prefix}_company",
-                          placeholder="🔍 ناوی کۆمپانیا...", disabled=(col_company is None),
+                          placeholder="🔍 Company Name...", disabled=(col_company is None),
                           label_visibility="collapsed")
     with c3:
         if agent_options is not None and len(agent_options) > 0:
             st.selectbox(
                 t("ds_agent"), options=agent_options, key=f"{key_prefix}_agent",
-                index=None, placeholder="🔍 بگەڕێ بۆ ئەجێنت...", disabled=(col_agent_email is None),
+                index=None, placeholder="🔍 Search Agent...", disabled=(col_agent_email is None),
                 label_visibility="collapsed")
         else:
             st.text_input(t("ds_agent"), key=f"{key_prefix}_agent",
-                          placeholder="🔍 ناوی ئەجێنت...", disabled=(col_agent_email is None),
+                          placeholder="🔍 Agent Name...", disabled=(col_agent_email is None),
                           label_visibility="collapsed")
     with c4:
         if not has_valign:
@@ -953,7 +953,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     
     st.markdown(
         f"<div class='deep-search-strip'>"
-        f"<div class='deep-search-title'>🔍 بگەڕێ لەناو کەیسەکان</div>"
+        f"<div class='deep-search-title'>🔍 Search Cases</div>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -970,14 +970,14 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
     c1, c2, c3, c4 = st.columns([1, 1, 1.5, 0.32])
     with c1:
-        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder="🔍 ژمارەی بایندەر", disabled=(col_binder is None), label_visibility="collapsed") or ""
+        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder="🔍 Binder No.", disabled=(col_binder is None), label_visibility="collapsed") or ""
     with c2:
-        wl_license = st.text_input("License No.", key="wl_license", placeholder="🔍 ژمارەی مۆڵەت", disabled=(col_license is None), label_visibility="collapsed") or ""
+        wl_license = st.text_input("License No.", key="wl_license", placeholder="🔍 License No.", disabled=(col_license is None), label_visibility="collapsed") or ""
     with c3:
         if company_opts:
-            wl_company = st.selectbox("Company", options=company_opts, key="wl_company", index=None, placeholder="🔍 بگەڕێ بۆ ناوی کۆمپانیا...", label_visibility="collapsed", disabled=(col_company is None)) or ""
+            wl_company = st.selectbox("Company", options=company_opts, key="wl_company", index=None, placeholder="🔍 Search Company...", label_visibility="collapsed", disabled=(col_company is None)) or ""
         else:
-            wl_company = st.text_input("Company", key="wl_company", placeholder="🔍 ناوی کۆمپانیا", disabled=(col_company is None), label_visibility="collapsed") or ""
+            wl_company = st.text_input("Company", key="wl_company", placeholder="🔍 Company Name", disabled=(col_company is None), label_visibility="collapsed") or ""
     with c4:
         st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
@@ -1034,22 +1034,22 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
     COMBO_TARGETS = [
         {"match": "باجدەری باج لە کام شاردایە", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
-        {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+        {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
         {"match": "هل يوجد نموذج يتضمن عناصر التسجيل", "options": ["Yes", "No"]},
         {"match": "Does the company have an investment license", "options": ["Yes", "No"]},
         {"match": "نشاط الشركة", "options": [
-            "CEN / Construction & Engineering / بیناسازی و ئەندازیاری",
-            "HLT / Health Services /  خزمەتگوزاری تەندروستی",
-            "ITS / IT & Software / زانیاری تەکنەلۆژیا و سۆفتوێر",
-            "LOG / Transportation & Logistics / گواستنەوە و لۆجیستیک",
-            "MFG / Manufacturing / بەرهەمهێنان",
-            "REF / Real Estate & Financial Services / خانووبەرە و خزمەتگوزاری دارایی",
-            "RET / Retail & Services / فرۆشتنی تاک و خزمەتگوزاریەکان",
-            "TEL / Telecom & Media / پەیوەندییەکان و میدیا",
-            "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی"
+            "CEN / Construction & Engineering",
+            "HLT / Health Services",
+            "ITS / IT & Software",
+            "LOG / Transportation & Logistics",
+            "MFG / Manufacturing",
+            "REF / Real Estate & Financial Services",
+            "RET / Retail & Services",
+            "TEL / Telecom & Media",
+            "WHT / Wholesale & Trading"
         ]},
         {"match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات", "options": ["Yes", "No"]},
-        {"match": "Company status", "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]}
+        {"match": "Company status", "options": ["Active", "Shutting down", "Deleted"]}
     ]
 
     with st.form("audit_form"):
@@ -1076,9 +1076,9 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
                     def_idx = 0
                 
                 with c1:
-                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{sheet_row}_{fname}", label_visibility="collapsed")
+                    st.selectbox("", ["-- Type manually --"] + options, index=def_idx, key=f"sel_{sheet_row}_{fname}", label_visibility="collapsed")
                 with c2:
-                    st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
+                    st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}", label_visibility="collapsed", placeholder="Or type here...")
                 
                 combo_keys.append(fname)
             else:
@@ -1095,7 +1095,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         for fname in combo_keys:
             sel_val = st.session_state.get(f"sel_{sheet_row}_{fname}", "")
             txt_val = st.session_state.get(f"txt_{sheet_row}_{fname}", "")
-            if sel_val != "-- Type manually / بە دەست بنووسە --":
+            if sel_val != "-- Type manually --":
                 new_vals[fname] = sel_val
             else:
                 new_vals[fname] = txt_val
@@ -1162,19 +1162,19 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1.5, 1.2, 0.4])
     with c1:
         s_binder  = st.text_input("Binder No.", key="arch_binder",
-                                  placeholder="🔍 بایندەر...",
+                                  placeholder="🔍 Binder No...",
                                   disabled=(col_binder  is None)) or ""
     with c2:
         s_license = st.text_input("License No.", key="arch_license",
-                                  placeholder="🔍 مۆڵەت...",
+                                  placeholder="🔍 License No...",
                                   disabled=(col_license is None)) or ""
     with c3:
         if company_opts:
-            s_company = st.selectbox("Company", options=company_opts, key="arch_company", index=None, placeholder="🔍 بگەڕێ بۆ کۆمپانیا...", disabled=(col_company is None)) or ""
+            s_company = st.selectbox("Company", options=company_opts, key="arch_company", index=None, placeholder="🔍 Search Company...", disabled=(col_company is None)) or ""
         else:
-            s_company = st.text_input("Company", key="arch_company", placeholder="🔍 ناوی کۆمپانیا...", disabled=(col_company is None)) or ""
+            s_company = st.text_input("Company", key="arch_company", placeholder="🔍 Company Name...", disabled=(col_company is None)) or ""
     with c4:
-        s_auditor = st.selectbox("Auditor Email", options=auditor_list, key="arch_auditor", index=None, placeholder="🔍 بگەڕێ بۆ ئۆدیتەر...") or ""
+        s_auditor = st.selectbox("Auditor Email", options=auditor_list, key="arch_auditor", index=None, placeholder="🔍 Search Auditor...") or ""
     with c5:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         st.button("X", key="arch_clr", on_click=clear_arch_search, use_container_width=True)
@@ -1481,28 +1481,28 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company
     #  NEW FEATURE: GLOBAL ANALYTICS (ALL SHEETS)
     # =========================================================================
     st.markdown("<br><hr class='divider' style='border-top:3px solid var(--border);'/>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-title' style='font-size:1.1rem;'>🌍 ئاماری گشتی (هەرسێ شیتەکە پێکەوە)</div>", unsafe_allow_html=True)
-    st.caption("لەم بەشەدا داتای هەموو شیتەکان کۆکراوەتەوە، و فلتەری کات (ڕۆژانە، هەفتانە، مانگانە) لەسەر ئەمیش جێبەجێ دەبێت.")
+    st.markdown(f"<div class='section-title' style='font-size:1.1rem;'>🌍 Global Analytics (All Sheets Combined)</div>", unsafe_allow_html=True)
+    st.caption("Data from all sheets is aggregated here, and the time filter applies globally.")
 
     with st.spinner("Aggregating data from all sheets..."):
         global_df_raw = fetch_combined_analytics(sid)
 
     if global_df_raw.empty:
-        st.info("هیچ داتایەک لە شیتەکاندا نەدۆزرایەوە.")
+        st.info("No data found in the sheets.")
         return
 
     # جێبەجێکردنی فلتەری کات
     global_df = apply_period_filter(global_df_raw, COL_DATE, st.session_state.date_filter)
 
     if global_df.empty:
-        st.info("هیچ کارێک نەکراوە لەم ماوەیەدا (Time Period).")
+        st.info("No records processed in this time period.")
         return
 
     c_g1, c_g2 = st.columns(2)
 
     # 1. Global Agent Accuracy
     with c_g1:
-        st.markdown(f"<div class='section-title' style='background:var(--green-50); color:var(--green-700)!important; border-left-color:var(--green-600);'>📊 ئاستی وردی ئەجێنتەکان (گشتی)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title' style='background:var(--green-50); color:var(--green-700)!important; border-left-color:var(--green-600);'>📊 Global Agent Accuracy</div>", unsafe_allow_html=True)
         
         n_eval = global_df[COL_EVAL].fillna("").map(_normalise_eval)
         g_mask = n_eval.str.contains("Good", na=False)
@@ -1523,8 +1523,8 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company
         g_grp = g_grp.sort_values(["accuracy", "rated"], ascending=[False, False]).reset_index(drop=True)
 
         if not g_grp.empty and g_grp["rated"].sum() > 0:
-            g_th = (f"<tr><th>#</th><th>ئەجێنت</th><th>کۆی گشتی</th>"
-                    f"<th>باش</th><th>خراپ</th><th>دووبارە</th><th>ڕێژە %</th></tr>")
+            g_th = (f"<tr><th>#</th><th>Agent</th><th>Total</th>"
+                    f"<th>Good</th><th>Bad</th><th>Duplicate</th><th>Accuracy %</th></tr>")
             g_td = ""
             for pos, row in g_grp.iterrows():
                 pct = row["accuracy"]
@@ -1545,11 +1545,11 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company
                 )
             st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{g_th}</thead><tbody>{g_td}</tbody></table></div>", unsafe_allow_html=True)
         else:
-            st.info("هیچ هەڵسەنگاندنێک (Evaluation) بۆ ئەجێنتەکان نەکراوە لە هەرسێ شیتەکە.")
+            st.info("No evaluation data available across all sheets.")
 
     # 2. Global Auditor Productivity
     with c_g2:
-        st.markdown(f"<div class='section-title' style='background:var(--blue-50); color:var(--blue-700)!important; border-left-color:var(--blue-500);'>📈 ئاماری کارکردنی ئۆدیتەرەکان (گشتی)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title' style='background:var(--blue-50); color:var(--blue-700)!important; border-left-color:var(--blue-500);'>📈 Global Auditor Productivity</div>", unsafe_allow_html=True)
         
         aud_col = global_df[COL_AUDITOR].fillna("").astype(str).str.strip().replace("", "-")
         atmp = pd.DataFrame({
@@ -1563,8 +1563,8 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company
         a_grp = a_grp.sort_values("total_cases", ascending=False).reset_index(drop=True)
 
         if not a_grp.empty:
-            a_th = (f"<tr><th>#</th><th>ئۆدیتەر</th><th>کۆی کەیسە بڕاوەکان</th>"
-                    f"<th>پێدانی (باش)</th><th>پێدانی (خراپ)</th><th>پێدانی (دووبارە)</th></tr>")
+            a_th = (f"<tr><th>#</th><th>Auditor</th><th>Processed Cases</th>"
+                    f"<th>Gave (Good)</th><th>Gave (Bad)</th><th>Gave (Dup)</th></tr>")
             a_td = ""
             for pos, row in a_grp.iterrows():
                 a_td += (
@@ -1579,7 +1579,7 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None, col_company
                 )
             st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{a_th}</thead><tbody>{a_td}</tbody></table></div>", unsafe_allow_html=True)
         else:
-            st.info("هیچ ئۆدیتەرێک کاری نەکردووە.")
+            st.info("No auditor activity recorded yet.")
 
 
 # -----------------------------------------------------------------------------
@@ -1956,7 +1956,7 @@ def main():
             </div>""", unsafe_allow_html=True)
             
         with h_right:
-            with st.popover(f"👤 Account / هەژمار", use_container_width=True):
+            with st.popover(f"👤 Account", use_container_width=True):
                 st.markdown(f"<div style='font-size:0.85rem; font-weight:700;'>{_html.escape(st.session_state.user_email)}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div style='margin-bottom:15px;'><span class='{badge_cls}'>{role_label}</span></div>", unsafe_allow_html=True)
                 
