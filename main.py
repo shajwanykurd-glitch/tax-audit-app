@@ -1,10 +1,7 @@
 # =============================================================================
 #  OFFICIAL TAX AUDIT & COMPLIANCE PORTAL  -  v16.5  (Global Analytics Added)
 #  Architecture: Optimistic UI / Local-First Mutation
-#  Changes v16.5 vs v16.4:
-#    [FEATURE] Added Global Analytics section aggregating data across all 3 sheets.
-#    [FEATURE] Added Auditor evaluation/productivity table in the global section.
-#    [KEEP] No Sidebar, Top Header UI, Combo-Box logic, row-key UI refresh.
+#  CSS: v17 Premium Enterprise SaaS redesign (Stripe / Vercel / Linear aesthetic)
 # =============================================================================
 
 import html as _html
@@ -105,10 +102,10 @@ _COOKIE_NAME = "portal_auth"
 # Light-mode Plotly constants
 _PT  = "plotly_white"
 _PBG = "#FFFFFF"
-_PGR = "#E4E7F0"
-_PFC = "#0D1117"
+_PGR = "#E5E7EB"
+_PFC = "#111827"
 _NVY = "#4F46E5"
-_BLU = "#60A5FA"
+_BLU = "#3B82F6"
 
 # -----------------------------------------------------------------------------
 #  4 . EXPONENTIAL BACKOFF
@@ -131,343 +128,1091 @@ def _gsheets_call(func, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-#  5 . CSS  — Light Mode, Mobile Responsive & Anti-Dark Mode
+#  5 . CSS  — Premium Enterprise SaaS  (Stripe · Vercel · Linear aesthetic)
+#             Light Mode ONLY · Anti-dark-mode hardened · Mobile responsive
 # -----------------------------------------------------------------------------
 def inject_css() -> None:
     st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
+/* ═══════════════════════════════════════════════════════════════════════════
+   IMPORT — Plus Jakarta Sans (display) + JetBrains Mono (code)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* =========================================================
-   ١. ڕەنگە بنەڕەتییەکان و دژە-تاریکی (Anti-Dark Mode)
-   ========================================================= */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  color-scheme: light only !important; /* ڕێگری لە دارک مۆدی ئەندرۆید دەکات */
-  --bg:            #F7F8FC;
-  --surface:       #FFFFFF;
-  --surface-2:     #F0F2F9;
-  --border:        #E4E7F0;
-  --border-2:      #D0D5E8;
-  --text-primary:    #0D1117;
-  --text-secondary:  #4B5563;
-  --text-muted:      #9CA3AF;
+  color-scheme: light only !important;
+
+  /* ── Surfaces ── */
+  --canvas:    #F8FAFC;
+  --surface:   #FFFFFF;
+  --surface-2: #F1F5F9;
+  --surface-3: #E2E8F0;
+
+  /* ── Borders ── */
+  --border-xs: #F1F5F9;
+  --border-sm: #E5E7EB;
+  --border-md: #D1D5DB;
+  --border-accent: rgba(99,102,241,0.28);
+
+  /* ── Text ── */
+  --text-900: #0F172A;
+  --text-700: #374151;
+  --text-500: #6B7280;
+  --text-400: #9CA3AF;
+  --text-300: #D1D5DB;
+
+  /* ── Indigo brand ── */
   --indigo-50:  #EEF2FF;
   --indigo-100: #E0E7FF;
+  --indigo-200: #C7D2FE;
   --indigo-400: #818CF8;
   --indigo-500: #6366F1;
   --indigo-600: #4F46E5;
   --indigo-700: #4338CA;
-  --blue-400:   #60A5FA;
-  --blue-500:   #3B82F6;
-  --green-50:   #F0FDF4;
-  --green-200:  #A7F3D0;
-  --green-600:  #16A34A;
-  --green-700:  #15803D;
-  --amber-50:   #FFFBEB;
-  --amber-200:  #FDE68A;
-  --amber-700:  #B45309;
-  --red-50:     #FFF1F2;
-  --red-200:    #FECDD3;
-  --red-600:    #DC2626;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
-  --radius-xl:   24px;
-  --radius-full: 9999px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
-  --ring: 0 0 0 3px rgba(99,102,241,0.18);
-  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* ── Blue ── */
+  --blue-400:  #60A5FA;
+  --blue-500:  #3B82F6;
+  --blue-600:  #2563EB;
+
+  /* ── Semantic ── */
+  --green-50:  #F0FDF4;
+  --green-100: #DCFCE7;
+  --green-200: #BBF7D0;
+  --green-600: #16A34A;
+  --green-700: #15803D;
+
+  --amber-50:  #FFFBEB;
+  --amber-100: #FEF3C7;
+  --amber-200: #FDE68A;
+  --amber-600: #D97706;
+  --amber-700: #B45309;
+
+  --red-50:   #FFF1F2;
+  --red-100:  #FFE4E6;
+  --red-200:  #FECDD3;
+  --red-600:  #DC2626;
+
+  /* ── Radius ── */
+  --r-xs:   4px;
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   14px;
+  --r-xl:   18px;
+  --r-2xl:  24px;
+  --r-full: 9999px;
+
+  /* ── Shadows  (Stripe-level layering) ── */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.06), 0 4px 6px -2px rgba(0,0,0,0.03);
+  --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.07), 0 10px 10px -5px rgba(0,0,0,0.03);
+  --shadow-glow: 0 0 0 3px rgba(99,102,241,0.18);
+  --shadow-glow-btn: 0 4px 14px rgba(79,70,229,0.30);
+
+  /* ── Typography ── */
+  --font:   'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:   'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+  --lh-tight: 1.25;
+  --lh-base:  1.5;
+  --lh-loose: 1.75;
+
+  /* ── Transitions ── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    120ms;
+  --dur-base:    200ms;
+  --dur-slow:    350ms;
 }
 
-*, *::before, *::after { box-sizing: border-box !important; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL RESET
+   ═══════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box !important;
+  font-family: var(--font) !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
 
-html, body, .stApp, [data-testid="stAppViewContainer"],
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
 [data-testid="stMain"], .main, .block-container {
-  background-color: var(--bg) !important;
-  color: var(--text-primary) !important;
-  font-family: var(--font);
+  background-color: var(--canvas) !important;
+  color: var(--text-900) !important;
 }
 
-p, span, div, li, label, h1, h2, h3, h4, h5, h6,
-.stMarkdown, [data-testid="stMarkdownContainer"] {
-  color: var(--text-primary) !important;
-  font-family: var(--font);
+p, span, div, li, label,
+h1, h2, h3, h4, h5, h6,
+.stMarkdown,
+[data-testid="stMarkdownContainer"] {
+  color: var(--text-900) !important;
 }
 
+/* Material Symbols protection */
 .material-symbols-rounded,
 [data-testid="stIconMaterial"], .stIcon,
-.streamlit-expanderHeader svg, .streamlit-expanderHeader span,
-[data-testid="stIcon"] svg, [data-testid="stIcon"] span,
-.stButton button svg, button svg.material-symbols-rounded,
-div[data-testid="stMarkdownContainer"] svg,
+.streamlit-expanderHeader svg,
+.streamlit-expanderHeader span,
+[data-testid="stIcon"] svg,
+[data-testid="stIcon"] span,
+.stButton button svg,
+button svg.material-symbols-rounded,
 span[class*="material-symbols"] {
-    font-family: 'Material Symbols Rounded' !important;
-    font-weight: normal !important; font-style: normal !important;
-    letter-spacing: normal !important; text-transform: none !important;
+  font-family: 'Material Symbols Rounded' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
 }
 
-/* شاردنەوەی سایدبار و مێنیوی ستریملیت */
+/* ─── Hide all Streamlit chrome ─────────────────────────────────────────── */
 #MainMenu, footer, header, .stDeployButton,
-[data-testid="stToolbar"], [data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"], [data-testid="stSidebar"] { 
-    display: none !important; 
+[data-testid="stToolbar"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebar"] {
+  display: none !important;
 }
 
-/* =========================================================
-   ٢. دیزاینی فۆرمەکان، درۆپ-داونەکان و بۆکسەکان
-   ========================================================= */
-.stTextInput > div > div > input, .stTextArea > div > div > textarea {
-  background: var(--surface) !important; color: var(--text-primary) !important;
-  -webkit-text-fill-color: var(--text-primary) !important;
-  border: 1.5px solid var(--border-2) !important; border-radius: var(--radius-md) !important;
-  font-size: 0.875rem !important; font-weight: 500 !important; padding: 11px 14px !important;
-  box-shadow: var(--shadow-sm) !important;
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEXT INPUTS & TEXTAREAS  — clean, focused, enterprise
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stTextInput > div > div > input,
+.stTextArea  > div > div > textarea {
+  background: var(--surface) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  border: 1.5px solid var(--border-sm) !important;
+  border-radius: var(--r-md) !important;
+  font-family: var(--font) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  line-height: var(--lh-base) !important;
+  padding: 10px 14px !important;
+  box-shadow: var(--shadow-xs) !important;
+  transition: border-color var(--dur-base) var(--ease-out),
+              box-shadow    var(--dur-base) var(--ease-out) !important;
+  outline: none !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea  > div > div > textarea:focus {
+  border-color: var(--indigo-500) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+.stTextInput > div > div > input::placeholder,
+.stTextArea  > div > div > textarea::placeholder {
+  color: var(--text-400) !important;
+  font-weight: 400 !important;
+}
+.stTextInput > div > div > input:disabled {
+  background: var(--surface-2) !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+.stTextInput > label,
+.stTextArea  > label,
+.stSelectbox  > label,
+.stMultiSelect > label {
+  color: var(--text-500) !important;
+  font-size: 0.70rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
 }
 
-/* درۆپ داون و لیستی بژاردەکان (سپی زۆرەملێ لەگەڵ چوارچێوەی دیار) */
-.stSelectbox > div > div, [data-baseweb="select"] > div {
-  background: #FFFFFF !important; 
-  background-color: #FFFFFF !important;
-  color: #0D1117 !important;
-  border: 1.5px solid var(--border-2) !important; /* لێرەدا چوارچێوەکەمان بۆ زیاد کردووەوە */
-  border-radius: var(--radius-md) !important;
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECTBOX / DROPDOWNS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stSelectbox > div > div,
+[data-baseweb="select"] > div {
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  border: 1.5px solid var(--border-sm) !important;
+  border-radius: var(--r-md) !important;
+  box-shadow: var(--shadow-xs) !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
   min-height: 42px !important;
+  transition: border-color var(--dur-base) var(--ease-out),
+              box-shadow    var(--dur-base) var(--ease-out) !important;
 }
-
-/* دڵنیابوونەوە لەوەی چوارچێوەکە دیارە کاتێک کلیکی لێ دەکرێت */
 [data-baseweb="select"] > div:focus-within {
   border-color: var(--indigo-500) !important;
-  box-shadow: var(--ring) !important;
+  box-shadow: var(--shadow-glow) !important;
 }
-
-[data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {
-  background: #FFFFFF !important; 
-  background-color: #FFFFFF !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow-md) !important;
+[data-baseweb="popover"],
+[data-baseweb="menu"],
+ul[role="listbox"] {
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
+  overflow: hidden !important;
 }
-
-[data-baseweb="menu"] li, [role="option"] {
-  background-color: #FFFFFF !important; 
-  color: #0D1117 !important; 
-  -webkit-text-fill-color: #0D1117 !important;
+[data-baseweb="menu"] li,
+[role="option"] {
+  background-color: var(--surface) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
   font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  padding: 9px 14px !important;
+  transition: background var(--dur-fast) var(--ease-out) !important;
+}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [aria-selected="true"],
+[role="option"]:hover {
+  background-color: var(--indigo-50) !important;
+  color: var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   METRIC CARDS  — floating, lifted
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stMetricContainer"] {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-top: 3px solid var(--indigo-500) !important;
+  border-radius: var(--r-lg) !important;
+  padding: 22px 24px !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: transform var(--dur-base) var(--ease-spring),
+              box-shadow var(--dur-base) var(--ease-out) !important;
+}
+[data-testid="stMetricContainer"]:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--shadow-lg),
+              0 0 0 1px var(--border-accent) !important;
+}
+[data-testid="stMetricValue"] {
+  font-size: 2.1rem !important;
+  font-weight: 800 !important;
+  color: var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  letter-spacing: -0.04em !important;
+  line-height: 1.1 !important;
+  font-family: var(--mono) !important;
+}
+[data-testid="stMetricLabel"] {
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  color: var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+}
+[data-testid="stMetricDelta"] {
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
 }
 
-[data-baseweb="menu"] li:hover, [data-baseweb="menu"] [aria-selected="true"], [role="option"]:hover {
-  background-color: #EEF2FF !important; 
-  color: #4F46E5 !important;
-  -webkit-text-fill-color: #4F46E5 !important;
-}
-
-/* بۆکسەکانی لۆگ و کۆد (Expander & Code block) */
-.streamlit-expanderHeader, .streamlit-expanderContent {
-  background-color: #FFFFFF !important;
-  color: #0D1117 !important;
-  -webkit-text-fill-color: #0D1117 !important;
-}
-
-[data-testid="stCodeBlock"], [data-testid="stCodeBlock"] pre, [data-testid="stCodeBlock"] code {
-  background-color: #F8F9FA !important;
-  color: #0D1117 !important;
-  -webkit-text-fill-color: #0D1117 !important;
-  text-shadow: none !important;
-}
-
-/* =========================================================
-   ٣. دیزاینی بەشەکانی تری سایتەکە (تاب، خشتە، ئامار)
-   ========================================================= */
-[data-testid="stMetricContainer"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-top: 3px solid var(--indigo-500) !important; border-radius: var(--radius-lg) !important;
-  padding: 22px 26px !important; box-shadow: var(--shadow-md) !important;
-}
-[data-testid="stMetricValue"] { font-size: 2.1rem !important; font-weight: 800 !important; color: var(--indigo-600) !important; }
-[data-testid="stMetricLabel"] { font-size: 0.68rem !important; font-weight: 700 !important; color: var(--text-muted) !important; }
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS  — gradient CTAs with spring lift
+   ═══════════════════════════════════════════════════════════════════════════ */
 .stButton > button {
   background: linear-gradient(135deg, var(--indigo-600) 0%, var(--blue-500) 100%) !important;
-  color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important;
-  border: none !important; border-radius: var(--radius-md) !important;
-  font-weight: 700 !important; font-size: 0.84rem !important; padding: 10px 20px !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  border: none !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 700 !important;
+  font-size: 0.84rem !important;
+  padding: 10px 20px !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: var(--shadow-sm), var(--shadow-glow-btn) !important;
+  transition: transform var(--dur-base) var(--ease-spring),
+              box-shadow var(--dur-base) var(--ease-out),
+              background  var(--dur-base) var(--ease-out) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.stButton > button::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(255,255,255,0) !important;
+  transition: background var(--dur-fast) !important;
+}
+.stButton > button:hover {
+  transform: translateY(-2px) scale(1.008) !important;
+  box-shadow: var(--shadow-lg), 0 6px 20px rgba(79,70,229,0.35) !important;
+}
+.stButton > button:hover::after {
+  background: rgba(255,255,255,0.06) !important;
+}
+.stButton > button:active {
+  transform: translateY(0) scale(0.99) !important;
+  box-shadow: var(--shadow-xs), 0 2px 8px rgba(79,70,229,0.20) !important;
+}
+.stButton > button:disabled {
+  background: var(--surface-2) !important;
+  color: var(--text-400) !important;
+  -webkit-text-fill-color: var(--text-400) !important;
+  border: 1px solid var(--border-sm) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
 }
 
+/* Download button — teal variant */
+[data-testid="stDownloadButton"] > button {
+  background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%) !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  border: none !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 700 !important;
+  font-size: 0.84rem !important;
+  padding: 10px 20px !important;
+  box-shadow: var(--shadow-sm), 0 4px 12px rgba(13,148,136,0.28) !important;
+  transition: transform var(--dur-base) var(--ease-spring),
+              box-shadow var(--dur-base) var(--ease-out) !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+  transform: translateY(-2px) scale(1.008) !important;
+  box-shadow: var(--shadow-lg), 0 6px 20px rgba(13,148,136,0.34) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORMS  — card containers
+   ═══════════════════════════════════════════════════════════════════════════ */
 div[data-testid="stForm"] {
-  background: var(--surface) !important; border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important; padding: 28px 32px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-radius: var(--r-xl) !important;
+  padding: 28px 32px !important;
+  box-shadow: var(--shadow-md) !important;
+}
+[data-testid="stFormSubmitButton"] > button {
+  background: linear-gradient(135deg, var(--indigo-600) 0%, var(--blue-500) 100%) !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  border: none !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  padding: 11px 22px !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: var(--shadow-sm), var(--shadow-glow-btn) !important;
+  transition: transform var(--dur-base) var(--ease-spring),
+              box-shadow var(--dur-base) var(--ease-out) !important;
+}
+[data-testid="stFormSubmitButton"] > button:hover {
+  transform: translateY(-2px) scale(1.008) !important;
+  box-shadow: var(--shadow-lg), 0 6px 20px rgba(79,70,229,0.35) !important;
+}
+[data-testid="stFormSubmitButton"] > button:active {
+  transform: translateY(0) scale(0.99) !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS  — pill nav with ink underline
+   ═══════════════════════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
-  gap: 2px !important; background: var(--surface-2) !important;
-  border: 1px solid var(--border) !important; border-radius: var(--radius-full) !important;
-  padding: 4px !important; width: fit-content !important; box-shadow: var(--shadow-sm) !important;
+  gap: 2px !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-radius: var(--r-full) !important;
+  padding: 4px !important;
+  width: fit-content !important;
+  box-shadow: var(--shadow-xs) !important;
 }
 .stTabs [data-baseweb="tab"] {
-  background: transparent !important; color: var(--text-muted) !important;
-  border-radius: var(--radius-full) !important; padding: 8px 22px !important; font-weight: 600 !important;
+  background: transparent !important;
+  color: var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  border-radius: var(--r-full) !important;
+  border: none !important;
+  padding: 8px 22px !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  transition: color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out) !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  background: rgba(0,0,0,0.03) !important;
 }
 .stTabs [aria-selected="true"] {
-  background: var(--surface) !important; color: var(--indigo-600) !important;
-  -webkit-text-fill-color: var(--indigo-600) !important; box-shadow: var(--shadow-sm) !important;
+  background: var(--surface) !important;
+  color: var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
-.deep-search-strip { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md); padding: 12px 20px 16px; margin-bottom: 20px; }
-.deep-search-title { font-size: .62rem; font-weight: 800; color: var(--indigo-600) !important; margin-bottom: 10px; }
-.page-header { display:flex;align-items:center;justify-content:space-between;padding:4px 0 24px;border-bottom:1px solid var(--border);margin-bottom:28px; }
-.page-title  { font-size:1.55rem;font-weight:800;color:var(--text-primary)!important;margin:0; }
-.page-subtitle { font-size:.78rem;color:var(--text-muted)!important;margin-top:4px;font-weight:500; }
-.page-timestamp { font-size:.74rem;color:var(--text-muted)!important;font-weight:600;background:var(--surface);padding:7px 16px;border-radius:var(--radius-full);border:1px solid var(--border); }
-.section-title { display:inline-flex;align-items:center;gap:8px;font-size:.70rem;font-weight:800;color:var(--indigo-600)!important;margin:24px 0 14px;padding:6px 14px 6px 10px;border-left:3px solid var(--indigo-500);background:var(--indigo-50); }
-.worklist-header { display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:18px 24px;margin-bottom:18px; }
-.log-summary-card { background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--indigo-500);border-radius:var(--radius-lg);padding:20px 26px;margin-bottom:18px; }
-.log-stat-row { display:flex;align-items:center;gap:28px;flex-wrap:wrap; }
-.log-stat { display:flex;flex-direction:column;gap:2px; }
-.log-stat-value { font-size:1.55rem;font-weight:800;color:var(--indigo-600)!important; }
-.log-stat-label { font-size:.62rem;font-weight:700;color:var(--text-muted)!important; }
-.log-stat-divider { width:1px;height:40px;background:var(--border); }
-.export-strip { background:linear-gradient(135deg,#F0FDF4 0%,#EFF6FF 100%);border:1px solid var(--green-200);border-radius:var(--radius-md);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px; }
-.prog-wrap  { background:var(--border);border-radius:var(--radius-full);height:7px;overflow:hidden;margin:6px 0 12px; }
-.prog-fill  { height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--indigo-600),var(--blue-400)); }
-.prog-labels{ display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted)!important;font-weight:600;margin-bottom:4px; }
-.chip { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:var(--radius-full);font-size:.68rem;font-weight:700; }
-.chip-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.chip-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.s-chip { display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-full);font-size:.63rem;font-weight:700; }
-.s-done    { background:var(--green-50); color:var(--green-700) !important; border:1px solid var(--green-200); }
-.s-pending { background:var(--amber-50); color:var(--amber-700) !important; border:1px solid var(--amber-200); }
-.s-eval-good { background:var(--green-50);color:var(--green-700)!important;border:1px solid var(--green-200); }
-.s-eval-bad  { background:var(--red-50);color:var(--red-600)!important;border:1px solid var(--red-200); }
-.s-eval-dup  { background:var(--amber-50);color:var(--amber-700)!important;border:1px solid var(--amber-200); }
-
-/* خشتەکان */
-.gov-table-wrap { overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:18px; }
-.gov-table { width:100%;border-collapse:collapse;background:var(--surface);font-size:.84rem; }
-.gov-table th { color:var(--text-muted)!important;background:var(--surface-2)!important;font-weight:700!important;padding:13px 18px!important;white-space:nowrap;text-align:left!important; }
-.gov-table td { color:var(--text-primary)!important;background:var(--surface)!important;padding:11px 18px!important;border-bottom:1px solid var(--border)!important;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.gov-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.gov-table tbody tr:hover td { background:var(--indigo-50)!important;color:var(--text-primary)!important; }
-.acc-table { width:100%;border-collapse:collapse;font-size:.83rem; }
-.acc-table th { background:var(--indigo-50)!important;color:var(--indigo-600)!important;font-size:.62rem!important;font-weight:800!important;padding:11px 16px!important;border-bottom:2px solid var(--indigo-100)!important;text-align:left!important; }
-.acc-table td { padding:10px 16px!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important;font-weight:500!important;color:var(--text-primary)!important;background:var(--surface)!important; }
-.acc-table tbody tr:nth-child(even) td { background:#FBFCFF!important; }
-.acc-table tbody tr:hover td { background:var(--indigo-50)!important; }
-.acc-rate-high { color:var(--green-700)!important;font-weight:800!important; }
-.acc-rate-mid  { color:var(--amber-700)!important;font-weight:800!important; }
-.acc-rate-low  { color:var(--red-600)!important;font-weight:800!important; }
-.acc-bar-wrap  { background:var(--border);border-radius:var(--radius-full);height:6px;width:80px;display:inline-block;vertical-align:middle;margin-left:8px; }
-.acc-bar-fill  { height:100%;border-radius:var(--radius-full); }
-
-.inspector-panel { background: var(--surface-2); border: 1px solid var(--border); border-left: 4px solid var(--indigo-500); border-radius: var(--radius-md); padding: 18px 22px; margin-top: 8px; }
-.inspector-meta { font-size: .72rem; font-weight: 700; color: var(--text-muted) !important; margin-bottom: 10px; display: flex; gap: 18px; flex-wrap: wrap; }
-.inspector-meta span { color: var(--text-primary) !important; font-weight: 600; }
-.log-line { font-family:var(--mono)!important;font-size:.74rem;color:var(--text-secondary)!important;padding:6px 0;border-bottom:1px dashed var(--border);line-height:1.5; }
-.divider { border:none;border-top:1px solid var(--border);margin:14px 0; }
-.role-badge-admin   { background:#EDE9FE;color:#6D28D9!important;border:1px solid #DDD6FE;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-.role-badge-manager { background:#FFF7ED;color:#C2410C!important;border:1px solid #FED7AA;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-.role-badge-auditor { background:#F0FDF4;color:#15803D!important;border:1px solid #A7F3D0;border-radius:var(--radius-full);padding:2px 10px;font-size:.60rem;font-weight:800;display:inline-block; }
-
-/* =========================================================
-   ٤. مۆبایل و تابلێت (Mobile & Tablet Responsiveness)
-   ========================================================= */
-@media (max-width: 768px) {
-  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; margin-bottom: 15px !important; }
-  .page-title { font-size: 1.3rem !important; }
-  .page-timestamp { align-self: flex-start !important; margin-top: 0 !important; }
-  .worklist-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 15px !important; }
-  .log-stat-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
-  .log-stat-divider { display: none !important; }
-  div[data-testid="stForm"] { padding: 18px 20px !important; }
-  .gov-table th, .acc-table th { padding: 10px 12px !important; font-size: 0.58rem !important; }
-  .gov-table td, .acc-table td { padding: 10px 12px !important; font-size: 0.78rem !important; }
-  .gov-table-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px !important; }
-  .inspector-meta { flex-direction: column !important; gap: 8px !important; }
-  [data-testid="stMetricContainer"] { padding: 15px 18px !important; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPANDER  — subtle card
+   ═══════════════════════════════════════════════════════════════════════════ */
+.streamlit-expanderHeader {
+  background: var(--surface-2) !important;
+  background-color: var(--surface-2) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  padding: 12px 16px !important;
+}
+.streamlit-expanderContent {
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  border: 1px solid var(--border-sm) !important;
+  border-top: none !important;
+  border-radius: 0 0 var(--r-md) var(--r-md) !important;
+  padding: 16px !important;
 }
 
-/* =========================================================
-   ٥. چارەسەری کۆتایی بۆ ڕەشبوونی ئەندرۆید و کرۆم (Anti-Dark Mode Force)
-   ========================================================= */
+/* ═══════════════════════════════════════════════════════════════════════════
+   ALERTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stAlert"] {
+  border-radius: var(--r-md) !important;
+  border: 1px solid var(--border-sm) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+[data-testid="stAlert"] * {
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+}
 
-/* چارەسەری دوگمەی ئەکاونت لەسەرەوە */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CODE BLOCKS  — legible on light
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-testid="stCodeBlock"],
+[data-testid="stCodeBlock"] pre,
+[data-testid="stCodeBlock"] code {
+  background-color: #F8FAFC !important;
+  color: #1E293B !important;
+  -webkit-text-fill-color: #1E293B !important;
+  border: 1px solid var(--border-sm) !important;
+  border-radius: var(--r-md) !important;
+  text-shadow: none !important;
+  font-family: var(--mono) !important;
+  font-size: 0.82rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE HEADER
+   ═══════════════════════════════════════════════════════════════════════════ */
+.page-header {
+  display:          flex;
+  align-items:      center;
+  justify-content:  space-between;
+  padding:          6px 0 26px;
+  border-bottom:    1px solid var(--border-sm);
+  margin-bottom:    28px;
+}
+.page-title {
+  font-size:      1.6rem;
+  font-weight:    800;
+  color:          var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  letter-spacing: -0.04em;
+  line-height:    var(--lh-tight);
+  margin:         0;
+}
+.page-subtitle {
+  font-size:   0.78rem;
+  color:       var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  margin-top:  4px;
+  font-weight: 400;
+}
+.page-timestamp {
+  font-size:    0.72rem;
+  color:        var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  font-weight:  500;
+  background:   var(--surface);
+  padding:      7px 14px;
+  border-radius: var(--r-full);
+  border:        1px solid var(--border-sm);
+  box-shadow:    var(--shadow-xs);
+  font-family:   var(--mono) !important;
+  white-space:   nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTION TITLE  — left-bar accent pill
+   ═══════════════════════════════════════════════════════════════════════════ */
+.section-title {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            8px;
+  font-size:      0.68rem;
+  font-weight:    800;
+  color:          var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  margin:         22px 0 12px;
+  padding:        6px 14px 6px 12px;
+  border-left:    3px solid var(--indigo-500);
+  border-radius:  0 var(--r-sm) var(--r-sm) 0;
+  background:     var(--indigo-50);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKLIST HEADER CARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+.worklist-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  background:      var(--surface);
+  border:          1px solid var(--border-sm);
+  border-top:      3px solid var(--indigo-500);
+  border-radius:   var(--r-lg);
+  padding:         18px 24px;
+  margin-bottom:   18px;
+  box-shadow:      var(--shadow-md);
+}
+.worklist-title {
+  font-size:   1rem;
+  font-weight: 800;
+  color:       var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  letter-spacing: -0.02em;
+}
+.worklist-sub {
+  font-size:  0.76rem;
+  color:      var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  margin-top: 3px;
+  font-weight: 400;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOG SUMMARY CARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+.log-summary-card {
+  background:    var(--surface);
+  border:        1px solid var(--border-sm);
+  border-top:    3px solid var(--indigo-500);
+  border-radius: var(--r-lg);
+  padding:       20px 24px;
+  box-shadow:    var(--shadow-md);
+  margin-bottom: 16px;
+}
+.log-stat-row    { display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
+.log-stat        { display:flex; flex-direction:column; gap:3px; }
+.log-stat-value  {
+  font-size:   1.5rem;
+  font-weight: 800;
+  color:       var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  letter-spacing: -0.03em;
+  font-family: var(--mono) !important;
+}
+.log-stat-label {
+  font-size:      0.62rem;
+  font-weight:    700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color:          var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+}
+.log-stat-divider { width:1px; height:38px; background:var(--border-sm); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT STRIP
+   ═══════════════════════════════════════════════════════════════════════════ */
+.export-strip {
+  background:    linear-gradient(135deg, var(--green-50) 0%, #EFF6FF 100%);
+  border:        1px solid var(--green-200);
+  border-radius: var(--r-lg);
+  padding:       14px 18px;
+  display:       flex;
+  align-items:   center;
+  justify-content: space-between;
+  flex-wrap:     wrap;
+  gap:           12px;
+  margin-bottom: 18px;
+  box-shadow:    var(--shadow-xs);
+}
+.export-text { font-size:.80rem; font-weight:600; color:var(--text-700) !important; }
+.export-sub  { font-size:.68rem; color:var(--text-500) !important; margin-top:2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROGRESS BAR  — animated gradient
+   ═══════════════════════════════════════════════════════════════════════════ */
+.prog-wrap {
+  background:    var(--surface-3);
+  border-radius: var(--r-full);
+  height:        7px;
+  overflow:      hidden;
+  margin:        6px 0 12px;
+  box-shadow:    inset 0 1px 2px rgba(0,0,0,0.06);
+}
+.prog-fill {
+  height:        100%;
+  border-radius: var(--r-full);
+  background:    linear-gradient(90deg, var(--indigo-600), var(--blue-400));
+  transition:    width 1s var(--ease-out);
+  box-shadow:    0 0 12px rgba(99,102,241,0.35);
+}
+.prog-labels {
+  display:         flex;
+  justify-content: space-between;
+  font-size:       0.72rem;
+  color:           var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  font-weight:     600;
+  margin-bottom:   4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATUS CHIPS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.chip {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            5px;
+  padding:        4px 12px;
+  border-radius:  var(--r-full);
+  font-size:      0.68rem;
+  font-weight:    700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.chip-done    { background:var(--green-50);  color:var(--green-700) !important; border:1px solid var(--green-200); }
+.chip-pending { background:var(--amber-50);  color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+.chip-admin   { background:var(--indigo-50); color:var(--indigo-600) !important; border:1px solid var(--indigo-200); }
+.chip-audit   { background:var(--green-50);  color:var(--green-600) !important; border:1px solid var(--green-200); }
+
+.s-chip {
+  display:        inline-flex;
+  align-items:    center;
+  padding:        3px 10px;
+  border-radius:  var(--r-full);
+  font-size:      0.63rem;
+  font-weight:    700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.s-done      { background:var(--green-50);  color:var(--green-700) !important; border:1px solid var(--green-200); }
+.s-pending   { background:var(--amber-50);  color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+.s-eval-good { background:var(--green-50);  color:var(--green-700) !important; border:1px solid var(--green-200); }
+.s-eval-bad  { background:var(--red-50);    color:var(--red-600)   !important; border:1px solid var(--red-200); }
+.s-eval-dup  { background:var(--amber-50);  color:var(--amber-700) !important; border:1px solid var(--amber-200); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA TABLES  — sticky header, rich hover, generous padding
+   ═══════════════════════════════════════════════════════════════════════════ */
+.gov-table-wrap {
+  overflow-x:    auto;
+  overflow-y:    auto;
+  max-height:    580px;
+  border:        1px solid var(--border-sm);
+  border-radius: var(--r-lg);
+  margin-bottom: 18px;
+  box-shadow:    var(--shadow-md);
+  -webkit-overflow-scrolling: touch;
+}
+.gov-table {
+  width:           100%;
+  border-collapse: collapse;
+  background:      var(--surface);
+  font-size:       0.84rem;
+}
+.gov-table thead {
+  position: sticky !important;
+  top:      0 !important;
+  z-index:  10 !important;
+}
+.gov-table thead tr {
+  background:    var(--surface-2);
+  border-bottom: 2px solid var(--border-md);
+}
+.gov-table th {
+  color:          var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  background:     var(--surface-2) !important;
+  font-weight:    700 !important;
+  font-size:      0.65rem !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  padding:        12px 18px !important;
+  white-space:    nowrap;
+  text-align:     left !important;
+  border-right:   1px solid var(--border-xs);
+}
+.gov-table th:last-child { border-right: none; }
+.gov-table td {
+  color:          var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  background:     var(--surface) !important;
+  padding:        11px 18px !important;
+  font-size:      0.84rem !important;
+  font-weight:    500 !important;
+  border-bottom:  1px solid var(--border-xs) !important;
+  border-right:   1px solid var(--border-xs) !important;
+  vertical-align: middle !important;
+  max-width:      220px;
+  overflow:       hidden;
+  text-overflow:  ellipsis;
+  white-space:    nowrap;
+  transition:     background var(--dur-fast) var(--ease-out) !important;
+}
+.gov-table td:last-child { border-right: none; }
+.gov-table tbody tr:nth-child(even) td { background: #FAFBFC !important; }
+.gov-table tbody tr:hover td {
+  background: var(--indigo-50) !important;
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+}
+.gov-table tbody tr:last-child td { border-bottom: none !important; }
+.gov-table td.row-idx,
+.gov-table th.row-idx {
+  color:       var(--text-400) !important;
+  -webkit-text-fill-color: var(--text-400) !important;
+  font-family: var(--mono) !important;
+  font-size:   0.70rem !important;
+  min-width:   50px;
+  text-align:  center !important;
+}
+/* Evaluation & feedback column accents */
+.gov-table th.col-eval,
+.gov-table th.col-feedback {
+  background: var(--indigo-50) !important;
+  color:      var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  border-bottom: 2px solid var(--indigo-200) !important;
+}
+.gov-table td.col-feedback {
+  max-width:   280px;
+  white-space: normal !important;
+  word-break:  break-word;
+  font-size:   0.75rem !important;
+  font-family: var(--mono) !important;
+  color:       var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCURACY TABLE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.acc-table {
+  width:           100%;
+  border-collapse: collapse;
+  font-size:       0.83rem;
+}
+.acc-table th {
+  background:     var(--indigo-50) !important;
+  color:          var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  font-size:      0.63rem !important;
+  font-weight:    800 !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  padding:        11px 16px !important;
+  border-bottom:  2px solid var(--indigo-100) !important;
+  text-align:     left !important;
+}
+.acc-table td {
+  padding:        10px 16px !important;
+  border-bottom:  1px solid var(--border-xs) !important;
+  vertical-align: middle !important;
+  font-weight:    500 !important;
+  color:          var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  background:     var(--surface) !important;
+  transition:     background var(--dur-fast) !important;
+}
+.acc-table tbody tr:nth-child(even) td { background: #FAFBFC !important; }
+.acc-table tbody tr:hover td { background: var(--indigo-50) !important; }
+.acc-table tbody tr:last-child td { border-bottom: none !important; }
+.acc-rate-high { color:var(--green-700) !important; font-weight:800 !important; font-family:var(--mono) !important; }
+.acc-rate-mid  { color:var(--amber-700) !important; font-weight:800 !important; font-family:var(--mono) !important; }
+.acc-rate-low  { color:var(--red-600)   !important; font-weight:800 !important; font-family:var(--mono) !important; }
+.acc-bar-wrap  {
+  background:    var(--surface-3);
+  border-radius: var(--r-full);
+  height:        6px;
+  width:         80px;
+  display:       inline-block;
+  vertical-align: middle;
+  margin-left:   8px;
+  overflow:      hidden;
+}
+.acc-bar-fill { height:100%; border-radius:var(--r-full); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEADERBOARD ROWS  — animated cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lb-row {
+  display:        flex;
+  align-items:    center;
+  gap:            12px;
+  padding:        11px 16px;
+  background:     var(--surface);
+  border:         1px solid var(--border-sm);
+  border-radius:  var(--r-md);
+  margin-bottom:  7px;
+  box-shadow:     var(--shadow-sm);
+  transition:     transform var(--dur-base) var(--ease-spring),
+                  border-color var(--dur-base) var(--ease-out),
+                  box-shadow   var(--dur-base) var(--ease-out) !important;
+}
+.lb-row:hover {
+  transform:    translateX(4px) !important;
+  border-color: var(--indigo-400) !important;
+  box-shadow:   var(--shadow-md), 0 0 0 1px var(--border-accent) !important;
+}
+.lb-medal {
+  font-size:    0.78rem;
+  font-weight:  700;
+  min-width:    30px;
+  text-align:   center;
+  color:        var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  font-family:  var(--mono) !important;
+  background:   var(--surface-2);
+  border-radius: var(--r-sm);
+  padding:      2px 5px;
+}
+.lb-name {
+  flex:        1;
+  font-size:   0.85rem;
+  font-weight: 600;
+  color:       var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+}
+.lb-count {
+  font-size:    0.86rem;
+  font-weight:  800;
+  color:        var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  font-family:  var(--mono) !important;
+  background:   var(--indigo-50);
+  padding:      3px 10px;
+  border-radius: var(--r-full);
+  border:       1px solid var(--indigo-100);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUDIT LOG LINES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.log-line {
+  font-family:  var(--mono) !important;
+  font-size:    0.74rem;
+  color:        var(--text-700) !important;
+  -webkit-text-fill-color: var(--text-700) !important;
+  padding:      6px 0;
+  border-bottom: 1px dashed var(--border-sm);
+  line-height:  var(--lh-loose);
+}
+.log-line:last-child { border-bottom: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEEP SEARCH STRIP
+   ═══════════════════════════════════════════════════════════════════════════ */
+.deep-search-strip {
+  background:    var(--surface);
+  border:        1px solid var(--border-sm);
+  border-left:   3px solid var(--indigo-500);
+  border-radius: var(--r-md);
+  padding:       12px 20px 16px;
+  margin-bottom: 18px;
+  box-shadow:    var(--shadow-sm);
+}
+.deep-search-title {
+  font-size:      0.63rem;
+  font-weight:    800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color:          var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  margin-bottom:  10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILTER / RBAC BANNERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rbac-banner {
+  background:    var(--indigo-50);
+  border:        1px solid var(--indigo-100);
+  border-left:   3px solid var(--indigo-500);
+  border-radius: var(--r-md);
+  padding:       12px 18px;
+  margin-bottom: 18px;
+  font-size:     0.80rem;
+  color:         var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
+  font-weight:   600;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INSPECTOR PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+.inspector-panel {
+  background:    var(--surface-2);
+  background-color: var(--surface-2) !important;
+  border:        1px solid var(--border-sm);
+  border-left:   3px solid var(--indigo-500);
+  border-radius: var(--r-md);
+  padding:       18px 22px;
+  margin-top:    8px;
+  box-shadow:    var(--shadow-sm);
+}
+.inspector-meta {
+  font-size:   0.72rem;
+  font-weight: 700;
+  color:       var(--text-500) !important;
+  -webkit-text-fill-color: var(--text-500) !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display:       flex;
+  gap:           18px;
+  flex-wrap:     wrap;
+}
+.inspector-meta span {
+  color: var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  font-weight: 600;
+}
+.inspector-panel div,
+.inspector-meta,
+.inspector-meta span {
+  background-color: transparent !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROLE BADGES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.role-badge-admin {
+  background:     #EDE9FE;
+  color:          #6D28D9 !important;
+  -webkit-text-fill-color: #6D28D9 !important;
+  border:         1px solid #DDD6FE;
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
+.role-badge-manager {
+  background:     #FFF7ED;
+  color:          #C2410C !important;
+  -webkit-text-fill-color: #C2410C !important;
+  border:         1px solid #FED7AA;
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
+.role-badge-auditor {
+  background:     var(--green-50);
+  color:          var(--green-700) !important;
+  -webkit-text-fill-color: var(--green-700) !important;
+  border:         1px solid var(--green-200);
+  border-radius:  var(--r-full);
+  padding:        2px 10px;
+  font-size:      0.60rem;
+  font-weight:    800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display:        inline-block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POPOVER  (account menu)
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stPopover"] > button,
 [data-testid="stPopover"] > button * {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
-    border-color: #E4E7F0 !important;
+  background-color: var(--surface) !important;
+  color:            var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
+  border-color:     var(--border-sm) !important;
+  border-radius:    var(--r-md) !important;
+  font-weight:      600 !important;
+  transition: box-shadow var(--dur-base) var(--ease-out) !important;
+}
+[data-testid="stPopover"] > button:hover {
+  box-shadow: var(--shadow-md) !important;
 }
 
-/* چارەسەری بۆکسی زانیارییەکان (Inspector Panel) */
-.inspector-panel, 
-.inspector-panel div, 
-.inspector-meta, 
-.inspector-meta span {
-    background-color: #F0F2F9 !important; /* ڕەنگێکی شین-خۆڵەمێشی کاڵ بۆ باگراوند */
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important; /* ئەمە وا دەکات تێکستەکە هەرگیز سپی نەبێتەوە */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIVIDER
+   ═══════════════════════════════════════════════════════════════════════════ */
+.divider {
+  border:     none;
+  border-top: 1px solid var(--border-sm);
+  margin:     14px 0;
 }
 
-/* چارەسەری ناوەوەی بۆکسەکانی لۆگ و ئۆدیت ترەیل (st.code) */
-[data-testid="stCodeBlock"] {
-    background-color: #E4E7F0 !important;
-}
-
-[data-testid="stCodeBlock"] * {
-    background-color: transparent !important;
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important; /* دەبێت ڕەش بێت */
-    text-shadow: none !important;
-}
-
-/* چارەسەری تەواوەتی درۆپ-داونەکان (Selectbox) لە هەموو شوێنێک */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECTBOX — force full anti-dark coverage
+   ═══════════════════════════════════════════════════════════════════════════ */
 div[data-baseweb="select"] > div,
 div[data-baseweb="popover"] > div,
-div[data-baseweb="menu"], 
+div[data-baseweb="menu"],
 ul[role="listbox"] {
-    background-color: #FFFFFF !important;
+  background-color: var(--surface) !important;
 }
-
-div[data-baseweb="menu"] li, 
-ul[role="listbox"] li, 
+div[data-baseweb="menu"] li,
+ul[role="listbox"] li,
 li[role="option"] {
-    background-color: #FFFFFF !important;
-    color: #0D1117 !important;
-    -webkit-text-fill-color: #0D1117 !important;
+  background-color: var(--surface) !important;
+  color:            var(--text-900) !important;
+  -webkit-text-fill-color: var(--text-900) !important;
 }
-
-div[data-baseweb="menu"] li:hover, 
+div[data-baseweb="menu"] li:hover,
 ul[role="listbox"] li:hover {
-    background-color: #EEF2FF !important;
-    color: #4F46E5 !important;
-    -webkit-text-fill-color: #4F46E5 !important;
-}
-/* نەهێشتنی بۆشاییە گەورەکەی سەرەوەی شاشەکە و بردنە سەرەوەی داشبۆردەکە */
-.block-container {
-    padding-top: 0rem !important; 
-    padding-bottom: 1rem !important;
-    margin-top: 0 !important;
+  background-color: var(--indigo-50) !important;
+  color:            var(--indigo-600) !important;
+  -webkit-text-fill-color: var(--indigo-600) !important;
 }
 
-[data-testid="block-container"] {
-    padding-top: 1.5rem !important;
-}
-/* ئەمە تەنیا بۆشاییە زیادەکەی سەرەوە ناهێڵێت */
-.block-container {
-    padding-top: 0rem !important;
-    margin-top: -2rem !important;
-}
-
-header {
-    visibility: hidden !important;
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE  ( ≤768px )
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column !important;
+    align-items:    flex-start !important;
+    gap:            12px !important;
+    margin-bottom:  18px !important;
+  }
+  .page-title  { font-size: 1.3rem !important; }
+  .worklist-header {
+    flex-direction: column !important;
+    align-items:    flex-start !important;
+    gap:            10px !important;
+    padding:        15px !important;
+  }
+  .log-stat-row { flex-direction:column !important; gap:15px !important; }
+  .log-stat-divider { display:none !important; }
+  div[data-testid="stForm"]     { padding:18px 18px !important; }
+  .gov-table th, .acc-table th  { padding:10px 12px !important; font-size:.58rem !important; }
+  .gov-table td, .acc-table td  { padding:10px 12px !important; font-size:.78rem !important; }
+  .inspector-meta { flex-direction:column !important; gap:8px !important; }
+  [data-testid="stMetricContainer"] { padding:15px 16px !important; }
 }
 </style>
 """, unsafe_allow_html=True)
-    
+
+
 # -----------------------------------------------------------------------------
 #  6 . TRANSLATIONS — English only
 # -----------------------------------------------------------------------------
@@ -552,7 +1297,7 @@ def t(key: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  7 . HELPERS
+#  7 . HELPERS  (unchanged)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_column_keywords():
@@ -630,7 +1375,7 @@ def apply_period_filter(df, col, period):
     elif period == "this_month": cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else: return df
     parsed    = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
-    cutoff_ts = pd.Timestamp(cutoff).tz_localize(None) # لێرەدا کێشەی تایمزۆنەکە چارەسەر کراوە
+    cutoff_ts = pd.Timestamp(cutoff).tz_localize(None)
     return df[parsed >= cutoff_ts]
 
 def build_auto_diff(record: dict, new_vals: dict) -> str:
@@ -644,7 +1389,7 @@ def build_auto_diff(record: dict, new_vals: dict) -> str:
 
 
 # -----------------------------------------------------------------------------
-#  8 . GOOGLE SHEETS
+#  8 . GOOGLE SHEETS  (unchanged)
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def get_spreadsheet():
@@ -690,7 +1435,7 @@ def get_local_data(spreadsheet_id, ws_title):
 
 
 # -----------------------------------------------------------------------------
-#  9 . OPTIMISTIC MUTATIONS
+#  9 . OPTIMISTIC MUTATIONS  (unchanged)
 # -----------------------------------------------------------------------------
 def _apply_optimistic_approve(df_iloc, new_vals, auditor, ts_now, log_prefix,
                               eval_val: str = "", feedback_val: str = ""):
@@ -715,7 +1460,7 @@ def _apply_optimistic_reopen(df_iloc):
 
 
 # -----------------------------------------------------------------------------
-#  10 . WRITE HELPERS
+#  10 . WRITE HELPERS  (unchanged)
 # -----------------------------------------------------------------------------
 def ensure_system_cols_in_sheet(ws, headers, col_map):
     for sc in SYSTEM_COLS:
@@ -780,7 +1525,7 @@ def authenticate(email: str, password: str, spreadsheet_id: str):
 
 
 # -----------------------------------------------------------------------------
-#  11 . HTML TABLE & PAGINATION
+#  11 . HTML TABLE & PAGINATION  (unchanged)
 # -----------------------------------------------------------------------------
 def _eval_chip(raw: str) -> str:
     if not raw or raw == "-": return "-"
@@ -853,7 +1598,7 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
         with col_info:
             st.markdown(
                 f"<div style='text-align:center;padding:8px 0;font-size:.75rem;font-weight:700;"
-                f"color:var(--text-muted);font-family:var(--mono);'>"
+                f"color:var(--text-400);font-family:var(--mono);'>"
                 f"Page {current} of {total_pages} "
                 f"<span style='font-weight:400;margin-left:8px;'>"
                 f"({start+1}-{end} of {total_rows} rows)</span></div>",
@@ -865,7 +1610,7 @@ def render_paginated_table(df: pd.DataFrame, page_key: str, max_rows: int = 5000
 
 
 # -----------------------------------------------------------------------------
-#  12 . LOGIN
+#  12 . LOGIN  (unchanged)
 # -----------------------------------------------------------------------------
 def render_login(spreadsheet_id: str, cookie_manager) -> None:
     st.markdown("""
@@ -881,35 +1626,40 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
     .block-container{display:flex;flex-direction:column;justify-content:center;align-items:center;
         min-height:100vh;padding:1rem!important;}
     [data-testid="stForm"]{
-        background:rgba(255,255,255,0.95)!important;backdrop-filter:blur(12px)!important;
-        -webkit-backdrop-filter:blur(12px)!important;border:1px solid rgba(255,255,255,0.3)!important;
-        border-radius:24px!important;padding:40px 30px!important;
-        box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)!important;
+        background:rgba(255,255,255,0.96)!important;backdrop-filter:blur(20px)!important;
+        -webkit-backdrop-filter:blur(20px)!important;
+        border:1px solid rgba(255,255,255,0.4)!important;
+        border-radius:20px!important;padding:44px 36px!important;
+        box-shadow:0 32px 64px -12px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.2)!important;
         max-width:420px!important;width:100%!important;margin:0 auto!important;
     }
     [data-testid="stFormSubmitButton"] button{
         background:linear-gradient(135deg,#1E3A8A 0%,#3B82F6 100%)!important;
-        color:white!important;border:none!important;border-radius:12px!important;
-        font-weight:bold!important;font-size:1rem!important;padding:0.6rem!important;
-        width:100%!important;margin-top:10px!important;
-        transition:transform 0.2s ease,box-shadow 0.2s ease!important;
+        color:white!important;-webkit-text-fill-color:white!important;
+        border:none!important;border-radius:10px!important;
+        font-weight:700!important;font-size:0.94rem!important;padding:12px!important;
+        width:100%!important;margin-top:10px!important;letter-spacing:0.01em!important;
+        box-shadow:0 4px 14px rgba(30,58,138,0.40)!important;
+        transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s ease!important;
     }
     [data-testid="stFormSubmitButton"] button:hover{
-        transform:translateY(-2px)!important;
-        box-shadow:0 10px 20px rgba(59,130,246,0.4)!important;color:white!important;
+        transform:translateY(-2px) scale(1.01)!important;
+        box-shadow:0 10px 28px rgba(30,58,138,0.50)!important;
     }
     </style>""", unsafe_allow_html=True)
 
     with st.form("login_form", clear_on_submit=False):
         st.markdown(f"""
-        <div style="text-align:center;font-size:3rem;margin-bottom:8px;line-height:1;">&#127963;</div>
-        <div style="text-align:center;font-size:1.5rem;font-weight:800;color:#0F172A;margin-bottom:4px;">
+        <div style="text-align:center;font-size:3rem;margin-bottom:10px;line-height:1;">&#127963;</div>
+        <div style="text-align:center;font-size:1.45rem;font-weight:800;color:#0F172A;
+                    margin-bottom:4px;letter-spacing:-0.03em;">
             {_html.escape(t('portal_title'))}</div>
         <div style="text-align:center;font-size:.60rem;font-weight:700;color:#DC2626;
-            background:#FEE2E2;padding:4px 10px;border-radius:99px;
-            width:max-content;margin:0 auto 16px;letter-spacing:1px;">
+            background:#FEE2E2;padding:4px 12px;border-radius:99px;
+            width:max-content;margin:0 auto 16px;letter-spacing:1.2px;">
             {_html.escape(t('classified'))}</div>
-        <div style="text-align:center;font-size:.85rem;color:#475569;margin-bottom:20px;">
+        <div style="text-align:center;font-size:.84rem;color:#475569;margin-bottom:22px;
+                    font-weight:400;line-height:1.5;">
             {_html.escape(t('login_prompt'))}</div>""", unsafe_allow_html=True)
         st.text_input(t("email_field"), placeholder="user@agents.tax.gov.krd", key="_login_email")
         st.text_input(t("password_field"), type="password", placeholder="••••••••••", key="_login_pw")
@@ -939,7 +1689,7 @@ def render_login(spreadsheet_id: str, cookie_manager) -> None:
 
 
 # -----------------------------------------------------------------------------
-#  DEEP SEARCH WIDGET  (agent dropdown preserved)
+#  DEEP SEARCH WIDGET  (unchanged)
 # -----------------------------------------------------------------------------
 def render_deep_search_strip(key_prefix: str, col_binder, col_agent_email, agent_options=None):
     def _clear():
@@ -1012,37 +1762,45 @@ def _deep_search_active(b: str, a: str) -> bool:
 
 
 # -----------------------------------------------------------------------------
-#  14 . WORKLIST (Combo-Box + Inline Search Strip)
+#  14 . WORKLIST  (unchanged)
 # -----------------------------------------------------------------------------
 def render_worklist(pending_display, df, headers, col_map, ws_title,
                     col_binder, col_company, col_license):
-    
+
     st.markdown(
         f"<div class='deep-search-strip'>"
         f"<div class='deep-search-title'>🔍 بگەڕێ لەناو کەیسەکان</div>"
         f"</div>",
         unsafe_allow_html=True,
     )
-    
+
     def clear_wl_filters():
-        st.session_state["wl_binder"] = ""
+        st.session_state["wl_binder"]  = ""
         st.session_state["wl_license"] = ""
 
     c1, c2, c3 = st.columns([1, 1, 0.32])
     with c1:
-        wl_binder = st.text_input("Binder No.", key="wl_binder", placeholder=col_binder or "Not in sheet", disabled=(col_binder is None), label_visibility="collapsed")
+        wl_binder  = st.text_input("Binder No.",  key="wl_binder",
+                                   placeholder=col_binder  or "Not in sheet",
+                                   disabled=(col_binder  is None),
+                                   label_visibility="collapsed")
     with c2:
-        wl_license = st.text_input("License No.", key="wl_license", placeholder=col_license or "Not in sheet", disabled=(col_license is None), label_visibility="collapsed")
+        wl_license = st.text_input("License No.", key="wl_license",
+                                   placeholder=col_license or "Not in sheet",
+                                   disabled=(col_license is None),
+                                   label_visibility="collapsed")
     with c3:
         st.button("Clear", key="wl_clr", use_container_width=True, on_click=clear_wl_filters)
 
-    if wl_binder.strip() and col_binder and col_binder in pending_display.columns:
-        pending_display = pending_display[pending_display[col_binder].astype(str).str.contains(wl_binder.strip(), case=False, na=False)]
+    if wl_binder.strip()  and col_binder  and col_binder  in pending_display.columns:
+        pending_display = pending_display[pending_display[col_binder].astype(str).str.contains(
+            wl_binder.strip(), case=False, na=False)]
     if wl_license.strip() and col_license and col_license in pending_display.columns:
-        pending_display = pending_display[pending_display[col_license].astype(str).str.contains(wl_license.strip(), case=False, na=False)]
+        pending_display = pending_display[pending_display[col_license].astype(str).str.contains(
+            wl_license.strip(), case=False, na=False)]
 
     p_count = len(pending_display)
-    st.markdown(f"""<div class="worklist-header" style="margin-top: 15px;">
+    st.markdown(f"""<div class="worklist-header" style="margin-top:15px;">
       <div><div class="worklist-title">{t('worklist_title')}</div>
       <div class="worklist-sub">{t('worklist_sub')}</div></div>
       <span class="chip chip-pending">{p_count} {t('outstanding')}</span>
@@ -1055,8 +1813,9 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     render_paginated_table(pending_display, page_key="page_worklist")
 
     st.markdown(f"<div class='section-title'>{t('select_case')}</div>", unsafe_allow_html=True)
-    
-    display_label_col = col_company or col_binder or next((h for h in headers if h not in SYSTEM_COLS), "Row")
+
+    display_label_col = col_company or col_binder or next(
+        (h for h in headers if h not in SYSTEM_COLS), "Row")
     opts = ["-"] + [
         f"Row {idx}{_ROW_SEP}{str(row.get(display_label_col, ''))[:40]}{_ROW_SEP}{str(row.get(COL_DATE, ''))[:10]}"
         for idx, row in pending_display.iterrows()
@@ -1086,10 +1845,10 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
     fields = {k: v for k, v in record.items() if k not in SKIP}
 
     COMBO_TARGETS = [
-        {"match": "باجدەری باج لە کام شاردایە", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
-        {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
-        {"match": "هل يوجد نموذج يتضمن عناصر التسجيل", "options": ["Yes", "No"]},
-        {"match": "Does the company have an investment license", "options": ["Yes", "No"]},
+        {"match": "باجدەری باج لە کام شاردایە",                   "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
+        {"match": "في أي مدينة يقع هذا دافع الضرائب",             "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+        {"match": "هل يوجد نموذج يتضمن عناصر التسجيل",            "options": ["Yes", "No"]},
+        {"match": "Does the company have an investment license",    "options": ["Yes", "No"]},
         {"match": "نشاط الشركة", "options": [
             "CEN / Construction & Engineering / بیناسازی و ئەندازیاری",
             "HLT / Health Services /  خزمەتگوزاری تەندروستی",
@@ -1101,45 +1860,56 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
             "TEL / Telecom & Media / پەیوەندییەکان و میدیا",
             "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی"
         ]},
-        {"match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات", "options": ["Yes", "No"]},
-        {"match": "Company status", "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]}
+        {"match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات",      "options": ["Yes", "No"]},
+        {"match": "Company status", "options": [
+            "Active / چالاک",
+            "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوەیە",
+            "Deleted / سڕاوەتەوە"
+        ]}
     ]
 
     with st.form("audit_form"):
-        new_vals = {}
+        new_vals   = {}
         combo_keys = []
-        
+
         for fname, fval in fields.items():
             clean_fname = str(fname).replace("\n", " ").replace("\r", " ")
-            
             matched_target = None
             for target in COMBO_TARGETS:
                 if target["match"] in clean_fname:
                     matched_target = target
                     break
-            
+
             if matched_target:
                 options = matched_target["options"]
-                st.markdown(f"<div style='font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:5px;'>{_html.escape(fname)}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='font-size:0.73rem;font-weight:700;"
+                    f"color:var(--text-500);margin-bottom:5px;letter-spacing:0.04em;"
+                    f"text-transform:uppercase;'>{_html.escape(fname)}</div>",
+                    unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
                 current = clean_cell(fval)
                 try:
                     def_idx = options.index(current) + 1
                 except ValueError:
                     def_idx = 0
-                
                 with c1:
-                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options, index=def_idx, key=f"sel_{sheet_row}_{fname}", label_visibility="collapsed")
+                    st.selectbox("", ["-- Type manually / بە دەست بنووسە --"] + options,
+                                 index=def_idx, key=f"sel_{sheet_row}_{fname}",
+                                 label_visibility="collapsed")
                 with c2:
-                    st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}", label_visibility="collapsed", placeholder="یان لێرە بنووسە...")
-                
+                    st.text_input("", value=current, key=f"txt_{sheet_row}_{fname}",
+                                  label_visibility="collapsed",
+                                  placeholder="یان لێرە بنووسە...")
                 combo_keys.append(fname)
             else:
-                new_vals[fname] = st.text_input(fname, value=clean_cell(fval), key=f"field_{sheet_row}_{fname}")
+                new_vals[fname] = st.text_input(
+                    fname, value=clean_cell(fval), key=f"field_{sheet_row}_{fname}")
 
-        st.markdown("<hr style='border-top:1px dashed var(--border);margin:18px 0 14px;'/>",
+        st.markdown("<hr style='border-top:1px dashed var(--border-sm);margin:18px 0 14px;'/>",
                     unsafe_allow_html=True)
-        eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0, key=f"form_eval_{sheet_row}")
+        eval_val     = st.selectbox(t("eval_label"), options=EVAL_OPTIONS, index=0,
+                                    key=f"form_eval_{sheet_row}")
         manual_notes = st.text_area(t("feedback_label"), placeholder=t("feedback_placeholder"),
                                     key=f"form_feedback_{sheet_row}", height=100)
         do_submit    = st.form_submit_button(t("approve_save"), use_container_width=True)
@@ -1148,10 +1918,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         for fname in combo_keys:
             sel_val = st.session_state.get(f"sel_{sheet_row}_{fname}", "")
             txt_val = st.session_state.get(f"txt_{sheet_row}_{fname}", "")
-            if sel_val != "-- Type manually / بە دەست بنووسە --":
-                new_vals[fname] = sel_val
-            else:
-                new_vals[fname] = txt_val
+            new_vals[fname] = txt_val if sel_val == "-- Type manually / بە دەست بنووسە --" else sel_val
 
         ts_now     = now_str()
         auditor    = st.session_state.user_email
@@ -1159,7 +1926,6 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
         auto_diff  = build_auto_diff(record, new_vals)
         feedback_combined = (f"{manual_notes.strip()}\n{auto_diff}".strip()
                              if manual_notes.strip() else auto_diff)
-        
         with st.spinner("Committing record to Google Sheets..."):
             try:
                 is_success = write_approval_to_sheet(
@@ -1179,7 +1945,7 @@ def render_worklist(pending_display, df, headers, col_map, ws_title,
 
 
 # -----------------------------------------------------------------------------
-#  15 . ARCHIVE
+#  15 . ARCHIVE  (unchanged)
 # -----------------------------------------------------------------------------
 def render_archive(done_view, df, col_map, ws_title, is_admin,
                    col_binder=None, col_license=None):
@@ -1203,9 +1969,10 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
     auditor_list = []
     if COL_AUDITOR in done_view.columns:
-        auditor_list = sorted([a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")], key=str.lower)
+        auditor_list = sorted(
+            [a for a in done_view[COL_AUDITOR].unique() if str(a).strip() not in ("", "-")],
+            key=str.lower)
     auditor_opts = [""] + auditor_list
-
     if st.session_state.get("arch_auditor") not in auditor_opts:
         st.session_state["arch_auditor"] = ""
 
@@ -1236,9 +2003,10 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
 
     if not filtered_view.empty and COL_DATE in filtered_view.columns:
         filtered_view["_sort_date"] = pd.to_datetime(
-            filtered_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce"
-        )
-        filtered_view = filtered_view.sort_values("_sort_date", ascending=False, na_position="last").drop(columns=["_sort_date"])
+            filtered_view[COL_DATE], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        filtered_view = (filtered_view
+                         .sort_values("_sort_date", ascending=False, na_position="last")
+                         .drop(columns=["_sort_date"]))
 
     st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
 
@@ -1248,7 +2016,7 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
         if is_admin:
             st.markdown(
                 f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-                f"border-left:3px solid var(--indigo-500);border-radius:var(--radius-md);"
+                f"border-left:3px solid var(--indigo-500);border-radius:var(--r-md);"
                 f"padding:10px 16px;margin-bottom:14px;font-size:.78rem;"
                 f"color:var(--indigo-600)!important;font-weight:600;'>"
                 f"{t('archive_quality_note')}</div>", unsafe_allow_html=True)
@@ -1260,15 +2028,14 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
     if is_admin and not filtered_view.empty:
         st.markdown("<hr class='divider'/>", unsafe_allow_html=True)
         st.markdown(f"<div class='section-title'>{t('reopen')}</div>", unsafe_allow_html=True)
-        
-        display_label_col = col_binder or col_license or next((h for h in filtered_view.columns if h not in SYSTEM_COLS), "Row")
-        
+
+        display_label_col = col_binder or col_license or next(
+            (h for h in filtered_view.columns if h not in SYSTEM_COLS), "Row")
         ropts = ["-"] + [
             f"Row {idx} | {str(row.get(display_label_col, ''))[:40]} | {str(row.get(COL_DATE, ''))[:10]}"
             for idx, row in filtered_view.iterrows()
         ]
-        
-        rsel  = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
+        rsel = st.selectbox("Select record to re-open:", ropts, key="reopen_sel")
         if rsel != "-":
             ridx    = int(rsel.split("|")[0].replace("Row", "").strip())
             df_iloc = ridx - 2
@@ -1278,8 +2045,9 @@ def render_archive(done_view, df, col_map, ws_title, is_admin,
                     except gspread.exceptions.APIError as e: st.error(f"Error: {e}"); return
                 _apply_optimistic_reopen(df_iloc); st.rerun()
 
+
 # -----------------------------------------------------------------------------
-#  HELPER FOR GLOBAL ANALYTICS (All 3 Sheets)
+#  HELPER FOR GLOBAL ANALYTICS  (unchanged)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_combined_analytics(sid):
@@ -1290,16 +2058,12 @@ def fetch_combined_analytics(sid):
             if not raw: continue
             df_temp, h_temp, _ = _raw_to_dataframe(raw)
             if df_temp.empty: continue
-            
             df_done = df_temp[df_temp[COL_STATUS] == VAL_DONE].copy()
             if df_done.empty: continue
-            
             c_agent = detect_column(h_temp, "agent_email")
             df_done["_Agent"] = df_done[c_agent].astype(str) if c_agent and c_agent in df_done.columns else ""
-            
             for c in [COL_AUDITOR, COL_EVAL, COL_DATE]:
                 if c not in df_done.columns: df_done[c] = ""
-                
             df_clean = df_done[["_Agent", COL_AUDITOR, COL_EVAL, COL_DATE]].copy()
             df_clean["Sheet"] = ws_name
             all_dfs.append(df_clean)
@@ -1310,7 +2074,7 @@ def fetch_combined_analytics(sid):
 
 
 # -----------------------------------------------------------------------------
-#  16 . ANALYTICS  — Light mode only, fully vectorized
+#  16 . ANALYTICS  (unchanged)
 # -----------------------------------------------------------------------------
 def render_analytics(df, sid, col_agent_email=None, col_binder=None):
     agent_opts = None
@@ -1330,16 +2094,14 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
         if cw.button(lbl, use_container_width=True, key=f"pf_{pk}"):
             st.session_state.date_filter = pk; st.rerun()
 
-    # فلتەرکردنی داتاکان بۆ ئەوەی تەنیا کەیسە تەواوکراوەکانی ماوەی دیاریکراو بمێنێتەوە
     done_base = work_df[work_df[COL_STATUS] == VAL_DONE]
     done_f    = apply_period_filter(done_base, COL_DATE, st.session_state.date_filter)
 
-    # پیشاندانی پەیامی گەڕانەکە بە پشتبەستن بە ژمارەی ڕاستەقینەی خشتەکە
     if _deep_search_active(srch_binder, srch_agent):
         terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
+            f"border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
             f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
             f" &mdash; <strong>{len(done_f)}</strong> processed records matched</div>",
@@ -1380,9 +2142,9 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
                 paper_bgcolor=_PBG, plot_bgcolor=_PBG,
                 font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                 showlegend=False, coloraxis_showscale=False, margin=dict(l=8,r=8,t=10,b=8),
-                xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
+                xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#6B7280")),
                 yaxis=dict(gridcolor="rgba(0,0,0,0)", categoryorder="total ascending",
-                           tickfont=dict(color="#4B5563")),
+                           tickfont=dict(color="#6B7280")),
                 height=min(320, max(180, 36*len(lb.head(10)))))
             st.plotly_chart(fig, use_container_width=True)
 
@@ -1413,8 +2175,8 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
                     template=_PT, paper_bgcolor=_PBG, plot_bgcolor=_PBG,
                     font=dict(family="Plus Jakarta Sans", color=_PFC, size=11),
                     showlegend=False, margin=dict(l=8,r=8,t=10,b=8),
-                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
-                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563")),
+                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#6B7280")),
+                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#6B7280")),
                     height=380, hovermode="x unified")
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -1458,14 +2220,14 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
                        f"</span>")
                 td_rows += (
                     f"<tr>"
-                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
+                    f"<td style='color:var(--text-400);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
                     f"<td style='font-weight:600;'>{_html.escape(str(row['agent']))}</td>"
                     f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['rated'])}</td>"
                     f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
                     f"<td><span class='s-chip s-eval-bad'>{int(row['bad'])}</span></td>"
                     f"<td><span class='s-chip s-eval-dup'>{int(row['dup'])}</span></td>"
                     f"<td class='{rc}'>{pct:.1f}% {bar}</td>"
-                    f"<td style='color:var(--text-muted);'>{int(row['unrated'])}</td>"
+                    f"<td style='color:var(--text-400);'>{int(row['unrated'])}</td>"
                     f"</tr>"
                 )
             st.markdown(
@@ -1479,18 +2241,15 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
             plot_df = grp[grp["rated"] > 0]
             if not plot_df.empty:
                 fig3 = go.Figure()
-                fig3.add_trace(go.Bar(
-                    name="Good", x=plot_df["agent"], y=plot_df["good"],
+                fig3.add_trace(go.Bar(name="Good", x=plot_df["agent"], y=plot_df["good"],
                     marker_color="#16A34A",
                     hovertemplate="<b>%{x}</b><br>Good: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
                     customdata=plot_df["rated"]))
-                fig3.add_trace(go.Bar(
-                    name="Bad/Incorrect", x=plot_df["agent"], y=plot_df["bad"],
+                fig3.add_trace(go.Bar(name="Bad/Incorrect", x=plot_df["agent"], y=plot_df["bad"],
                     marker_color="#DC2626",
                     hovertemplate="<b>%{x}</b><br>Bad: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
                     customdata=plot_df["rated"]))
-                fig3.add_trace(go.Bar(
-                    name="Duplicate", x=plot_df["agent"], y=plot_df["dup"],
+                fig3.add_trace(go.Bar(name="Duplicate", x=plot_df["agent"], y=plot_df["dup"],
                     marker_color="#F59E0B",
                     hovertemplate="<b>%{x}</b><br>Duplicate: <b>%{y}</b><br>Total: %{customdata}<extra></extra>",
                     customdata=plot_df["rated"]))
@@ -1500,11 +2259,10 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                                 font=dict(size=11), bgcolor=_PBG, bordercolor=_PGR, borderwidth=1),
                     margin=dict(l=8, r=8, t=40, b=60),
-                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
-                               tickangle=-30,
-                               title=dict(text="Agent", font=dict(size=11, color="#4B5563"))),
-                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#4B5563"),
-                               title=dict(text="Records", font=dict(size=11, color="#4B5563"))),
+                    xaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#6B7280"),
+                               tickangle=-30, title=dict(text="Agent", font=dict(size=11, color="#6B7280"))),
+                    yaxis=dict(gridcolor=_PGR, zeroline=False, tickfont=dict(color="#6B7280"),
+                               title=dict(text="Records", font=dict(size=11, color="#6B7280"))),
                     height=400, hovermode="x")
                 fig3.update_traces(marker_line_width=0)
                 st.plotly_chart(fig3, use_container_width=True)
@@ -1512,37 +2270,35 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
             st.info(t("acc_no_data"))
     else:
         st.info(t("acc_no_data") +
-                ("" if col_agent_email else
-                 " (Agent Email column not detected — check sheet headers.)"))
+                ("" if col_agent_email else " (Agent Email column not detected — check sheet headers.)"))
 
-
-    # =========================================================================
-    #  NEW FEATURE: GLOBAL ANALYTICS (ALL SHEETS)
-    # =========================================================================
-    st.markdown("<br><hr class='divider' style='border-top:3px solid var(--border);'/>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-title' style='font-size:1.1rem;'>🌍 ئاماری گشتی (هەرسێ شیتەکە پێکەوە)</div>", unsafe_allow_html=True)
-    st.caption("لەم بەشەدا داتای هەموو شیتەکان کۆکراوەتەوە، و فلتەری کات (ڕۆژانە، هەفتانە، مانگانە) لەسەر ئەمیش جێبەجێ دەبێت.")
+    # ── GLOBAL ANALYTICS (all sheets) ────────────────────────────────────────
+    st.markdown("<br><hr class='divider' style='border-top:3px solid var(--border-sm);'/>",
+                unsafe_allow_html=True)
+    st.markdown(
+        "<div class='section-title' style='font-size:1.1rem;'>"
+        "🌍 ئاماری گشتی (هەرسێ شیتەکە پێکەوە)</div>",
+        unsafe_allow_html=True)
+    st.caption("لەم بەشەدا داتای هەموو شیتەکان کۆکراوەتەوە، و فلتەری کات لەسەر ئەمیش جێبەجێ دەبێت.")
 
     with st.spinner("Aggregating data from all sheets..."):
         global_df_raw = fetch_combined_analytics(sid)
 
     if global_df_raw.empty:
-        st.info("هیچ داتایەک لە شیتەکاندا نەدۆزرایەوە.")
-        return
+        st.info("هیچ داتایەک لە شیتەکاندا نەدۆزرایەوە."); return
 
-    # جێبەجێکردنی فلتەری کات
     global_df = apply_period_filter(global_df_raw, COL_DATE, st.session_state.date_filter)
-
     if global_df.empty:
-        st.info("هیچ کارێک نەکراوە لەم ماوەیەدا (Time Period).")
-        return
+        st.info("هیچ کارێک نەکراوە لەم ماوەیەدا (Time Period)."); return
 
     c_g1, c_g2 = st.columns(2)
 
-    # 1. Global Agent Accuracy
     with c_g1:
-        st.markdown(f"<div class='section-title' style='background:var(--green-50); color:var(--green-700)!important; border-left-color:var(--green-600);'>📊 ئاستی وردی ئەجێنتەکان (گشتی)</div>", unsafe_allow_html=True)
-        
+        st.markdown(
+            "<div class='section-title' style='background:var(--green-50);"
+            "color:var(--green-700)!important;border-left-color:var(--green-600);'>"
+            "📊 ئاستی وردی ئەجێنتەکان (گشتی)</div>", unsafe_allow_html=True)
+
         n_eval = global_df[COL_EVAL].fillna("").map(_normalise_eval)
         g_mask = n_eval.str.contains("Good", na=False)
         b_mask = n_eval.str.contains(r"Bad|Incorrect", na=False, regex=True)
@@ -1558,22 +2314,25 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
             "rated": r_mask.astype(int)
         })
         g_grp = gtmp.groupby("agent", sort=False).sum().reset_index()
-        g_grp["accuracy"] = g_grp.apply(lambda r: (r["good"] / r["rated"] * 100) if r["rated"] > 0 else 0.0, axis=1)
+        g_grp["accuracy"] = g_grp.apply(
+            lambda r: (r["good"] / r["rated"] * 100) if r["rated"] > 0 else 0.0, axis=1)
         g_grp = g_grp.sort_values(["accuracy", "rated"], ascending=[False, False]).reset_index(drop=True)
 
         if not g_grp.empty and g_grp["rated"].sum() > 0:
-            g_th = (f"<tr><th>#</th><th>ئەجێنت</th><th>کۆی گشتی</th>"
-                    f"<th>باش</th><th>خراپ</th><th>دووبارە</th><th>ڕێژە %</th></tr>")
+            g_th = ("<tr><th>#</th><th>ئەجێنت</th><th>کۆی گشتی</th>"
+                    "<th>باش</th><th>خراپ</th><th>دووبارە</th><th>ڕێژە %</th></tr>")
             g_td = ""
             for pos, row in g_grp.iterrows():
                 pct = row["accuracy"]
                 if pct >= 80:   rc, bc = "acc-rate-high", "#16A34A"
                 elif pct >= 50: rc, bc = "acc-rate-mid",  "#B45309"
                 else:           rc, bc = "acc-rate-low",  "#DC2626"
-                bar = f"<span class='acc-bar-wrap'><span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span></span>"
+                bar = (f"<span class='acc-bar-wrap'>"
+                       f"<span class='acc-bar-fill' style='width:{int(pct)}%;background:{bc};display:block;'></span>"
+                       f"</span>")
                 g_td += (
                     f"<tr>"
-                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
+                    f"<td style='color:var(--text-400);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
                     f"<td style='font-weight:600;'>{_html.escape(str(row['agent']))[:30]}</td>"
                     f"<td style='font-family:var(--mono);font-weight:700;'>{int(row['rated'])}</td>"
                     f"<td><span class='s-chip s-eval-good'>{int(row['good'])}</span></td>"
@@ -1582,17 +2341,22 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
                     f"<td class='{rc}'>{pct:.1f}% {bar}</td>"
                     f"</tr>"
                 )
-            st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{g_th}</thead><tbody>{g_td}</tbody></table></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='gov-table-wrap'><table class='acc-table'>"
+                f"<thead>{g_th}</thead><tbody>{g_td}</tbody></table></div>",
+                unsafe_allow_html=True)
         else:
-            st.info("هیچ هەڵسەنگاندنێک (Evaluation) بۆ ئەجێنتەکان نەکراوە لە هەرسێ شیتەکە.")
+            st.info("هیچ هەڵسەنگاندنێک بۆ ئەجێنتەکان نەکراوە.")
 
-    # 2. Global Auditor Productivity
     with c_g2:
-        st.markdown(f"<div class='section-title' style='background:var(--blue-50); color:var(--blue-700)!important; border-left-color:var(--blue-500);'>📈 ئاماری کارکردنی ئۆدیتەرەکان (گشتی)</div>", unsafe_allow_html=True)
-        
+        st.markdown(
+            "<div class='section-title' style='background:#EFF6FF;"
+            "color:#1D4ED8!important;border-left-color:#3B82F6;'>"
+            "📈 ئاماری کارکردنی ئۆدیتەرەکان (گشتی)</div>", unsafe_allow_html=True)
+
         aud_col = global_df[COL_AUDITOR].fillna("").astype(str).str.strip().replace("", "-")
         atmp = pd.DataFrame({
-            "auditor": aud_col,
+            "auditor":   aud_col,
             "total_cases": 1,
             "gave_good": g_mask.astype(int),
             "gave_bad":  b_mask.astype(int),
@@ -1602,27 +2366,31 @@ def render_analytics(df, sid, col_agent_email=None, col_binder=None):
         a_grp = a_grp.sort_values("total_cases", ascending=False).reset_index(drop=True)
 
         if not a_grp.empty:
-            a_th = (f"<tr><th>#</th><th>ئۆدیتەر</th><th>کۆی کەیسە بڕاوەکان</th>"
-                    f"<th>پێدانی (باش)</th><th>پێدانی (خراپ)</th><th>پێدانی (دووبارە)</th></tr>")
+            a_th = ("<tr><th>#</th><th>ئۆدیتەر</th><th>کۆی کەیسە بڕاوەکان</th>"
+                    "<th>پێدانی (باش)</th><th>پێدانی (خراپ)</th><th>پێدانی (دووبارە)</th></tr>")
             a_td = ""
             for pos, row in a_grp.iterrows():
                 a_td += (
                     f"<tr>"
-                    f"<td style='color:var(--text-muted);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
+                    f"<td style='color:var(--text-400);font-family:var(--mono);font-size:.70rem;'>{pos+1}</td>"
                     f"<td style='font-weight:600;'>{_html.escape(str(row['auditor']))[:30]}</td>"
-                    f"<td style='font-family:var(--mono);font-size:1.1rem;color:var(--indigo-600);font-weight:800;'>{int(row['total_cases'])}</td>"
-                    f"<td><span style='color:var(--green-700);font-weight:600;'>{int(row['gave_good'])}</span></td>"
+                    f"<td style='font-family:var(--mono);font-size:1.1rem;"
+                    f"color:var(--indigo-600);font-weight:800;'>{int(row['total_cases'])}</td>"
+                    f"<td><span style='color:var(--green-600);font-weight:600;'>{int(row['gave_good'])}</span></td>"
                     f"<td><span style='color:var(--red-600);font-weight:600;'>{int(row['gave_bad'])}</span></td>"
-                    f"<td><span style='color:var(--amber-700);font-weight:600;'>{int(row['gave_dup'])}</span></td>"
+                    f"<td><span style='color:var(--amber-600);font-weight:600;'>{int(row['gave_dup'])}</span></td>"
                     f"</tr>"
                 )
-            st.markdown(f"<div class='gov-table-wrap'><table class='acc-table'><thead>{a_th}</thead><tbody>{a_td}</tbody></table></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='gov-table-wrap'><table class='acc-table'>"
+                f"<thead>{a_th}</thead><tbody>{a_td}</tbody></table></div>",
+                unsafe_allow_html=True)
         else:
             st.info("هیچ ئۆدیتەرێک کاری نەکردووە.")
 
 
 # -----------------------------------------------------------------------------
-#  17 . AUDITOR LOGS  — vectorized + plain st.code() for light mode
+#  17 . AUDITOR LOGS  (unchanged)
 # -----------------------------------------------------------------------------
 def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     agent_opts = None
@@ -1643,7 +2411,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         terms = [_html.escape(x) for x in (srch_binder, srch_agent) if x.strip()]
         st.markdown(
             f"<div style='background:var(--indigo-50);border:1px solid var(--indigo-100);"
-            f"border-radius:var(--radius-md);padding:9px 16px;margin-bottom:14px;"
+            f"border-radius:var(--r-md);padding:9px 16px;margin-bottom:14px;"
             f"font-size:.78rem;color:var(--indigo-600)!important;font-weight:600;'>"
             f"{t('ds_showing')} <strong>{' &middot; '.join(terms)}</strong>"
             f" &mdash; <strong>{len(done_df)}</strong> records matched</div>",
@@ -1724,7 +2492,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
     def _row_label(i: int, row: pd.Series) -> str:
         auditor_str = str(row.get(COL_AUDITOR, "")).strip() or "?"
-        date_str    = str(row.get(COL_DATE, "")).strip()[:10] or "?"
+        date_str    = str(row.get(COL_DATE,    "")).strip()[:10] or "?"
         hint        = str(row[_label_col]).strip()[:40] if (_label_col and _label_col in row) else ""
         return (f"#{i}  |  {auditor_str}  |  {date_str}  |  {hint}"
                 if hint else f"#{i}  |  {auditor_str}  |  {date_str}")
@@ -1793,7 +2561,7 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
 
 
 # -----------------------------------------------------------------------------
-#  18 . USER ADMIN
+#  18 . USER ADMIN  (unchanged)
 # -----------------------------------------------------------------------------
 def _ensure_role_col(df_u: pd.DataFrame) -> pd.DataFrame:
     if "role" not in df_u.columns:
@@ -1914,7 +2682,7 @@ def render_user_admin(spreadsheet_id):
 
 
 # -----------------------------------------------------------------------------
-#  19 . MAIN CONTROLLER
+#  19 . MAIN CONTROLLER  (unchanged)
 # -----------------------------------------------------------------------------
 def main():
     cookie_manager = stx.CookieManager(key="portal_cm")
@@ -1973,9 +2741,9 @@ def main():
         badge_cls  = {"admin": "role-badge-admin", "manager": "role-badge-manager",
                       "auditor": "role-badge-auditor"}.get(role, "role-badge-auditor")
 
-        # ── Top Header UI ──
+        # ── Top Header UI ─────────────────────────────────────────────────────
         h_left, h_right = st.columns([4, 1], vertical_alignment="center")
-        
+
         with h_left:
             ts_str = datetime.now(TZ).strftime("%A, %d %B %Y  -  %H:%M")
             st.markdown(f"""
@@ -1986,18 +2754,24 @@ def main():
               </div>
               <div class="page-timestamp" style="margin-top:5px;">{ts_str}</div>
             </div>""", unsafe_allow_html=True)
-            
+
         with h_right:
             with st.popover(f"👤 Account / هەژمار", use_container_width=True):
-                st.markdown(f"<div style='font-size:0.85rem; font-weight:700;'>{_html.escape(st.session_state.user_email)}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='margin-bottom:15px;'><span class='{badge_cls}'>{role_label}</span></div>", unsafe_allow_html=True)
-                
+                st.markdown(
+                    f"<div style='font-size:0.85rem;font-weight:700;color:var(--text-900);'>"
+                    f"{_html.escape(st.session_state.user_email)}</div>",
+                    unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='margin-bottom:15px;'>"
+                    f"<span class='{badge_cls}'>{role_label}</span></div>",
+                    unsafe_allow_html=True)
+
                 if role in ("admin", "manager"):
                     COOLDOWN = 600
                     if "last_refresh_time" not in st.session_state:
                         st.session_state.last_refresh_time = 0
-                    time_passed  = time.time() - st.session_state.last_refresh_time
-                    can_refresh  = not (role == "manager" and time_passed < COOLDOWN)
+                    time_passed = time.time() - st.session_state.last_refresh_time
+                    can_refresh = not (role == "manager" and time_passed < COOLDOWN)
 
                     def _do_refresh():
                         _fetch_raw_sheet_cached.clear()
@@ -2008,20 +2782,26 @@ def main():
                         st.toast("Data refreshed for all users", icon="🔄")
 
                     if can_refresh:
-                        st.button("🔄 Refresh Data", key="top_refresh", use_container_width=True, on_click=_do_refresh)
+                        st.button("🔄 Refresh Data", key="top_refresh",
+                                  use_container_width=True, on_click=_do_refresh)
                     else:
-                        st.button(f"⏳ Wait {max(1, int((COOLDOWN - time_passed) / 60))} min", key="top_refresh_disabled", disabled=True, use_container_width=True)
-                
+                        st.button(
+                            f"⏳ Wait {max(1, int((COOLDOWN - time_passed) / 60))} min",
+                            key="top_refresh_disabled", disabled=True,
+                            use_container_width=True)
+
                 with st.expander(f"🔒 {t('update_pw')}", expanded=False):
                     with st.form("top_pw_form"):
                         new_pw = st.text_input(t("password_field"), type="password")
                         if st.form_submit_button(t("update_pw"), use_container_width=True):
                             if new_pw.strip():
                                 try:
-                                    spr  = get_spreadsheet(); uws  = spr.worksheet(USERS_SHEET)
+                                    spr  = get_spreadsheet()
+                                    uws  = spr.worksheet(USERS_SHEET)
                                     cell = _gsheets_call(uws.find, st.session_state.user_email)
                                     if cell:
-                                        _gsheets_call(uws.update_cell, cell.row, 2, hash_pw(new_pw.strip()))
+                                        _gsheets_call(uws.update_cell, cell.row, 2,
+                                                      hash_pw(new_pw.strip()))
                                         _fetch_users_cached.clear()
                                         st.success("Password updated!")
                                         time.sleep(1); st.rerun()
@@ -2029,14 +2809,14 @@ def main():
                                     st.error(f"Error: {e}")
                             else:
                                 st.warning("Enter a new password.")
-                                
+
                 if st.button(f"🚪 {t('sign_out')}", use_container_width=True, key="top_logout"):
                     try: cookie_manager.delete(_COOKIE_NAME, key="logout_delete_cookie")
                     except Exception: pass
                     for k, v in _DEFAULTS.items(): st.session_state[k] = v
                     st.rerun()
 
-
+        # ── Workspace selector ────────────────────────────────────────────────
         atm       = {title.strip().lower(): title for title in all_titles}
         available = [atm[s.strip().lower()] for s in VISIBLE_SHEETS
                      if s.strip().lower() in atm]
@@ -2080,9 +2860,8 @@ def main():
             <div class="prog-wrap">
               <div class="prog-fill" style="width:{int(pct*100)}%;"></div>
             </div>""", unsafe_allow_html=True)
-        else:
-            pass
 
+        # ── Tab construction ──────────────────────────────────────────────────
         if is_admin:
             tabs = st.tabs([t("tab_worklist"), t("tab_archive"),
                             t("tab_analytics"), t("tab_logs"), t("tab_users")])
@@ -2117,7 +2896,8 @@ def main():
         if can_analytics and t_anal is not None:
             with t_anal:
                 if not df.empty:
-                    render_analytics(df, sid, col_agent_email=col_agent_email,
+                    render_analytics(df, sid,
+                                     col_agent_email=col_agent_email,
                                      col_binder=col_binder)
 
         if can_analytics and t_logs is not None:
