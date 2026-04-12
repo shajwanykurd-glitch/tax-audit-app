@@ -448,7 +448,7 @@ ul[role="listbox"] li:hover {
 }
 /* نەهێشتنی بۆشاییە گەورەکەی سەرەوەی شاشەکە و بردنە سەرەوەی داشبۆردەکە */
 .block-container {
-    padding-top: 1.5rem !important; 
+    padding-top: 1rem !important; 
     padding-bottom: 1rem !important;
     margin-top: 0 !important;
 }
