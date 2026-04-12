@@ -446,7 +446,16 @@ ul[role="listbox"] li:hover {
     color: #4F46E5 !important;
     -webkit-text-fill-color: #4F46E5 !important;
 }
+/* نەهێشتنی بۆشاییە گەورەکەی سەرەوەی شاشەکە و بردنە سەرەوەی داشبۆردەکە */
+.block-container {
+    padding-top: 1.5rem !important; 
+    padding-bottom: 1rem !important;
+    margin-top: 0 !important;
+}
 
+[data-testid="block-container"] {
+    padding-top: 1.5rem !important;
+}
 </style>
 """, unsafe_allow_html=True)
     
