@@ -508,7 +508,11 @@ def detect_column(headers, kind):
         hl = h.lower().strip()
         
         if kind == "company":
-            if any(x in hl for x in ["رقم", "ملف", "ژمارە", "بایندەر", "binder", "file"]):
+            # ڕێگریکردن لەوەی پرسیارەکان یان بایندەرەکان بە ناوی کۆمپانیا تێبگات
+            bad_words = ["رقم", "ملف", "ژمارە", "بایندەر", "binder", "file", 
+                         "status", "حالة", "نشاط", "activity", "مۆڵەت", "license", 
+                         "ئەم", "does", "هل", "مدينة", "شار", "کار دەکات"]
+            if any(x in hl for x in bad_words):
                 continue
                 
         for kw in keywords:
