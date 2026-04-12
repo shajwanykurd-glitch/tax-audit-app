@@ -505,7 +505,7 @@ def _get_column_keywords():
         "company": ["ناوی کۆمپانیا","اسم الشركة","اسم_الشركة","اسم الشركه",
                     "کۆمپانیای","کۆمپانیا","كومبانيا","شركة",
                     "company name","company_name","company",
-                    "ناوی باجدەر", "دافع الضرائب", "taxpayer name", "taxpayer"],
+                    "ناوی باجدەر", "اسم دافع الضرائب", "دافع الضرائب", "taxpayer name", "taxpayer"],
         "license": ["رقم الترخيص","رقم_الترخيص","الترخيص",
                     "ژمارەی مۆڵەتی کۆمپانیا","ژمارەی مۆڵەتی","مۆڵەتی","مۆڵەت",
                     "license no","license_no","license","licence"],
@@ -524,11 +524,16 @@ def detect_column(headers, kind):
         if h in skip_cols:
             continue
         hl = h.lower().strip()
+        
+        # چارەسەری کێشەی تێکەڵبوونی بایندەر لەگەڵ ناوی کۆمپانیا
+        if kind == "company":
+            if any(x in hl for x in ["رقم", "ملف", "ژمارە", "بایندەر", "binder", "file"]):
+                continue
+                
         for kw in keywords:
             if kw.lower() in hl:
                 return h
     return None
-
 def hash_pw(pw):   return hashlib.sha256(pw.encode()).hexdigest()
 def now_str():     return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
