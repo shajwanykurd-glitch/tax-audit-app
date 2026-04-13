@@ -1591,7 +1591,9 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
         binder_options=binder_opts, agent_options=agent_opts, company_options=company_opts)
 
     done_df = df[df[COL_STATUS] == VAL_DONE]
-    if done_df.empty: st.info(t("logs_no_data")); return
+    if done_df.empty: 
+        st.info(t("logs_no_data"))
+        return
 
     done_df = apply_deep_search(done_df, srch_binder, srch_agent, srch_company,
                                 col_binder, col_agent_email, col_company)
@@ -1606,7 +1608,9 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
             f" &mdash; <strong>{len(done_df)}</strong> records matched</div>",
             unsafe_allow_html=True)
 
-    if done_df.empty: st.info(t("logs_no_data")); return
+    if done_df.empty: 
+        st.info(t("logs_no_data"))
+        return
 
     display_cols: list[str] = [COL_AUDITOR, COL_DATE, COL_EVAL, COL_FEEDBACK]
     if col_company     and col_company     in done_df.columns: display_cols.insert(1, col_company)
@@ -1666,8 +1670,11 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
     sel_inspect = st.selectbox("", inspector_opts, key="logs_inspector_sel", label_visibility="collapsed")
 
     if sel_inspect != t("inspector_select"):
-        try: row_idx = int(sel_inspect.split("|")[0].replace("#","").strip())
-        except (ValueError, IndexError): row_idx = None
+        try: 
+            row_idx = int(sel_inspect.split("|")[0].replace("#","").strip())
+        except (ValueError, IndexError): 
+            row_idx = None
+            
         if row_idx is not None and 0 <= row_idx < len(full_view):
             insp_row    = full_view.iloc[row_idx]
             auditor_val = str(insp_row.get(COL_AUDITOR, "-")).strip() or "-"
@@ -1683,7 +1690,8 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"{'<div>Binder&nbsp;&nbsp;<span>'+_html.escape(binder_val)+'</span></div>' if col_binder else ''}"
                 f"</div></div>", unsafe_allow_html=True)
 
-           if COL_LOG in full_view.columns:
+            # چاککردنی کێشەی لۆگ و بۆشاییەکان
+            if COL_LOG in full_view.columns:
                 audit_trail = str(insp_row.get(COL_LOG, "")).strip()
                 with st.expander(f"📜  {t('inspector_audit_trail')}", expanded=True):
                     if audit_trail:
@@ -1700,19 +1708,26 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                         st.code(feedback_full, language="text")
                     else:
                         st.info(t("inspector_empty_feedback"))
+
     csv_buf   = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
     dtag = datetime.now(TZ).strftime("%Y%m%d")
     atag = (sel_aud.replace("@","_").replace(".","_") if sel_aud != all_opt else "all_auditors")
+    
     st.markdown(f"""
     <div class="export-strip">
       <div><div class="export-text">{t('logs_export_hdr')}</div>
       <div style="font-size:.68rem;color:var(--text-muted);">{t('logs_export_sub')} — {total_p} rows</div></div>
     </div>""", unsafe_allow_html=True)
-    st.download_button(label=t("logs_export_btn"), data=csv_bytes, file_name=f"audit_log_{atag}_{dtag}.csv", mime="text/csv", key="logs_csv_download")
-
-
+    
+    st.download_button(
+        label=t("logs_export_btn"), 
+        data=csv_bytes, 
+        file_name=f"audit_log_{atag}_{dtag}.csv", 
+        mime="text/csv", 
+        key="logs_csv_download"
+    )
 # -----------------------------------------------------------------------------
 #  18 . USER ADMIN
 # -----------------------------------------------------------------------------
