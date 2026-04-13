@@ -1683,17 +1683,23 @@ def render_auditor_logs(df, col_company, col_binder, col_agent_email=None):
                 f"{'<div>Binder&nbsp;&nbsp;<span>'+_html.escape(binder_val)+'</span></div>' if col_binder else ''}"
                 f"</div></div>", unsafe_allow_html=True)
 
-            if COL_LOG in full_view.columns:
+           if COL_LOG in full_view.columns:
                 audit_trail = str(insp_row.get(COL_LOG, "")).strip()
                 with st.expander(f"📜  {t('inspector_audit_trail')}", expanded=True):
-                    st.code(audit_trail, language="text") if audit_trail else st.info(t("inspector_empty_trail"))
-            else: st.info(t("inspector_no_log_col"))
+                    if audit_trail:
+                        st.code(audit_trail, language="text")
+                    else:
+                        st.info(t("inspector_empty_trail"))
+            else:
+                st.info(t("inspector_no_log_col"))
 
             if COL_FEEDBACK in full_view.columns:
                 feedback_full = str(insp_row.get(COL_FEEDBACK, "")).strip()
                 with st.expander(f"🛠️  {t('inspector_feedback')}", expanded=True):
-                    st.code(feedback_full, language="text") if feedback_full else st.info(t("inspector_empty_feedback"))
-
+                    if feedback_full:
+                        st.code(feedback_full, language="text")
+                    else:
+                        st.info(t("inspector_empty_feedback"))
     csv_buf   = io.StringIO()
     table_df.to_csv(csv_buf, index=False, encoding="utf-8-sig")
     csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
