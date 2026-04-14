@@ -115,18 +115,22 @@ _NVY = "#4F46E5"
 _BLU = "#60A5FA"
 
 _COMBO_TARGETS = [
-    {"match": "باجدەری باج لە کام شاردایە", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
-    {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil", "Sulaymaniyah", "Duhok"]},
+    # لێرەدا بژاردەی شارەکانمان گۆڕی بۆ هەردوو زمانی (ئینگلیزی / کوردی) و گەڕانەکەشمان فراوانتر کرد
+    {"match": "باجدەری باج لە کام شاردایە", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+    {"match": "في أي مدينة يقع هذا دافع الضرائب", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+    {"match": "which city is this taxpayer located", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+    {"match": "باجدەر سەر بە کام شارە", "options": ["Erbil / هەولێر", "Sulaymaniyah / سلێمانی", "Duhok / دهۆک"]},
+    
     {"match": "هل يوجد نموذج يتضمن عناصر التسجيل", "options": ["Yes", "No"]},
     {"match": "Does the company have an investment license", "options": ["Yes", "No"]},
     {"match": "نشاط الشركة", "options": [
-        "CEN / Construction & Engineering", "HLT / Health Services",
-        "ITS / IT & Software", "LOG / Transportation & Logistics",
-        "MFG / Manufacturing", "REF / Real Estate & Financial Services",
-        "RET / Retail & Services", "TEL / Telecom & Media", "WHT / Wholesale & Trading",
+        "CEN / Construction & Engineering / بیناسازی و ئەندازیاری", "HLT / Health Services /  خزمەتگوزاری تەندروستی",
+        "ITS / IT & Software / زانیاری تەکنەلۆژیا و سۆفتوێر", "LOG / Transportation & Logistics / گواستنەوەولۆجیستیک",
+        "MFG / Manufacturing / بەرهەمهێنان", "REF / Real Estate & Financial Services / خانووبەرە و خزمەتگوزاری دارایی",
+        "RET / Retail & Services / فرۆشتنی تاک و خزمەتگوزاریەکان", "TEL / Telecom & Media / پەیوەندییەکان و میدیا", "WHT / Wholesale & Trading / فرۆشتنی بە کۆ و بازرگانی",
     ]},
     {"match": "ئەم کۆمپانیایە دوای ساڵی 2020 کار دەکات", "options": ["Yes", "No"]},
-    {"match": "Company status", "options": ["Active", "Shutting down", "Deleted"]},
+    {"match": "Company status", "options": ["Active / چالاک", "Shutting down / لەژێر پاکتاو کردنە/پاکتاو کراوە", "Deleted / سڕاوەتەوە"]},
 ]
 
 # -----------------------------------------------------------------------------
